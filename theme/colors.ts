@@ -1,0 +1,25 @@
+export const colors = {
+  navy: '#1B2A4A',
+  mutedNavy: '#4A5B7D',
+  terracotta: '#C4622D',
+  lightTerracotta: '#E8845A',
+  cream: '#F9F5F0',
+  creamDark: '#F0EBE3',
+  white: '#FFFFFF',
+  black: '#000000',
+  success: '#16A34A',
+  warning: '#D97706',
+  error: '#DC2626',
+  info: '#2563EB',
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+};
+
+export type Colors = typeof colors;
