@@ -1,4 +1,5 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { Platform } from 'react-native';
 
 export const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -6,7 +7,7 @@ export const isExpoGo =
 export type NotificationsModule = typeof import('expo-notifications');
 
 export function getNotifications(): NotificationsModule | null {
-  if (isExpoGo) return null;
+  if (isExpoGo || Platform.OS === 'web') return null;
 
   try {
     // Guarded require: expo-notifications is unavailable in Expo Go, so a

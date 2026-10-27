@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ViewStyle,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -210,6 +211,50 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             );
           })()
         )}
+
+        {!horizontal && (
+          <View style={styles.cardFooter}>
+            <TouchableOpacity
+              style={styles.viewMoreBtn}
+              onPress={onPress}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.viewMoreText}>View details</Text>
+              <Ionicons name="arrow-forward" size={13} color={Brand.terracotta} />
+            </TouchableOpacity>
+
+            {property.landlord?.phone ? (
+              <TouchableOpacity
+                style={styles.cardWhatsAppBtn}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const rawPhone = property.landlord?.phone;
+                  if (!rawPhone) return;
+                  let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+                  if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+                    cleanPhone = '263' + cleanPhone.slice(1);
+                  }
+                  const defaultMsg = encodeURIComponent(
+                    `Hi ${property.landlord?.name || 'there'}, I saw your listing for "${property.title}" in ${property.suburb}, ${property.city} ($${property.price}/month) on ImbaFind. Is it still available?`
+                  );
+                  const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${defaultMsg}`;
+                  const webUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
+                  Linking.canOpenURL(appUrl)
+                    .then(can => Linking.openURL(can ? appUrl : webUrl))
+                    .catch(() => Linking.openURL(webUrl));
+                }}
+                activeOpacity={0.8}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Chat with landlord on WhatsApp"
+              >
+                <Ionicons name="logo-whatsapp" size={14} color={Brand.white} />
+                <Text style={styles.cardWhatsAppText}>WhatsApp</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -414,5 +459,43 @@ const styles = StyleSheet.create({
   utilityText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Brand.gray100,
+  },
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewMoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Brand.terracotta,
+  },
+  cardWhatsAppBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#25D366',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardWhatsAppText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Brand.white,
   },
 });

@@ -32,6 +32,7 @@ import {
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
 import { ReportDialog } from '../components/common/ReportDialog';
+import { ListingTrustCheckCard } from '../components/property/ListingTrustCheckCard';
 
 const { width: W } = Dimensions.get('window');
 
@@ -469,6 +470,80 @@ export default function PropertyDetailsScreen() {
             </View>
           </View>
 
+          {/* Key Utilities & Backup Infrastructure Highlights */}
+          <Text style={styles.sectionHeader}>Utilities & Infrastructure</Text>
+          <View style={styles.utilitiesCard}>
+            <View style={styles.utilityItem}>
+              <View style={[styles.utilityIconWrap, { backgroundColor: '#E0F2FE' }]}>
+                <Ionicons name="water" size={18} color="#0284C7" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.utilityTitle}>Water Supply</Text>
+                <Text style={styles.utilityDesc}>
+                  {(property.amenities || []).some(a => a.toLowerCase().includes('borehole'))
+                    ? 'Borehole Water & Pressure Tank'
+                    : (property.amenities || []).some(a => a.toLowerCase().includes('water'))
+                    ? 'Storage Water Tank Available'
+                    : 'Municipal Council Water'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.utilityDivider} />
+
+            <View style={styles.utilityItem}>
+              <View style={[styles.utilityIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="sunny" size={18} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.utilityTitle}>Power Backup</Text>
+                <Text style={styles.utilityDesc}>
+                  {(property.amenities || []).some(a => a.toLowerCase().includes('solar'))
+                    ? 'Solar Power Backup Installed'
+                    : (property.amenities || []).some(a => a.toLowerCase().includes('inverter'))
+                    ? 'Inverter & Battery Backup'
+                    : (property.amenities || []).some(a => a.toLowerCase().includes('generator'))
+                    ? 'Generator Backup Available'
+                    : 'Standard ZESA Electricity'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.utilityDivider} />
+
+            <View style={styles.utilityItem}>
+              <View style={[styles.utilityIconWrap, { backgroundColor: '#D1FAE5' }]}>
+                <Ionicons name="shield-checkmark" size={18} color="#059669" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.utilityTitle}>Property Security</Text>
+                <Text style={styles.utilityDesc}>
+                  {(property.amenities || []).some(a => a.toLowerCase().includes('durawall') || a.toLowerCase().includes('wall'))
+                    ? 'Walled & Gated (Durawall)'
+                    : (property.amenities || []).some(a => a.toLowerCase().includes('security') || a.toLowerCase().includes('gate'))
+                    ? 'Secure Gated Compound'
+                    : 'Standard Boundary Security'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.utilityDivider} />
+
+            <View style={styles.utilityItem}>
+              <View style={[styles.utilityIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                <Ionicons name="wifi" size={18} color="#4F46E5" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.utilityTitle}>Connectivity</Text>
+                <Text style={styles.utilityDesc}>
+                  {(property.amenities || []).some(a => a.toLowerCase().includes('wifi') || a.toLowerCase().includes('fibre') || a.toLowerCase().includes('internet'))
+                    ? 'High-speed Wi-Fi / Fibre Ready'
+                    : 'Mobile Network Coverage'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {/* Amenities Grid */}
           <Text style={styles.sectionHeader}>Amenities</Text>
           {property.amenities && property.amenities.length > 0 ? (
@@ -495,6 +570,16 @@ export default function PropertyDetailsScreen() {
           {/* Description Section */}
           <Text style={styles.sectionHeader}>Description</Text>
           <Text style={styles.descriptionText}>{property.description}</Text>
+
+          {/* AI Listing Trust Check (Scam Warning & Verification Signals) */}
+          <ListingTrustCheckCard
+            property={property}
+            allProperties={properties}
+            onReportPress={() => {
+              if (!requireAuth(`/property-details?id=${property.id}`)) return;
+              setReportVisible(true);
+            }}
+          />
 
           {/* Reviews Section */}
           <Text style={styles.sectionHeader}>
@@ -627,6 +712,19 @@ export default function PropertyDetailsScreen() {
               <Text style={styles.reportListingText}>Report listing</Text>
             </TouchableOpacity>
           )}
+
+          {/* Tenant Safety & Anti-Scam Alert */}
+          <View style={styles.safetyAlertCard}>
+            <View style={styles.safetyIconBox}>
+              <Ionicons name="shield-half" size={20} color="#D97706" />
+            </View>
+            <View style={styles.safetyAlertContent}>
+              <Text style={styles.safetyAlertTitle}>Safety & Fraud Advisory</Text>
+              <Text style={styles.safetyAlertText}>
+                Never send rental deposits or viewing fees via EcoCash, Innbucks or bank transfer before physically inspecting this property with the landlord.
+              </Text>
+            </View>
+          </View>
 
           {/* Landlord Contact Buttons */}
           <View style={styles.landlordActions}>
@@ -1151,5 +1249,75 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: Brand.gray200,
+  },
+  utilitiesCard: {
+    backgroundColor: Brand.white,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Brand.gray200,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  utilityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  utilityIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  utilityTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Brand.navy,
+  },
+  utilityDesc: {
+    fontSize: 12,
+    color: Brand.gray600,
+    marginTop: 1,
+  },
+  utilityDivider: {
+    height: 1,
+    backgroundColor: Brand.gray100,
+    marginVertical: 4,
+  },
+  safetyAlertCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  safetyIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safetyAlertContent: {
+    flex: 1,
+  },
+  safetyAlertTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  safetyAlertText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#B45309',
   },
 });

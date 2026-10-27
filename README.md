@@ -1,6 +1,126 @@
 # ImbaFind
 
-## Verifying landlords
+> **Find a place. Make it home.**
+
+ImbaFind is a mobile app (Expo / React Native, with Supabase) that helps people in Zimbabwe find rental accommodation and helps landlords list it. Tenants can search and filter listings, save favourites, book viewings, chat with landlords and post accommodation requests. Landlords can add and manage properties and handle viewing requests. Listings from verified landlords carry a verified badge.
+
+This repository is the **Capstone Project** submission (full-stack app with AI integration).
+
+## The problem
+
+Finding rental housing in Zimbabwe often relies on word of mouth, scattered social media posts and agents. Searching is slow, listings are inconsistent, and scams are a real risk. ImbaFind puts listings, landlord verification, viewings and messaging in one place, and uses AI to make searching and listing easier.
+
+## Features
+
+- Tenant and landlord accounts, with landlord verification handled by an administrator
+- Browse and search listings by city, suburb, type, bedrooms, budget, furnishing and amenities
+- Saved properties, viewing bookings with slot-conflict protection, in-app chat, push notifications
+- Report listings and users
+- Post an accommodation request that landlords can respond to
+- **AI search:** type a plain-English request such as "2 bedroom flat in Bulawayo under $300" and the app turns it into filters
+- **AI listing helper:** landlords can draft a listing description from the details they entered, then edit it
+
+## AI integration (summary)
+
+| Feature | What it does | Model / API |
+| --- | --- | --- |
+| AI search | Converts a plain-English search into structured filters | Google Gemini API, called through the `ai-search` Supabase Edge Function |
+| AI listing helper | Drafts a short description from the landlord's own listing details | Google Gemini API, called through the `ai-describe` Supabase Edge Function |
+
+The Gemini API key is stored only as a Supabase secret and is never in the app. Full details, limitations and testing are in [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md). The ethical and responsible AI statement is in [docs/ETHICAL_AI_STATEMENT.md](docs/ETHICAL_AI_STATEMENT.md).
+
+## Tech stack
+
+- **App:** Expo (React Native) with Expo Router, TypeScript, runs on Android, iOS and web
+- **Backend:** Supabase (Postgres, Auth, Storage, Row Level Security, Edge Functions)
+- **AI:** Google Gemini API via Supabase Edge Functions (Deno)
+- **Quality:** Jest tests, ESLint, TypeScript strict mode, GitHub Actions CI
+- **Monitoring (optional):** Sentry
+
+## Setup and run
+
+### Prerequisites
+
+- Node.js 20 or newer and npm
+- A phone with the Expo Go app, or an Android emulator / iOS simulator
+- Optional, for the live backend and AI: a free [Supabase](https://supabase.com) project, the [Supabase CLI](https://supabase.com/docs/guides/cli), and a [Gemini API key](https://aistudio.google.com/apikey)
+
+### 1. Install
+
+```sh
+git clone https://github.com/FadzaiMumbariki/accommodation.git
+cd accommodation
+npm ci
+```
+
+### 2. Run in demo (mock data) mode
+
+No credentials are needed. Without Supabase values the app runs on built-in sample listings, and AI search uses a basic local keyword parser instead of Gemini.
+
+```sh
+npm start        # then press a (Android), i (iOS) or w (web), or scan the QR code with Expo Go
+```
+
+### 3. Run with the live backend
+
+1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
+2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql` (the push-token table is not part of the setup file), then optionally `supabase/seed_properties.sql` for sample data. Do not run `supabase/create_test_users.sql` on a real project: it creates accounts with a known password and is for local testing only.
+3. Start the app with `npm start`.
+
+### 4. Enable the AI features
+
+```sh
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY
+# optional: supabase secrets set GEMINI_MODEL=gemini-2.5-flash
+supabase functions deploy ai-search
+supabase functions deploy ai-describe
+```
+
+Both functions require a signed-in user (Supabase checks the JWT), so sign in to the app before using the AI features. If the AI is unreachable, AI search falls back to the basic parser and says so, and the description helper tells the landlord to write the text themselves.
+
+### Tests and checks
+
+```sh
+npm test            # Jest unit tests
+npx expo lint       # ESLint
+npx tsc --noEmit    # TypeScript
+```
+
+The same three checks run in GitHub Actions on every push and pull request.
+
+## Project structure
+
+```
+app/            Screens (Expo Router)
+components/     Reusable UI components
+context/        App state (auth, properties, chat, saved, activity)
+lib/            Data access, filters, notifications, AI helpers (ai.ts, aiFilters.ts)
+supabase/       SQL migrations and Edge Functions (ai-search, ai-describe)
+docs/           AI integration notes, ethical AI statement, screenshots
+```
+
+## Screenshots and demo
+
+<!-- Add real screenshots to docs/screenshots/ and uncomment the lines below.
+![Home](docs/screenshots/home.png)
+![AI search](docs/screenshots/ai-search.png)
+![Property details](docs/screenshots/property-details.png)
+![Landlord dashboard](docs/screenshots/landlord-dashboard.png)
+-->
+
+Screenshots live in [docs/screenshots](docs/screenshots). Live link / demo video: see the submission email.
+
+## Documentation
+
+- [AI integration](docs/AI_INTEGRATION.md)
+- [Ethical and responsible AI statement](docs/ETHICAL_AI_STATEMENT.md)
+- [Play Store readiness guide](PLAY_STORE_READINESS_GUIDE.md)
+
+## Operations and release notes
+
+### Verifying landlords
 
 Landlord verification is an administrative action. In the Supabase SQL Editor, set the profile's `verified` flag using the account's auth UUID:
 
@@ -14,7 +134,7 @@ The client intentionally has no action that can set `verified`.
 
 Apply `supabase/migrations/003_reports.sql` after the existing schema and security migrations to enable reports, chat message writes, and viewing-slot conflict protection.
 
-## Release environment setup
+### Release environment setup
 
 Apply `supabase/migrations/004_push_tokens.sql` after migration 003 to store Expo push tokens. Link the app to an EAS project with `npx eas-cli@latest init`; this adds the project ID used by push notifications.
 
@@ -40,3 +160,4 @@ npx eas-cli@latest env:set --name SENTRY_AUTH_TOKEN --value YOUR_SENTRY_AUTH_TOK
 ```
 
 Repeat for other build environments if needed. Never commit the Sentry auth token.
+

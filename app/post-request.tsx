@@ -10,6 +10,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { Brand } from '../constants/Colors';
 import { useApp } from '../context/AppContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import type { PropertyType } from '../types';
+import { matchRequestToListings, type SmartMatchResult } from '../lib/smartMatching';
 
 const AMENITY_TAGS = ['Water', 'Electricity', 'Parking', 'Solar', 'Security', 'Wi-Fi', 'Borehole', 'Garden'];
 const PROPERTY_TYPES: PropertyType[] = ['house', 'apartment', 'flat', 'room', 'cottage', 'bedsitter'];
@@ -32,7 +34,7 @@ function getDefaultMoveInDate(): string {
 }
 
 export default function PostAccommodationRequestScreen() {
-  const { addRequest } = useApp();
+  const { addRequest, properties } = useApp();
   const requireAuth = useRequireAuth();
 
   const [location, setLocation] = useState('Bulawayo');
@@ -45,6 +47,48 @@ export default function PostAccommodationRequestScreen() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [additionalRequirements, setAdditionalRequirements] = useState('');
   const [saving, setSaving] = useState(false);
+  const [matchedListings, setMatchedListings] = useState<SmartMatchResult[]>([]);
+  const [matchingLoading, setMatchingLoading] = useState(false);
+  const [hasSearchedMatches, setHasSearchedMatches] = useState(false);
+
+  const handleFindMatches = async () => {
+    const { min: minBudget, max: maxBudget } = parseBudget(budget);
+    if (!Number.isFinite(maxBudget) || maxBudget <= 0) {
+      Alert.alert(
+        'Enter budget first',
+        'Please enter your monthly budget (e.g. 300) so we can find matching places.'
+      );
+      return;
+    }
+    setMatchingLoading(true);
+    setHasSearchedMatches(true);
+    try {
+      const bedroomCount = Number.parseInt(bedrooms, 10);
+      const matches = await matchRequestToListings(
+        {
+          city: location,
+          propertyType: propertyType.toLowerCase(),
+          bedrooms: Number.isFinite(bedroomCount) ? bedroomCount : 'any',
+          minBudget: minBudget || 0,
+          maxBudget,
+          moveInDate,
+          amenities: selectedAmenities,
+        },
+        properties
+      );
+      setMatchedListings(matches);
+      if (matches.length === 0) {
+        Alert.alert(
+          'No Immediate Matches',
+          `We didn't find active listings strictly matching your criteria in ${location} right now, but posting your request will notify matching landlords immediately!`
+        );
+      }
+    } catch (err) {
+      console.error('[PostRequest] Match error:', err);
+    } finally {
+      setMatchingLoading(false);
+    }
+  };
 
   const toggleAmenity = (item: string) => {
     if (selectedAmenities.includes(item)) {
@@ -161,7 +205,7 @@ export default function PostAccommodationRequestScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -336,6 +380,91 @@ export default function PostAccommodationRequestScreen() {
           </View>
         </View>
 
+        {/* AI Smart Request Matching (Compares request against listings with AI reasons) */}
+        <View style={styles.aiMatchSection}>
+          <TouchableOpacity
+            style={styles.aiMatchBtn}
+            onPress={handleFindMatches}
+            disabled={matchingLoading}
+            activeOpacity={0.85}
+          >
+            {matchingLoading ? (
+              <ActivityIndicator color={Brand.white} size="small" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={18} color={Brand.white} />
+                <Text style={styles.aiMatchBtnText}>
+                  Find Matching Listings with AI
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {hasSearchedMatches && matchedListings.length > 0 && (
+            <View style={styles.matchesContainer}>
+              <View style={styles.matchesHeader}>
+                <Ionicons name="sparkles" size={16} color={Brand.terracotta} />
+                <Text style={styles.matchesTitle}>
+                  Top Suggested Matches ({matchedListings.length})
+                </Text>
+              </View>
+              <Text style={styles.matchesSubtitle}>
+                AI compared your budget, location & amenities with active listings:
+              </Text>
+
+              {matchedListings.map((match, idx) => (
+                <View key={match.property.id || idx} style={styles.matchCard}>
+                  <View style={styles.matchCardTop}>
+                    {match.property.images?.[0] ? (
+                      <Image
+                        source={{ uri: match.property.images[0] }}
+                        style={styles.matchThumb}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={[styles.matchThumb, styles.matchThumbEmpty]}>
+                        <Ionicons name="home" size={20} color={Brand.gray400} />
+                      </View>
+                    )}
+                    <View style={styles.matchInfo}>
+                      <View style={styles.matchTitleRow}>
+                        <Text style={styles.matchPropertyTitle} numberOfLines={1}>
+                          {match.property.title}
+                        </Text>
+                        <View style={styles.matchScorePill}>
+                          <Text style={styles.matchScoreText}>{match.score}% Match</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.matchLocation}>
+                        {match.property.suburb}, {match.property.city}
+                      </Text>
+                      <Text style={styles.matchPrice}>
+                        ${match.property.price}
+                        <Text style={styles.matchPricePeriod}>/mo • {match.property.bedrooms} bed</Text>
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* AI Reason */}
+                  <View style={styles.matchReasonBox}>
+                    <Ionicons name="bulb-outline" size={14} color="#B45309" />
+                    <Text style={styles.matchReasonText}>{match.summaryReason}</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.viewMatchBtn}
+                    onPress={() => router.push(`/property-details?id=${match.property.id}`)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.viewMatchBtnText}>View Property Details</Text>
+                    <Ionicons name="arrow-forward" size={14} color={Brand.white} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Post Request Button */}
         <TouchableOpacity
           style={styles.submitBtn}
@@ -495,6 +624,149 @@ const styles = StyleSheet.create({
   submitBtnText: {
     color: Brand.white,
     fontSize: 16,
+    fontWeight: '700',
+  },
+  aiMatchSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  aiMatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Brand.navy,
+    borderRadius: 12,
+    paddingVertical: 14,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiMatchBtnText: {
+    color: Brand.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  matchesContainer: {
+    backgroundColor: Brand.white,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  matchesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  matchesTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Brand.navy,
+  },
+  matchesSubtitle: {
+    fontSize: 12,
+    color: Brand.gray600,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  matchCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  matchCardTop: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  matchThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+  },
+  matchThumbEmpty: {
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  matchTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  matchPropertyTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: Brand.navy,
+  },
+  matchScorePill: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  matchScoreText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  matchLocation: {
+    fontSize: 11,
+    color: Brand.gray600,
+    marginTop: 2,
+  },
+  matchPrice: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Brand.terracotta,
+    marginTop: 2,
+  },
+  matchPricePeriod: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: Brand.gray600,
+  },
+  matchReasonBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    gap: 6,
+  },
+  matchReasonText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '600',
+    lineHeight: 15,
+  },
+  viewMatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Brand.terracotta,
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  viewMatchBtnText: {
+    color: Brand.white,
+    fontSize: 12,
     fontWeight: '700',
   },
 });

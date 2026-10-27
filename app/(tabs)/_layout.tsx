@@ -48,7 +48,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color as string} />
           ),
         }}
       />
@@ -57,7 +57,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color as string} />
           ),
         }}
       />
@@ -66,7 +66,7 @@ export default function TabLayout() {
         options={{
           title: 'Saved',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color as string} />
           ),
         }}
       />
@@ -82,7 +82,7 @@ export default function TabLayout() {
             fontWeight: '700',
           },
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'chatbubble' : 'chatbubble-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'chatbubble' : 'chatbubble-outline'} size={22} color={color as string} />
           ),
         }}
       />
@@ -91,7 +91,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color as string} />
           ),
         }}
       />

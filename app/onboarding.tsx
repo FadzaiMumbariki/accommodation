@@ -83,7 +83,7 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       <FlatList
         ref={flatListRef}

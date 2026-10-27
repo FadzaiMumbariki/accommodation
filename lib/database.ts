@@ -5,8 +5,18 @@
  * never imports supabase directly (easier to test/mock).
  */
 import { supabase } from './supabase';
-import * as Crypto from 'expo-crypto';
 import * as ImageManipulator from 'expo-image-manipulator';
+
+function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 import type {
   Property,
   PropertyFilters,
@@ -346,7 +356,7 @@ export async function uploadPropertyImage(userId: string, uri: string): Promise<
   const response = await fetch(compressed.uri);
   if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
   const body = await response.arrayBuffer();
-  const path = `${userId}/${Crypto.randomUUID()}.jpg`;
+  const path = `${userId}/${generateUuid()}.jpg`;
   const { error } = await supabase.storage
     .from('property-images')
     .upload(path, body, { contentType: 'image/jpeg', upsert: false });
@@ -903,7 +913,7 @@ export function subscribeToMessages(
 ): () => void {
   if (!supabase || conversationIds.length === 0) return () => {};
   const channel = supabase
-    .channel(`messages-${Crypto.randomUUID()}`)
+    .channel(`messages-${generateUuid()}`)
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',

@@ -5,10 +5,11 @@ import {
   Dimensions,
   Text,
   FlatList,
-  type ViewToken,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Brand } from '../../constants/Colors';
+
+type ViewToken = { item: any; key: string; index: number | null; isViewable: boolean };
 
 const { width } = Dimensions.get('window');
 
@@ -26,8 +27,8 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
       : ['https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80'];
 
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0) {
+    ({ viewableItems }: any) => {
+      if (viewableItems && viewableItems.length > 0) {
         setActiveIndex(viewableItems[0].index ?? 0);
       }
     },

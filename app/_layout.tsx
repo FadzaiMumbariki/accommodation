@@ -4,12 +4,17 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Sentry from '@sentry/react-native';
 
+import { LogBox } from 'react-native';
 import { AppProvider } from '../context/AppContext';
 import { AuthProvider } from '../context/AuthContext';
 import { Brand } from '../constants/Colors';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { installErrorReporting } from '../lib/errorReporting';
 import { useNotifications } from '../hooks/useNotifications';
+
+LogBox.ignoreLogs([
+  "The action 'ROUTE_NAMES_CHANGED'",
+]);
 
 const sentryEnabled = process.env.EXPO_PUBLIC_SENTRY_ENABLED === 'true';
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;

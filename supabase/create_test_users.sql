@@ -1,6 +1,10 @@
 -- =============================================================================
 -- Create Pre-Confirmed Test Accounts in Supabase Auth
 -- Run this in your Supabase SQL Editor if you want to log in with real credentials
+--
+-- WARNING: these accounts share a well-known password ("password123"). Use them
+-- for local testing only. Never run this against a production project, and
+-- delete the accounts before going live.
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

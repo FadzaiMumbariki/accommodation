@@ -43,6 +43,7 @@ export function useNotifications() {
   const { user, isSupabaseEnabled } = useAuth();
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const notifications = getNotifications();
     if (!notifications) return;
 

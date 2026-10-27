@@ -20,6 +20,8 @@ import { useApp } from '../context/AppContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
 import { uploadPropertyImage } from '../lib/database';
+import { generateListingDescription } from '../lib/ai';
+import { getMarketBenchmark } from '../lib/trustCheck';
 import type { PropertyType } from '../types';
 
 const PROPERTY_TYPES: { label: string; value: PropertyType }[] = [
@@ -105,6 +107,7 @@ export default function AddPropertyScreen() {
   const [uploadStates, setUploadStates] = useState<Record<string, 'uploading' | 'uploaded' | 'failed'>>({});
   const [pickingImage, setPickingImage] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [writingDescription, setWritingDescription] = useState(false);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     'Water',
     'Electricity',
@@ -112,6 +115,11 @@ export default function AddPropertyScreen() {
     'Parking',
     ...(editingProperty?.amenities ?? []),
   ]);
+
+  const currentPriceNum = Number(price) || 0;
+  const currentBenchmark = getMarketBenchmark(city, propertyType, bedrooms);
+  const isCurrentPriceLow = currentPriceNum > 0 && currentPriceNum < currentBenchmark.min * 0.55;
+  const isCurrentPriceHigh = currentPriceNum > currentBenchmark.max * 1.7;
 
   /** Open the device photo library and append the chosen image URI. */
   const handlePickImage = async () => {
@@ -196,6 +204,46 @@ export default function AddPropertyScreen() {
   ) => {
     const next = Math.max(min, Math.min(max, value + delta));
     setter(next);
+  };
+
+  const handleWriteDescription = async () => {
+    if (!title.trim() && !suburb.trim()) {
+      Alert.alert('Add details first', 'Enter a title and suburb so the AI has facts to work from.');
+      return;
+    }
+    setWritingDescription(true);
+    try {
+      const numericPrice = Number(price) || 0;
+      const benchmark = getMarketBenchmark(city, propertyType, bedrooms);
+
+      const draft = await generateListingDescription({
+        title: title.trim(),
+        propertyType,
+        city,
+        suburb: suburb.trim(),
+        bedrooms,
+        bathrooms,
+        price: numericPrice,
+        amenities: selectedAmenities,
+      });
+      setDescription(draft);
+
+      let priceNotice = '';
+      if (numericPrice > 0 && numericPrice < benchmark.min * 0.55) {
+        priceNotice = `\n\n⚠️ Unusual Price Warning: $${numericPrice} is far below the typical range ($${benchmark.min} - $${benchmark.max}) for a ${bedrooms}-bed ${propertyType} in ${city}. Please verify your price so tenants don't mistake it for a scam listing.`;
+      } else if (numericPrice > benchmark.max * 1.7) {
+        priceNotice = `\n\nℹ️ Price Notice: $${numericPrice} is higher than typical rates in ${city} ($${benchmark.min} - $${benchmark.max}). Highlight unique backup utilities to justify the premium.`;
+      }
+
+      Alert.alert(
+        'Draft Ready & Price Evaluated',
+        `This description was written by the AI Writing Assistant from your property facts.${priceNotice}\n\nPlease check it for accuracy and edit before publishing.`
+      );
+    } catch (error) {
+      Alert.alert('AI unavailable', error instanceof Error ? error.message : 'Please write the description yourself.');
+    } finally {
+      setWritingDescription(false);
+    }
   };
 
   const handlePublish = async () => {
@@ -374,6 +422,47 @@ export default function AddPropertyScreen() {
               />
             </View>
           </View>
+
+          {/* AI Price Benchmark Guidance (Warns if price is unusual for the area) */}
+          {currentPriceNum > 0 && (
+            <View
+              style={[
+                styles.priceBenchmarkBox,
+                isCurrentPriceLow && styles.priceBenchmarkBoxWarn,
+                isCurrentPriceHigh && styles.priceBenchmarkBoxInfo,
+              ]}
+            >
+              <Ionicons
+                name={
+                  isCurrentPriceLow
+                    ? 'alert-circle'
+                    : isCurrentPriceHigh
+                    ? 'information-circle'
+                    : 'checkmark-circle'
+                }
+                size={16}
+                color={
+                  isCurrentPriceLow
+                    ? '#EF4444'
+                    : isCurrentPriceHigh
+                    ? '#3B82F6'
+                    : '#10B981'
+                }
+              />
+              <Text
+                style={[
+                  styles.priceBenchmarkText,
+                  isCurrentPriceLow && styles.priceBenchmarkTextWarn,
+                ]}
+              >
+                {isCurrentPriceLow
+                  ? `Warning: $${currentPriceNum} is unusually low for a ${bedrooms}-bed ${propertyType} in ${city} (typical: $${currentBenchmark.min} - $${currentBenchmark.max}). AI Trust Check may flag unusually low prices.`
+                  : isCurrentPriceHigh
+                  ? `Notice: $${currentPriceNum} is above average for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}). Ensure premium backup utilities are highlighted.`
+                  : `Price ($${currentPriceNum}/mo) matches standard market rates for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}).`}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -549,6 +638,22 @@ export default function AddPropertyScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
+          <TouchableOpacity
+            onPress={handleWriteDescription}
+            disabled={writingDescription}
+            style={styles.aiAssistantBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Listing writing assistant: draft description and check price"
+          >
+            {writingDescription ? (
+              <ActivityIndicator size="small" color={Brand.white} />
+            ) : (
+              <Ionicons name="sparkles" size={15} color={Brand.white} />
+            )}
+            <Text style={styles.aiAssistantBtnText}>
+              {writingDescription ? 'Writing with AI…' : 'AI Writing Assistant (Draft & Price Check)'}
+            </Text>
+          </TouchableOpacity>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={description}
@@ -822,5 +927,51 @@ const styles = StyleSheet.create({
     color: Brand.white,
     fontSize: 16,
     fontWeight: '800',
+  },
+  priceBenchmarkBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 8,
+  },
+  priceBenchmarkBoxWarn: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  priceBenchmarkBoxInfo: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  priceBenchmarkText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#166534',
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  priceBenchmarkTextWarn: {
+    color: '#991B1B',
+    fontWeight: '600',
+  },
+  aiAssistantBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: Brand.navy,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  aiAssistantBtnText: {
+    color: Brand.white,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

@@ -17,7 +17,7 @@ import { useApp } from '../context/AppContext';
 
 export default function LandlordDashboardScreen() {
   const { myListings, viewings, conversations, requests, updateProperty, deleteProperty } = useApp();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
 
   const myListingIds = useMemo(() => new Set(myListings.map(p => p.id)), [myListings]);
   const totalListings = myListings.length;
