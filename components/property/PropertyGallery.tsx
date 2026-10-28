@@ -9,8 +9,6 @@ import {
 import { Image } from 'expo-image';
 import { Brand } from '../../constants/Colors';
 
-type ViewToken = { item: any; key: string; index: number | null; isViewable: boolean };
-
 const { width } = Dimensions.get('window');
 
 interface PropertyGalleryProps {

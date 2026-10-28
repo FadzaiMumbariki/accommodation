@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Property } from '../../types';
 import { Brand } from '../../constants/Colors';
-import { getPropertyCoordinates, DEFAULT_MAP_CENTER, Coordinates } from '../../lib/coordinates';
+import { getPropertyCoordinates, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
 
 interface PropertyMapViewProps {
   properties: Property[];

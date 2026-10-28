@@ -1,4 +1,5 @@
 import { Property } from '../types';
+import { supabase } from './supabase';
 
 export interface AccommodationRequestCriteria {
   city: string;
@@ -17,9 +18,6 @@ export interface SmartMatchResult {
   matchReasons: string[];
   summaryReason: string;
 }
-
-const GEMINI_API_KEY =
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 /**
  * Compares an accommodation request with listings and ranks the best matches with clear reasons.
@@ -48,6 +46,15 @@ export async function matchRequestToListings(
     const propType = (prop.propertyType || '').toLowerCase();
     const propAmenities = (prop.amenities || []).map((a) => a.toLowerCase());
 
+    if (!prop.available || prop.availabilityStatus === 'occupied') continue;
+    if (
+      request.moveInDate &&
+      prop.availableFromDate &&
+      prop.availableFromDate > request.moveInDate
+    ) {
+      continue;
+    }
+
     // 1. City Check (Must match or be close)
     if (propCity.includes(normCity) || normCity.includes(propCity)) {
       score += 35;
@@ -55,6 +62,10 @@ export async function matchRequestToListings(
     } else {
       // In different city, skip unless nationwide
       continue;
+    }
+
+    if (request.moveInDate && prop.availableFromDate) {
+      reasons.push(`Available by ${request.moveInDate}`);
     }
 
     // Suburb Match bonus
@@ -120,34 +131,36 @@ export async function matchRequestToListings(
   // Sort descending by score
   const topMatches = scored.sort((a, b) => b.score - a.score).slice(0, 6);
 
-  // If Gemini API is reachable, enhance the top match reasons with personalized AI rationale
-  if (GEMINI_API_KEY && topMatches.length > 0) {
+  // Optionally rephrase the top match's rationale via the `ai-match` Edge Function, which holds the
+  // Gemini key server-side. The ranking itself is computed by rules above and is never reordered.
+  if (supabase && topMatches.length > 0) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const prompt = `A renter in Zimbabwe requested:
-- Location: ${request.city} (${request.suburb || 'any suburb'})
-- Budget: $${request.minBudget} - $${request.maxBudget}
-- Bedrooms: ${request.bedrooms || 'any'}
-- Amenities: ${request.amenities?.join(', ') || 'Standard'}
-
-Write 1 short sentence (under 16 words) explaining why this property is a great match:
-Property: "${topMatches[0].property.title}" in ${topMatches[0].property.suburb}, ${topMatches[0].property.city}, $${topMatches[0].property.price}/mo, ${topMatches[0].property.bedrooms} beds.`;
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      const { data, error } = await supabase.functions.invoke('ai-match', {
+        body: {
+          request: {
+            city: request.city,
+            suburb: request.suburb,
+            propertyType: request.propertyType,
+            bedrooms: request.bedrooms,
+            minBudget: request.minBudget,
+            maxBudget: request.maxBudget,
+            amenities: request.amenities,
+          },
+          property: {
+            title: topMatches[0].property.title,
+            city: topMatches[0].property.city,
+            suburb: topMatches[0].property.suburb,
+            price: topMatches[0].property.price,
+            bedrooms: topMatches[0].property.bedrooms,
+            propertyType: topMatches[0].property.propertyType,
+          },
+        },
       });
-
-      if (res.ok) {
-        const json = await res.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text && typeof text === 'string') {
-          topMatches[0].summaryReason = text.trim();
-        }
+      if (!error && data && typeof data.reason === 'string' && data.reason.trim()) {
+        topMatches[0].summaryReason = data.reason.trim();
       }
     } catch {
-      // Fallback already assigned
+      // Fallback reason already assigned
     }
   }
 

@@ -17,14 +17,18 @@ Finding rental housing in Zimbabwe often relies on word of mouth, scattered soci
 - Saved properties, viewing bookings with slot-conflict protection, in-app chat, push notifications
 - Report listings and users
 - Post an accommodation request that landlords can respond to
-- **AI search:** type a plain-English request such as "2 bedroom flat in Bulawayo under $300" and the app turns it into filters
-- **AI listing helper:** landlords can draft a listing description from the details they entered, then edit it
+- **AI search:** turn a plain-English request into filters for real listings
+- **AI trust check:** combine price and listing checks with cautious AI description warnings; it cannot verify ownership
+- **Request matching:** rank active listings by location, budget, bedrooms, amenities, and move-in date; AI may explain the top match
+- **AI listing helper:** landlords can draft a description from entered details, then edit it; unusual prices are flagged
 
 ## AI integration (summary)
 
 | Feature | What it does | Model / API |
 | --- | --- | --- |
 | AI search | Converts a plain-English search into structured filters | Google Gemini API, called through the `ai-search` Supabase Edge Function |
+| Listing trust check | Adds description-quality warning signals to rule-based checks; it does not verify ownership or remove listings | Google Gemini API, called through the `ai-trust` Supabase Edge Function |
+| Request matching | Ranks current listings by request criteria and move-in date; AI can phrase the top match reason but never changes the ranking | Google Gemini API, called through the `ai-match` Supabase Edge Function |
 | AI listing helper | Drafts a short description from the landlord's own listing details | Google Gemini API, called through the `ai-describe` Supabase Edge Function |
 
 The Gemini API key is stored only as a Supabase secret and is never in the app. Full details, limitations and testing are in [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md). The ethical and responsible AI statement is in [docs/ETHICAL_AI_STATEMENT.md](docs/ETHICAL_AI_STATEMENT.md).
@@ -41,7 +45,7 @@ The Gemini API key is stored only as a Supabase secret and is never in the app. 
 
 ### Prerequisites
 
-- Node.js 20 or newer and npm
+- Node.js 22.13 or newer and npm
 - A phone with the Expo Go app, or an Android emulator / iOS simulator
 - Optional, for the live backend and AI: a free [Supabase](https://supabase.com) project, the [Supabase CLI](https://supabase.com/docs/guides/cli), and a [Gemini API key](https://aistudio.google.com/apikey)
 
@@ -55,7 +59,7 @@ npm ci
 
 ### 2. Run in demo (mock data) mode
 
-No credentials are needed. Without Supabase values the app runs on built-in sample listings, and AI search uses a basic local keyword parser instead of Gemini.
+No credentials are needed. Without Supabase values the app runs on built-in sample listings, AI search uses a basic local keyword parser, and the listing helper drafts from the entered facts instead of calling Gemini.
 
 ```sh
 npm start        # then press a (Android), i (iOS) or w (web), or scan the QR code with Expo Go
@@ -64,7 +68,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 ### 3. Run with the live backend
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
-2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql` (the push-token table is not part of the setup file), then optionally `supabase/seed_properties.sql` for sample data. Do not run `supabase/create_test_users.sql` on a real project: it creates accounts with a known password and is for local testing only.
+2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql`, `supabase/migrations/005_property_image_ownership.sql`, and `supabase/migrations/006_ai_request_limits.sql`, then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run `supabase/create_test_users.sql` on a real project: it creates accounts with a known password and is for local testing only.
 3. Start the app with `npm start`.
 
 ### 4. Enable the AI features
@@ -75,10 +79,12 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY
 # optional: supabase secrets set GEMINI_MODEL=gemini-2.5-flash
 supabase functions deploy ai-search
+supabase functions deploy ai-trust
+supabase functions deploy ai-match
 supabase functions deploy ai-describe
 ```
 
-Both functions require a signed-in user (Supabase checks the JWT), so sign in to the app before using the AI features. If the AI is unreachable, AI search falls back to the basic parser and says so, and the description helper tells the landlord to write the text themselves.
+All AI functions require a signed-in user. The database limits each account to 30 AI requests per rolling hour across features. If an AI service is unavailable, search and trust checks retain their local rule-based behavior, and the listing helper uses a factual local draft based only on the entered details.
 
 ### Tests and checks
 
@@ -97,7 +103,7 @@ app/            Screens (Expo Router)
 components/     Reusable UI components
 context/        App state (auth, properties, chat, saved, activity)
 lib/            Data access, filters, notifications, AI helpers (ai.ts, aiFilters.ts)
-supabase/       SQL migrations and Edge Functions (ai-search, ai-describe)
+supabase/       SQL migrations and Edge Functions (ai-search, ai-trust, ai-match, ai-describe)
 docs/           AI integration notes, ethical AI statement, screenshots
 ```
 
@@ -160,4 +166,3 @@ npx eas-cli@latest env:set --name SENTRY_AUTH_TOKEN --value YOUR_SENTRY_AUTH_TOK
 ```
 
 Repeat for other build environments if needed. Never commit the Sentry auth token.
-

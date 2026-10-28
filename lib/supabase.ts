@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
 const supabaseUrl: string =
   Constants.expoConfig?.extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -21,6 +20,7 @@ const realtimeTransport =
   typeof WebSocket === 'undefined' && typeof window === 'undefined'
     ? (() => {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency; top-level import would break bundling when 'ws' is absent
           return require('ws');
         } catch {
           return undefined;
@@ -39,7 +39,10 @@ export const supabase =
           storage: isServer ? memoryStorage : AsyncStorage,
           autoRefreshToken: !isServer,
           persistSession: !isServer,
-          detectSessionInUrl: false,
+          // On web, Supabase completes OAuth redirects by reading the code from the URL.
+          detectSessionInUrl: typeof window !== 'undefined',
+          // PKCE is required for the OAuth (Continue with Google) flow.
+          flowType: 'pkce',
         },
         realtime: realtimeTransport ? { transport: realtimeTransport } : undefined,
       })

@@ -8,7 +8,7 @@ import { Brand } from '../../constants/Colors';
 export default function PrivacyPolicyScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -40,19 +40,24 @@ export default function PrivacyPolicyScreen() {
         <Text style={styles.sectionHeading}>3. How We Use Information</Text>
         <Text style={styles.paragraph}>
           We use personal information to:
-          {"\n"}• Connect tenants with verified landlords
+          {"\n"}• Help tenants check landlord verification status and connect with landlords
           {"\n"}• Schedule viewing appointments
           {"\n"}• Facilitate in-app communications
           {"\n"}• Send relevant notifications and updates
           {"\n"}• Prevent fraud and enforce our Terms of Service
         </Text>
 
-        <Text style={styles.sectionHeading}>4. Data Sharing & Security</Text>
+        <Text style={styles.sectionHeading}>4. Optional AI Features</Text>
+        <Text style={styles.paragraph}>
+          If you use an AI feature, the relevant search text, accommodation request details, or listing details and description may be sent to Google Gemini through our Supabase server to provide search filters, match explanations, description drafts, or listing-description warnings. Your name, contact details, photos, and messages are not sent for these AI requests. AI output can be inaccurate: trust warnings are guidance only and do not verify ownership or prove fraud. Signed-in accounts are limited to 30 AI requests per hour across features.
+        </Text>
+
+        <Text style={styles.sectionHeading}>5. Data Sharing & Security</Text>
         <Text style={styles.paragraph}>
           We do not sell your personal information. Listing photos and listing details are visible to app users. Your name and phone number may be shown to users involved in a viewing request or conversation. Messages are visible to the participants in their conversation. Push tokens are used only to route notifications to your device.
         </Text>
 
-        <Text style={styles.sectionHeading}>5. Your Rights & Contact</Text>
+        <Text style={styles.sectionHeading}>6. Your Rights & Contact</Text>
         <Text style={styles.paragraph}>
           You can request deletion of your account and associated data from Settings. You may also request access or correction by emailing privacy@imbafind.co.zw. Account deletion removes your uploaded property photos before deleting your account.
         </Text>

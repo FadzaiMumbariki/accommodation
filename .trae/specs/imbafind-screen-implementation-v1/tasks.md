@@ -66,7 +66,7 @@
 - **Priority**: high
 - **Depends On**: Task 4
 - **Description**:
-  - Top-right notification 🔔 bell onPress: navigate to /settings or show Alert/toast "Notifications: You're up to date!"
+  - Top-right notification bell onPress: navigate to /settings or show Alert/toast "Notifications: You're up to date!"
   - Search bar wrapper onPress: router.push('/(tabs)/explore')
   - "Where do you want to live?" row + "View all": router.push('/(tabs)/explore')
   - Quick filter chips (Location, Beds, Budget, Top): at minimum navigate to Explore with pre-selected type chip highlight
@@ -84,7 +84,7 @@
   - Messages screen: search TextInput → actually filter conversations (name + lastMessage + property context)
   - Messages screen: FAB "+ new message" onPress: Alert "New conversation" / startConversation with a default landlord or navigate to Explore to pick property
   - Chat screen: Make send button fully push messages via `sendMessage()`. After 2s simulate a simple auto-reply with setTimeout to feel alive (reply like "Thanks for your message!")
-  - Call button (📞) in chat header onPress: Alert "Calling landlord..." toast placeholder
+  - Call button in chat header onPress: Alert "Calling landlord..." toast placeholder
   - "Active now" text below name: keep it; no changes needed since no real presence API
 - **Acceptance Criteria Addressed**: AC-8
 - **Test Requirements**:
@@ -154,7 +154,7 @@
 - **Priority**: medium
 - **Depends On**: Task 5
 - **Description**:
-  - Share button (↗): onPress: `Alert.alert('Share', 'Share this property link', [{text:'Copy Link', onPress:()=>{}},{text:'Cancel'}])` placeholder
+  - Share button: onPress: `Alert.alert('Share', 'Share this property link', [{text:'Copy Link', onPress:()=>{}},{text:'Cancel'}])` placeholder
   - Image carousel counter "1/6": ensure matches actual photos array length
   - Reviews section: even without real reviews, add "No reviews yet" placeholder section (matches design detail context)
   - Landlord card Message button: navigate to chat with same startConversation flow

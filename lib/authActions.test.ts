@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Session } from '@supabase/supabase-js';
 import { changeUserRole, signUpWithRole, type RoleSignUpClient } from './authActions';
+import type { UserRole } from '../types';
 
 describe('authentication role actions', () => {
   it('sends the selected role in signup metadata and detects email confirmation', async () => {
@@ -34,7 +35,7 @@ describe('authentication role actions', () => {
   });
 
   it('persists role changes through the profile updater', async () => {
-    const persistProfile = jest.fn(async () => true);
+    const persistProfile = jest.fn(async (_id: string, _updates: { role: UserRole }) => true);
 
     await expect(changeUserRole('user-1', 'landlord', persistProfile)).resolves.toBe(true);
     expect(persistProfile).toHaveBeenCalledWith('user-1', { role: 'landlord' });

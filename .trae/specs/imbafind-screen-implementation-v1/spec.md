@@ -167,7 +167,7 @@
 ### AC-6: Home Search/Notification Buttons Work
 - **Type**: `rule`
 - **Given**: Home screen
-- **When**: Tapping 🔔 bell (toast or settings nav), search bar (nav to explore), location chips (filter jump)
+- **When**: Tapping the notification bell (toast or settings nav), search bar (nav to explore), location chips (filter jump)
 - **Then**: Every tap target responds with navigation or feedback
 - **Pass Condition**: All home interactive elements have handlers
 

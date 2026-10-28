@@ -1,4 +1,5 @@
 import type { PropertyFilters, PropertyType } from '../types';
+import type { AiUnavailableReason } from './aiAvailability';
 
 export const PROPERTY_TYPES: PropertyType[] = ['house', 'apartment', 'room', 'cottage', 'flat', 'bedsitter'];
 
@@ -7,6 +8,8 @@ export interface AiSearchResult {
   summary: string;
   /** 'ai' = Gemini via Edge Function, 'basic' = local keyword parser used as a fallback. */
   source: 'ai' | 'basic';
+  /** Present only when the AI was attempted but failed, so the UI can explain the fallback. */
+  unavailable?: AiUnavailableReason;
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));

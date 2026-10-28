@@ -51,9 +51,8 @@ export const LandlordCard: React.FC<LandlordCardProps> = ({
           <Text style={styles.role}>Property Owner / Landlord</Text>
           {rating !== undefined && (
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={13} color="#F59E0B" />
               <Text style={styles.ratingText}>
-                {rating.toFixed(1)}{reviewsCount !== undefined ? ` (${reviewsCount} reviews)` : ''}
+                Rating: {rating.toFixed(1)} / 5{reviewsCount !== undefined ? ` (${reviewsCount} reviews)` : ''}
               </Text>
             </View>
           )}

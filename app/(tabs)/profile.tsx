@@ -24,7 +24,7 @@ import { insertReport } from '../../lib/database';
 export default function ProfileScreen() {
   const [reportVisible, setReportVisible] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
-  const { userName, userRole, setUserRole } = useApp();
+  const { userName, userRole, setUserRole, isAdmin } = useApp();
   const { signOut, user } = useAuth();
   const requireAuth = useRequireAuth();
 
@@ -110,6 +110,16 @@ export default function ProfileScreen() {
       icon: 'heart-outline' as const,
       onPress: () => router.push('/(tabs)/saved'),
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'verifications',
+            label: 'Verify Listings & Landlords',
+            icon: 'shield-checkmark-outline' as const,
+            onPress: () => router.push('/admin-verifications'),
+          },
+        ]
+      : []),
     ...(userRole === 'landlord'
       ? [
           {
@@ -174,7 +184,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

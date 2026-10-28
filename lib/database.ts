@@ -6,17 +6,6 @@
  */
 import { supabase } from './supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
-
-function generateUuid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 import type {
   Property,
   PropertyFilters,
@@ -32,6 +21,17 @@ import type {
   UserRole,
   AvailabilityStatus,
 } from '../types';
+
+function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -242,9 +242,9 @@ export async function fetchProperties(
   if (typeof filters?.bathrooms === 'number') query = query.gte('bathrooms', filters.bathrooms);
   if (filters?.availableNowOnly) query = query.eq('availability_status', 'available_now');
   if (filters?.furnishedOnly || filters?.furnished === true || filters?.furnished === 'furnished') {
-    query = query.contains('amenities', ['Furnished']);
+    query = query.contains('amenities', ['furnished']);
   } else if (filters?.furnished === false || filters?.furnished === 'unfurnished') {
-    query = query.not('amenities', 'cs', '{"Furnished"}');
+    query = query.not('amenities', 'cs', '{"furnished"}');
   }
   const requestedAmenities = filters?.selectedAmenities?.length
     ? filters.selectedAmenities
@@ -1096,6 +1096,7 @@ export interface Profile {
   avatarUrl: string | null;
   role: 'tenant' | 'landlord';
   verified: boolean;
+  isAdmin: boolean;
   createdAt: string;
 }
 
@@ -1104,7 +1105,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, phone, avatar_url, role, verified, created_at')
+    .select('id, full_name, phone, avatar_url, role, verified, is_admin, created_at')
     .eq('id', userId)
     .single();
 
@@ -1120,6 +1121,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
         avatarUrl: data.avatar_url,
         role: data.role === 'landlord' ? 'landlord' : 'tenant',
         verified: data.verified,
+        isAdmin: Boolean(data.is_admin),
         createdAt: data.created_at,
       }
     : null;
@@ -1149,6 +1151,119 @@ export async function updateProfile(
 
   if (error) console.error('[updateProfile]', error.message);
   return !error;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin verification queue (admin-controlled verified badges)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface VerifiableProperty {
+  id: string;
+  title: string;
+  city: string;
+  suburb: string;
+  imageUrl: string | null;
+  verified: boolean;
+  createdAt: string;
+  landlordName: string | null;
+  landlordPhone: string | null;
+}
+
+export interface VerifiableLandlord {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  verified: boolean;
+  createdAt: string;
+}
+
+/**
+ * Lists the newest listings for the verification queue. Requires an admin session;
+ * the `Admins can read all properties` policy exposes rows beyond the public feed.
+ */
+export async function fetchVerifiableProperties(limit = 100): Promise<VerifiableProperty[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('properties')
+    .select(
+      'id, title, city, suburb, images, verified, created_at, landlord:profiles!properties_landlord_id_fkey(full_name, phone)',
+    )
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error('[fetchVerifiableProperties]', error.message);
+    throw new Error(error.message);
+  }
+  return (data ?? []).map((row) => {
+    const landlord = Array.isArray(row.landlord) ? row.landlord[0] : row.landlord;
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      city: row.city as string,
+      suburb: row.suburb as string,
+      imageUrl: Array.isArray(row.images) && row.images.length ? row.images[0] as string : null,
+      verified: Boolean(row.verified),
+      createdAt: row.created_at as string,
+      landlordName: landlord?.full_name ?? null,
+      landlordPhone: landlord?.phone ?? null,
+    };
+  });
+}
+
+/** Lists landlord accounts for the verification queue. Requires an admin session. */
+export async function fetchVerifiableLandlords(limit = 100): Promise<VerifiableLandlord[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, phone, avatar_url, verified, created_at')
+    .eq('role', 'landlord')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error('[fetchVerifiableLandlords]', error.message);
+    throw new Error(error.message);
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    fullName: row.full_name ?? null,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    avatarUrl: row.avatar_url ?? null,
+    verified: Boolean(row.verified),
+    createdAt: row.created_at as string,
+  }));
+}
+
+export async function setPropertyVerified(
+  propertyId: string,
+  verified: boolean,
+): Promise<void> {
+  if (!supabase) throw new Error('Verification requires a Supabase connection.');
+  const { error } = await supabase.rpc('admin_set_property_verified', {
+    p_property_id: propertyId,
+    p_verified: verified,
+  });
+  if (error) {
+    console.error('[setPropertyVerified]', error.message);
+    throw new Error(error.message);
+  }
+}
+
+export async function setUserVerified(
+  userId: string,
+  verified: boolean,
+): Promise<void> {
+  if (!supabase) throw new Error('Verification requires a Supabase connection.');
+  const { error } = await supabase.rpc('admin_set_user_verified', {
+    p_user_id: userId,
+    p_verified: verified,
+  });
+  if (error) {
+    console.error('[setUserVerified]', error.message);
+    throw new Error(error.message);
+  }
 }
 
 export async function savePushToken(userId: string, pushToken: string): Promise<void> {

@@ -15,7 +15,7 @@ import { Brand } from '../constants/Colors';
 export default function AboutScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -49,7 +49,7 @@ export default function AboutScreen() {
         <View style={styles.infoCard}>
           <Text style={styles.cardHeading}>Our Mission</Text>
           <Text style={styles.cardParagraph}>
-            ImbaFind is built specifically for Zimbabweans to bring trust, speed, and transparency to house hunting. Whether looking for a room, a garden flat, or a family residence in Bulawayo, Harare, Gweru, Mutare, or beyond, ImbaFind connects tenants with genuine, verified landlords.
+            ImbaFind is built specifically for Zimbabweans to bring trust, speed, and transparency to house hunting. Whether looking for a room, a garden flat, or a family residence in Bulawayo, Harare, Gweru, Mutare, or beyond, ImbaFind helps renters review listing details, check landlord verification badges, and connect with landlords.
           </Text>
         </View>
 
@@ -77,7 +77,7 @@ export default function AboutScreen() {
         {/* Made with pride */}
         <View style={styles.footerNote}>
           <Text style={styles.footerText}>
-            Made with ❤️ for Zimbabwe • Bulawayo & Harare
+            Made for Zimbabwe • Bulawayo & Harare
           </Text>
         </View>
       </ScrollView>

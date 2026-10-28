@@ -1,9 +1,11 @@
 import { Property } from '../types';
+import { supabase } from './supabase';
 
 export interface TrustFlag {
   severity: 'high' | 'medium' | 'low' | 'info';
   title: string;
   description: string;
+  source?: 'rules' | 'ai';
 }
 
 export interface PriceBenchmark {
@@ -27,8 +29,64 @@ export interface TrustCheckResult {
   advice: string;
 }
 
-const GEMINI_API_KEY =
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+function getDescriptionWords(description: string): Set<string> {
+  const commonWords = new Set([
+    'about', 'also', 'and', 'are', 'available', 'bedroom', 'bedrooms', 'close', 'for',
+    'from', 'has', 'have', 'house', 'into', 'located', 'near', 'offers', 'property',
+    'that', 'the', 'this', 'with',
+  ]);
+  return new Set(
+    description
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !commonWords.has(word)),
+  );
+}
+
+function hasPossibleReusedDescription(property: Property, allProperties: Property[]): boolean {
+  const words = getDescriptionWords(property.description || '');
+  if (words.size < 8) return false;
+
+  return allProperties.some((other) => {
+    if (other.id === property.id) return false;
+    const otherWords = getDescriptionWords(other.description || '');
+    if (otherWords.size < 8) return false;
+    const sharedWords = [...words].filter((word) => otherWords.has(word)).length;
+    return sharedWords / Math.min(words.size, otherWords.size) >= 0.9;
+  });
+}
+
+function getComparableBenchmark(
+  property: Property,
+  allProperties: Property[],
+): PriceBenchmark | null {
+  const comparablePrices = allProperties
+    .filter((other) =>
+      other.id !== property.id &&
+      other.available &&
+      other.city.toLowerCase().trim() === property.city.toLowerCase().trim() &&
+      other.propertyType === property.propertyType &&
+      Math.abs(other.bedrooms - property.bedrooms) <= 1 &&
+      other.price > 0,
+    )
+    .map((other) => other.price)
+    .sort((a, b) => a - b);
+
+  if (comparablePrices.length < 3) return null;
+
+  const middle = Math.floor(comparablePrices.length / 2);
+  const typical =
+    comparablePrices.length % 2 === 0
+      ? (comparablePrices[middle - 1] + comparablePrices[middle]) / 2
+      : comparablePrices[middle];
+
+  return {
+    min: comparablePrices[0],
+    max: comparablePrices[comparablePrices.length - 1],
+    typical,
+  };
+}
 
 /**
  * Returns typical market price benchmarks for Zimbabwean cities and property configurations.
@@ -86,11 +144,14 @@ export function evaluateListingRules(
   let deduction = 0;
 
   const desc = (property.description || '').toLowerCase();
-  const benchmark = getMarketBenchmark(
+  const fallbackBenchmark = getMarketBenchmark(
     property.city || '',
     property.propertyType,
     property.bedrooms
   );
+  const comparableBenchmark = getComparableBenchmark(property, allProperties);
+  const hasComparableListings = comparableBenchmark !== null;
+  const benchmark = comparableBenchmark ?? fallbackBenchmark;
 
   // 1. Advance Payment / Deposit before Viewing (Highest Risk)
   const advancePaymentPatterns = [
@@ -114,7 +175,7 @@ export function evaluateListingRules(
       severity: 'high',
       title: 'Advance Payment Request Detected',
       description:
-        'The listing mentions a deposit or fee before physical viewing. In Zimbabwe, genuine landlords never demand payment to view accommodation.',
+        'The listing mentions a deposit or fee before physical viewing. Treat advance payment requests as a warning sign and inspect the property before paying.',
     });
     deduction += 45;
   }
@@ -122,9 +183,18 @@ export function evaluateListingRules(
   // 2. Price Far Below Market Benchmark (Scam Bait)
   let isUnusuallyLow = false;
   let isUnusuallyHigh = false;
-  let priceMessage = `Price is within typical market range for ${property.bedrooms}-bedroom rentals in ${property.city} ($${benchmark.min} - $${benchmark.max}/mo).`;
+  let priceMessage = hasComparableListings
+    ? `Compared with similar available listings in ${property.city}, the observed range is $${benchmark.min} - $${benchmark.max}/mo.`
+    : `Price is within typical market range for ${property.bedrooms}-bedroom rentals in ${property.city} ($${benchmark.min} - $${benchmark.max}/mo).`;
 
-  if (property.price < benchmark.min * 0.55 && property.price > 0) {
+  const lowPriceThreshold = hasComparableListings
+    ? benchmark.typical * 0.5
+    : benchmark.min * 0.55;
+  const highPriceThreshold = hasComparableListings
+    ? benchmark.typical * 2
+    : benchmark.max * 1.8;
+
+  if (property.price < lowPriceThreshold && property.price > 0) {
     isUnusuallyLow = true;
     priceMessage = `Price ($${property.price}) is unusually low for a ${property.bedrooms}-bedroom ${property.propertyType} in ${property.city} (typical: $${benchmark.min} - $${benchmark.max}). Verify carefully.`;
     flags.push({
@@ -133,7 +203,7 @@ export function evaluateListingRules(
       description: `At $${property.price}/mo, this is significantly cheaper than typical rentals in ${property.city} ($${benchmark.min}-$${benchmark.max}). Scammers often use unrealistically low prices as bait.`,
     });
     deduction += 35;
-  } else if (property.price > benchmark.max * 1.8) {
+  } else if (property.price > highPriceThreshold) {
     isUnusuallyHigh = true;
     priceMessage = `Price ($${property.price}) is on the higher end for this area. Ensure the premium is justified by utilities and finishes.`;
     flags.push({
@@ -168,6 +238,17 @@ export function evaluateListingRules(
       title: 'Very Short Description',
       description:
         'The listing lacks comprehensive details regarding lease terms, borehole/water reliability, or electricity arrangements.',
+    });
+    deduction += 10;
+  }
+
+  if (hasPossibleReusedDescription(property, allProperties)) {
+    flags.push({
+      severity: 'medium',
+      title: 'Possible Reused Description',
+      description:
+        'This description closely resembles another listing. Ask the landlord to confirm that it accurately describes this specific property.',
+      source: 'rules',
     });
     deduction += 10;
   }
@@ -222,83 +303,92 @@ export async function performListingTrustCheck(
   property: Property,
   allProperties: Property[] = []
 ): Promise<TrustCheckResult> {
-  const { flags, priceAnalysis, baseScore } = evaluateListingRules(
+  const { flags: ruleFlags, priceAnalysis, baseScore } = evaluateListingRules(
     property,
     allProperties
   );
 
+  const flags = [...ruleFlags];
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-trust', {
+        body: {
+          title: property.title,
+          city: property.city,
+          suburb: property.suburb,
+          price: property.price,
+          bedrooms: property.bedrooms,
+          propertyType: property.propertyType,
+          description: (property.description || '').slice(0, 300),
+        },
+      });
+      const warningDetails: Record<string, Omit<TrustFlag, 'source'>> = {
+        vague_description: {
+          severity: 'medium',
+          title: 'Vague Description',
+          description:
+            'The AI found that the description may not provide enough specific information. Ask the landlord about the property details before arranging a viewing.',
+        },
+        generic_description: {
+          severity: 'low',
+          title: 'Generic Description',
+          description:
+            'The description may apply to many properties rather than this specific one. Confirm the features and condition during your viewing.',
+        },
+        missing_practical_details: {
+          severity: 'low',
+          title: 'Practical Details Missing',
+          description:
+            'The description may not explain practical details such as water, electricity, or lease arrangements. Ask the landlord before deciding.',
+        },
+      };
+      if (!error && data && Array.isArray(data.warnings)) {
+        for (const warning of data.warnings) {
+          if (typeof warning !== 'string' || !warningDetails[warning]) continue;
+          if (flags.some((flag) => flag.title === warningDetails[warning].title)) continue;
+          flags.push({ ...warningDetails[warning], source: 'ai' });
+        }
+      } else if (error) {
+        console.warn('[TrustCheck] AI description analysis unavailable; using rule checks.');
+      }
+    } catch (error) {
+      console.warn(
+        '[TrustCheck] AI description analysis failed; using rule checks:',
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  const score = Math.max(
+    10,
+    Math.min(100, baseScore - flags.filter((flag) => flag.source === 'ai').length * 7),
+  );
   let status: TrustCheckResult['status'] = 'low_risk';
   let headline = 'Trust Check: Standard Listing';
   let advice =
     'Always physically inspect this property and meet the landlord before transferring any deposit or rental money.';
 
-  if (baseScore < 50 || flags.some((f) => f.severity === 'high')) {
+  if (score < 50 || flags.some((f) => f.severity === 'high')) {
     status = 'high_risk';
     headline = 'Trust Check: Warning Signs Detected';
     advice =
       'Exercise caution: Major warning signs were detected. Do NOT send any reservation fee or advance deposit before inspecting the property.';
-  } else if (baseScore < 75 || flags.some((f) => f.severity === 'medium')) {
+  } else if (score < 75 || flags.some((f) => f.severity === 'medium')) {
     status = 'moderate_risk';
     headline = 'Trust Check: Items to Verify';
     advice =
       'Review missing details with the landlord and insist on an on-site viewing before making any payment.';
   }
 
-  // Generate plain-language explanation combining the flagged items
-  let explanation = '';
-  if (status === 'high_risk') {
-    const highReasons = flags
-      .filter((f) => f.severity === 'high' || f.severity === 'medium')
-      .map((f) => f.title)
-      .join(', ');
-    explanation = `Caution recommended. This listing was flagged for: ${highReasons}. Remember that AI cannot verify ownership, so you should always inspect in person.`;
-  } else if (status === 'moderate_risk') {
-    const modReasons = flags
-      .filter((f) => f.severity === 'medium' || f.severity === 'low')
-      .map((f) => f.title)
-      .join(', ');
-    explanation = `Listing appears mostly standard, but note: ${modReasons}. Verify water and power backup during your viewing.`;
-  } else {
-    explanation = `Details appear consistent with similar listings in ${property.city}. Price is within market norms and no red-flag payment demands were found.`;
-  }
-
-  // If Gemini API is reachable, enhance with AI reasoning
-  if (GEMINI_API_KEY) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const prompt = `You are the ImbaFind Listing Trust Check AI for Zimbabwean rentals.
-Analyze this listing to protect renters from scams:
-- Title: ${property.title}
-- City: ${property.city}, Suburb: ${property.suburb}
-- Price: $${property.price}/month
-- Bedrooms: ${property.bedrooms}, Type: ${property.propertyType}
-- Description: "${(property.description || '').slice(0, 300)}"
-- Known Flags: ${flags.map((f) => f.title).join('; ')}
-
-Return a concise 2-sentence plain-language trust check summary for a renter in Zimbabwe, explaining what to verify and reminding them never to pay before physical viewing.`;
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const aiText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (aiText && typeof aiText === 'string') {
-          explanation = aiText.trim();
-        }
-      }
-    } catch {
-      // Keep synthesized explanation
-    }
-  }
+  const concernTitles = flags
+    .filter((flag) => flag.severity === 'high' || flag.severity === 'medium')
+    .map((flag) => flag.title);
+  const explanation = concernTitles.length
+    ? `Caution recommended. Check these listing signals: ${concernTitles.join(', ')}. The trust check cannot verify ownership, so always inspect in person.`
+    : `No major warning signs were found in the listing details. The trust check cannot verify ownership, so always inspect in person.`;
 
   return {
-    score: baseScore,
+    score,
     status,
     headline,
     explanation,

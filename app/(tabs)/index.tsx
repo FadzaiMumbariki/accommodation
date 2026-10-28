@@ -78,7 +78,7 @@ export default function HomeScreen() {
           <Ionicons name="arrow-back" size={22} color={Brand.navy} />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.greeting}>{greeting}, {userName} 👋</Text>
+          <Text style={styles.greeting}>{greeting}, {userName}</Text>
           <Text style={styles.headerTitle}>Find your next home</Text>
           <Text style={styles.headerSub}>Available accommodation across Zimbabwe</Text>
         </View>

@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { ReportDialog } from '../components/common/ReportDialog';
 import { insertReport } from '../lib/database';
+import { hasRealSession } from '../lib/session';
 import type { ChatMessage } from '../types';
 
 type ReplyRule = { keywords: string[]; replies: string[] };
@@ -36,7 +37,7 @@ const REPLY_RULES: ReplyRule[] = [
   {
     keywords: ['available', 'still available', 'taken', 'occupied', 'vacant', 'free'],
     replies: [
-      "Yes, the property is still available! Would you like to book a viewing? 😊",
+      "Yes, the property is still available! Would you like to book a viewing?",
       "It's available right now. A few people have enquired but nothing confirmed yet — first to book a viewing gets priority.",
     ],
   },
@@ -113,7 +114,7 @@ const REPLY_RULES: ReplyRule[] = [
   {
     keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'howzit'],
     replies: [
-      "Hello! Thanks for reaching out 😊 How can I help you today?",
+      "Hello! Thanks for reaching out. How can I help you today?",
       "Hi there! Feel free to ask me anything about the property.",
     ],
   },
@@ -121,7 +122,7 @@ const REPLY_RULES: ReplyRule[] = [
     keywords: ['thank', 'thanks', 'appreciate', 'cheers'],
     replies: [
       "You're welcome! Let me know if you have any other questions.",
-      "Happy to help! Feel free to ask anything else 😊",
+      "Happy to help! Feel free to ask anything else.",
     ],
   },
 ];
@@ -181,6 +182,23 @@ export default function ChatScreen() {
     let active = true;
     void (async () => {
       try {
+        if (isSupabaseEnabled && !(await hasRealSession())) {
+          if (active) {
+            Alert.alert(
+              'Sign in to message',
+              'Chatting with landlords is tied to your real ImbaFind account. Please sign in to start this conversation.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Sign in',
+                  onPress: () =>
+                    router.push({ pathname: '/login', params: { returnTo: '/(tabs)/explore' } }),
+                },
+              ],
+            );
+          }
+          return;
+        }
         const id = await startConversationWithUser(
           recipientId,
           typeof recipientName === 'string' ? recipientName : undefined,
@@ -196,7 +214,7 @@ export default function ChatScreen() {
     return () => {
       active = false;
     };
-  }, [openConversation, recipientId, recipientName, setSelectedConversationId, startConversationWithUser]);
+  }, [isSupabaseEnabled, openConversation, recipientId, recipientName, setSelectedConversationId, startConversationWithUser]);
 
   useEffect(() => {
     if (!linkedConversationId || openedConversation.current === linkedConversationId) return;
@@ -287,7 +305,22 @@ export default function ChatScreen() {
 
   const send = async () => {
     const text = draftText.trim();
-    if (!text || sending || !user && isSupabaseEnabled) return;
+    if (!text || sending) return;
+    if (isSupabaseEnabled && !(await hasRealSession())) {
+      Alert.alert(
+        'Sign in to send messages',
+        'Messaging is connected to your real ImbaFind account. Please sign in to start chatting.',
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Sign in',
+            onPress: () =>
+              router.push({ pathname: '/login', params: { returnTo: '/(tabs)/messages' } }),
+          },
+        ],
+      );
+      return;
+    }
     setSending(true);
     try {
       await sendMessage(conversation.id, text);
@@ -457,7 +490,7 @@ export default function ChatScreen() {
           <TouchableOpacity
             style={[styles.sendBtn, !draftText.trim() && styles.sendBtnDisabled]}
             onPress={send}
-            disabled={!draftText.trim() || sending || isSupabaseEnabled && !user}
+            disabled={!draftText.trim() || sending}
             accessibilityLabel="Send message"
           >
             {sending

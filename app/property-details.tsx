@@ -605,7 +605,7 @@ export default function PropertyDetailsScreen() {
                 <View key={r.id} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
                     <Text style={styles.reviewAuthor}>{r.authorName}</Text>
-                    <Text style={styles.reviewRating}>⭐ {r.rating}</Text>
+                    <Text style={styles.reviewRating}>Rating: {r.rating} / 5</Text>
                   </View>
                   <Text style={styles.reviewText}>{r.text}</Text>
                 </View>
@@ -613,7 +613,7 @@ export default function PropertyDetailsScreen() {
             />
           ) : (
             <View style={styles.emptyReviews}>
-              <Ionicons name="star-outline" size={32} color={Brand.gray300} />
+              <Ionicons name="chatbubble-ellipses-outline" size={32} color={Brand.gray300} />
               <Text style={styles.emptyReviewsText}>Be the first to review this property!</Text>
             </View>
           )}
@@ -630,11 +630,14 @@ export default function PropertyDetailsScreen() {
                     accessibilityLabel={`Rate ${star} out of 5 stars`}
                     accessibilityRole="button"
                   >
-                    <Ionicons
-                      name={star <= displayedReviewRating ? 'star' : 'star-outline'}
-                      size={28}
-                      color={Brand.warning}
-                    />
+                    <Text
+                      style={[
+                        styles.reviewRatingChoice,
+                        star <= displayedReviewRating && styles.reviewRatingChoiceSelected,
+                      ]}
+                    >
+                      {star}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -693,7 +696,7 @@ export default function PropertyDetailsScreen() {
               </View>
               {(property.landlord?.rating ?? property.rating) != null && (
                 <Text style={styles.landlordMeta}>
-                  ⭐ {property.landlord?.rating ?? property.rating}
+                  Rating: {property.landlord?.rating ?? property.rating} / 5
                 </Text>
               )}
             </View>
@@ -1081,6 +1084,24 @@ const styles = StyleSheet.create({
   },
   reviewFormTitle: { color: Brand.navy, fontSize: 15, fontWeight: '700' },
   ratingPicker: { flexDirection: 'row', gap: 8, marginVertical: 10 },
+  reviewRatingChoice: {
+    minWidth: 40,
+    minHeight: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Brand.gray300,
+    color: Brand.navy,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    overflow: 'hidden',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reviewRatingChoiceSelected: {
+    backgroundColor: Brand.terracotta,
+    borderColor: Brand.terracotta,
+    color: Brand.white,
+  },
   existingReviewText: { color: Brand.gray500, fontSize: 12, marginBottom: 8 },
   reviewInput: {
     minHeight: 84,

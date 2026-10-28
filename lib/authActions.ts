@@ -15,7 +15,7 @@ export interface RoleSignUpClient {
       };
     }): Promise<{
       data: { session: Session | null };
-      error: { message: string } | null;
+      error: { message: string; status?: number } | null;
     }>;
   };
 }
@@ -46,7 +46,11 @@ export async function signUpWithRole(
       },
     },
   });
-  if (error) return { error: error.message, requiresEmailConfirmation: false };
+  if (error) {
+    // Some failures (e.g. HTTP 429 rate limiting) return an empty message. Never hand the
+    // caller a falsy error, or the UI would wrongly treat a failed sign-up as success.
+    return { error: error.message?.trim() || `Sign-up failed (code ${error.status ?? 500}).`, requiresEmailConfirmation: false };
+  }
   return { error: null, requiresEmailConfirmation: data.session === null };
 }
 

@@ -13,7 +13,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
 import { useApp } from '../context/AppContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
@@ -380,7 +380,7 @@ export default function PostAccommodationRequestScreen() {
           </View>
         </View>
 
-        {/* AI Smart Request Matching (Compares request against listings with AI reasons) */}
+        {/* Matches the request against current listings; AI may explain the top match. */}
         <View style={styles.aiMatchSection}>
           <TouchableOpacity
             style={styles.aiMatchBtn}
@@ -392,9 +392,9 @@ export default function PostAccommodationRequestScreen() {
               <ActivityIndicator color={Brand.white} size="small" />
             ) : (
               <>
-                <Ionicons name="sparkles" size={18} color={Brand.white} />
+                <Ionicons name="list-outline" size={18} color={Brand.white} />
                 <Text style={styles.aiMatchBtnText}>
-                  Find Matching Listings with AI
+                  Find Matching Listings
                 </Text>
               </>
             )}
@@ -403,13 +403,13 @@ export default function PostAccommodationRequestScreen() {
           {hasSearchedMatches && matchedListings.length > 0 && (
             <View style={styles.matchesContainer}>
               <View style={styles.matchesHeader}>
-                <Ionicons name="sparkles" size={16} color={Brand.terracotta} />
+                <Ionicons name="home-outline" size={16} color={Brand.terracotta} />
                 <Text style={styles.matchesTitle}>
                   Top Suggested Matches ({matchedListings.length})
                 </Text>
               </View>
               <Text style={styles.matchesSubtitle}>
-                AI compared your budget, location & amenities with active listings:
+                  Ranked by your location, budget, bedrooms, amenities, and move-in date. AI may phrase the top match reason.
               </Text>
 
               {matchedListings.map((match, idx) => (
@@ -447,7 +447,7 @@ export default function PostAccommodationRequestScreen() {
 
                   {/* AI Reason */}
                   <View style={styles.matchReasonBox}>
-                    <Ionicons name="bulb-outline" size={14} color="#B45309" />
+                    <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color="#B45309" />
                     <Text style={styles.matchReasonText}>{match.summaryReason}</Text>
                   </View>
 

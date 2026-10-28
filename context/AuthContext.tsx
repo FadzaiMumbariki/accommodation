@@ -11,6 +11,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { clearPushToken, updateProfile } from '../lib/database';
+import { signInWithGoogle as runGoogleSignIn } from '../lib/googleAuth';
 import type { UserRole } from '../types';
 import { changeUserRole, signUpWithRole, type SignUpResult } from '../lib/authActions';
 
@@ -33,6 +34,8 @@ interface AuthContextValue {
   changeRole: (userId: string, role: UserRole) => Promise<boolean>;
   /** Send password reset email. Returns error message on failure. */
   resetPassword: (email: string) => Promise<string | null>;
+  /** Sign in with Google via Supabase OAuth. Throws with a user-facing message on failure. */
+  signInWithGoogle: () => Promise<void>;
   /** Instant demo sign in with mock profile without waiting for Supabase credentials. */
   signInAsDemo: (role?: UserRole) => Promise<void>;
   /** Whether the app is running with real Supabase credentials. */
@@ -143,6 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const signInWithGoogle = useCallback(async (): Promise<void> => {
+    await runGoogleSignIn();
+  }, []);
+
   const signInAsDemo = useCallback(async (role: UserRole = 'tenant') => {
     const demoUser: User = {
       id: role === 'landlord' ? '00000000-0000-0000-0000-000000000001' : '00000000-0000-0000-0000-000000000002',
@@ -179,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         changeRole,
         resetPassword,
+        signInWithGoogle,
         signInAsDemo,
         isSupabaseEnabled,
       }}

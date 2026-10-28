@@ -14,6 +14,54 @@ export function json(body: unknown, status = 200): Response {
   });
 }
 
+export async function enforceAiRateLimit(req: Request, feature: string): Promise<Response | null> {
+  const authorization = req.headers.get('authorization');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+  if (!authorization) return json({ error: 'Sign in to use this AI feature.' }, 401);
+  if (!supabaseUrl || !anonKey) {
+    console.error('[ai-rate-limit] Supabase environment is not configured');
+    return json({ error: 'AI is temporarily unavailable.' }, 503);
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/consume_ai_request`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: authorization,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_feature: feature }),
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return json({ error: 'Sign in to use this AI feature.' }, 401);
+    }
+    if (!response.ok) {
+      console.error('[ai-rate-limit] Usage check failed with status', response.status);
+      return json({ error: 'AI is temporarily unavailable.' }, 503);
+    }
+
+    const allowed: unknown = await response.json();
+    if (allowed === false) {
+      return json({ error: 'You have reached the AI request limit. Try again in an hour.' }, 429);
+    }
+    if (allowed !== true) {
+      console.error('[ai-rate-limit] Usage check returned an invalid response');
+      return json({ error: 'AI is temporarily unavailable.' }, 503);
+    }
+    return null;
+  } catch (error) {
+    console.error(
+      '[ai-rate-limit] Usage check failed:',
+      error instanceof Error ? error.message : error,
+    );
+    return json({ error: 'AI is temporarily unavailable.' }, 503);
+  }
+}
+
 interface GeminiJsonOptions {
   system: string;
   user: string;

@@ -26,7 +26,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.centerContent}>
         <View style={styles.logoPin}>

@@ -28,8 +28,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   style,
   horizontal = false,
 }) => {
-  const { isPropertySaved, toggleSaveProperty } = useApp();
-  const saved = isPropertySaved(property.id);
+  const { isSaved, toggleSaved } = useApp();
+  const saved = isSaved(property.id);
 
   const mainImage = property.images[0] || 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80';
   const rating = property.rating ?? 0;
@@ -65,7 +65,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           style={styles.saveButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            toggleSaveProperty(property.id);
+            toggleSaved(property.id);
           }}
           activeOpacity={0.8}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -93,8 +93,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </View>
           {rating > 0 && (
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={13} color="#F59E0B" />
-              <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+              <Text style={styles.ratingText} accessibilityLabel={`Rating ${rating.toFixed(1)} out of 5`}>
+                {rating.toFixed(1)} / 5
+              </Text>
             </View>
           )}
         </View>

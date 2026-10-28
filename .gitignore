@@ -36,6 +36,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# test coverage output
+coverage/
+
+# ad-hoc scripts
+*.py
+
 # generated native folders
 /ios
 /android

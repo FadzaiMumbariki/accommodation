@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Brand } from '../constants/Colors';
 import { useApp } from '../context/AppContext';
@@ -21,6 +21,7 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
 import { uploadPropertyImage } from '../lib/database';
 import { generateListingDescription } from '../lib/ai';
+import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { getMarketBenchmark } from '../lib/trustCheck';
 import type { PropertyType } from '../types';
 
@@ -211,12 +212,17 @@ export default function AddPropertyScreen() {
       Alert.alert('Add details first', 'Enter a title and suburb so the AI has facts to work from.');
       return;
     }
+    // AI requires a real signed-in account (per-user rate limit). Prompt sign-in instead of a silent fallback.
+    if (!(await hasRealAiSession())) {
+      Alert.alert('Sign in to use the AI assistant', aiUnavailableMessage('auth'));
+      return;
+    }
     setWritingDescription(true);
     try {
       const numericPrice = Number(price) || 0;
       const benchmark = getMarketBenchmark(city, propertyType, bedrooms);
 
-      const draft = await generateListingDescription({
+      const { description: draft, source, unavailable } = await generateListingDescription({
         title: title.trim(),
         propertyType,
         city,
@@ -230,14 +236,14 @@ export default function AddPropertyScreen() {
 
       let priceNotice = '';
       if (numericPrice > 0 && numericPrice < benchmark.min * 0.55) {
-        priceNotice = `\n\n⚠️ Unusual Price Warning: $${numericPrice} is far below the typical range ($${benchmark.min} - $${benchmark.max}) for a ${bedrooms}-bed ${propertyType} in ${city}. Please verify your price so tenants don't mistake it for a scam listing.`;
+        priceNotice = `\n\nUnusual Price Warning: $${numericPrice} is far below the typical range ($${benchmark.min} - $${benchmark.max}) for a ${bedrooms}-bed ${propertyType} in ${city}. Please verify your price so tenants don't mistake it for a scam listing.`;
       } else if (numericPrice > benchmark.max * 1.7) {
-        priceNotice = `\n\nℹ️ Price Notice: $${numericPrice} is higher than typical rates in ${city} ($${benchmark.min} - $${benchmark.max}). Highlight unique backup utilities to justify the premium.`;
+        priceNotice = `\n\nPrice Notice: $${numericPrice} is higher than typical rates in ${city} ($${benchmark.min} - $${benchmark.max}). Highlight unique backup utilities to justify the premium.`;
       }
 
       Alert.alert(
-        'Draft Ready & Price Evaluated',
-        `This description was written by the AI Writing Assistant from your property facts.${priceNotice}\n\nPlease check it for accuracy and edit before publishing.`
+        `${source === 'ai' ? 'AI' : 'Basic'} Draft Ready & Price Evaluated`,
+        `${source === 'basic' && unavailable ? aiUnavailableMessage(unavailable) + '\n\n' : ''}This ${source === 'ai' ? 'AI-generated' : 'locally generated'} description uses the property facts you entered.${priceNotice}\n\nPlease check it for accuracy and edit before publishing.`
       );
     } catch (error) {
       Alert.alert('AI unavailable', error instanceof Error ? error.message : 'Please write the description yourself.');
@@ -323,7 +329,7 @@ export default function AddPropertyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={Brand.cream} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -648,7 +654,7 @@ export default function AddPropertyScreen() {
             {writingDescription ? (
               <ActivityIndicator size="small" color={Brand.white} />
             ) : (
-              <Ionicons name="sparkles" size={15} color={Brand.white} />
+              <MaterialCommunityIcons name="file-document-edit-outline" size={15} color={Brand.white} />
             )}
             <Text style={styles.aiAssistantBtnText}>
               {writingDescription ? 'Writing with AI…' : 'AI Writing Assistant (Draft & Price Check)'}
@@ -678,7 +684,7 @@ export default function AddPropertyScreen() {
               <Text style={styles.publishBtnText}>
                 {editingProperty ? 'Save Listing Changes' : 'Publish Property Listing'}
               </Text>
-              <Ionicons name="checkmark-done" size={20} color={Brand.white} />
+              <MaterialCommunityIcons name="check-all" size={20} color={Brand.white} />
             </>
           )}
         </TouchableOpacity>

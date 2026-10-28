@@ -1,7 +1,7 @@
 // POST { query: string, knownCities?: string[] } -> { filters: {...}, summary: string }
 // Turns a plain-English accommodation search into structured filters. It never returns listings;
 // the app applies the filters to its own data, so the model cannot invent properties.
-import { callGeminiJson, corsHeaders, json } from '../_shared/gemini.ts';
+import { callGeminiJson, corsHeaders, enforceAiRateLimit, json } from '../_shared/gemini.ts';
 
 const SYSTEM = `You convert a Zimbabwean renter's accommodation search into structured filters.
 Rules:
@@ -39,6 +39,9 @@ Deno.serve(async (req) => {
     if (typeof query !== 'string' || !query.trim() || query.length > 200) {
       return json({ error: 'Query must be 1-200 characters.' }, 400);
     }
+    const rateLimitResponse = await enforceAiRateLimit(req, 'ai-search');
+    if (rateLimitResponse) return rateLimitResponse;
+
     const cities = Array.isArray(knownCities)
       ? knownCities.filter((c) => typeof c === 'string').slice(0, 60).join(', ')
       : '';

@@ -36,6 +36,7 @@ import { fetchProfile } from '../lib/database';
 interface RoleContextValue {
   userRole: UserRole;
   userName: string;
+  isAdmin: boolean;
   setUserRole: (role: UserRole) => Promise<boolean>;
 }
 
@@ -46,12 +47,15 @@ const ROLE_KEY = 'imbafind_user_role';
 function RoleProvider({ children }: { children: ReactNode }) {
   const { user, changeRole, isSupabaseEnabled } = useAuth();
   const [userRole, setUserRoleState] = useState<UserRole>('tenant');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let active = true;
     if (user) {
       void fetchProfile(user.id).then(profile => {
-        if (active && profile) setUserRoleState(profile.role);
+        if (!active || !profile) return;
+        setUserRoleState(profile.role);
+        setIsAdmin(profile.isAdmin);
       });
       return () => {
         active = false;
@@ -63,6 +67,7 @@ function RoleProvider({ children }: { children: ReactNode }) {
       // landlord session) doesn't persist after the user logs out.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserRoleState('tenant');
+      setIsAdmin(false);
       return () => {
         active = false;
       };
@@ -100,7 +105,7 @@ function RoleProvider({ children }: { children: ReactNode }) {
     'User';
 
   return (
-    <RoleContext.Provider value={{ userRole, userName, setUserRole }}>
+    <RoleContext.Provider value={{ userRole, userName, isAdmin, setUserRole }}>
       {children}
     </RoleContext.Provider>
   );
@@ -162,6 +167,7 @@ export function useApp() {
     // Role
     userRole: roleCtx.userRole,
     userName: roleCtx.userName,
+    isAdmin: roleCtx.isAdmin,
     setUserRole: roleCtx.setUserRole,
 
     // Properties

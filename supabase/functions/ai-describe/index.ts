@@ -1,6 +1,6 @@
 // POST { title, propertyType, bedrooms, bathrooms, city, suburb, price, amenities } -> { description }
 // Drafts a listing description from facts the landlord already entered. The landlord reviews and edits it.
-import { callGeminiJson, corsHeaders, json } from '../_shared/gemini.ts';
+import { callGeminiJson, corsHeaders, enforceAiRateLimit, json } from '../_shared/gemini.ts';
 
 const SYSTEM = `You write short, honest rental listing descriptions for a Zimbabwean accommodation app.
 Rules:
@@ -37,6 +37,8 @@ Deno.serve(async (req) => {
         : [],
     };
     if (!facts.suburb && !facts.title) return json({ error: 'Add a title and suburb first.' }, 400);
+    const rateLimitResponse = await enforceAiRateLimit(req, 'ai-describe');
+    if (rateLimitResponse) return rateLimitResponse;
 
     const result = await callGeminiJson({
       system: SYSTEM,

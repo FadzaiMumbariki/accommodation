@@ -19,11 +19,12 @@ import * as Haptics from 'expo-haptics';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Brand } from '../../constants/Colors';
-import type { PropertyFilters, SearchFilters } from '../../types';
+import type { Property, PropertyFilters, SearchFilters } from '../../types';
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { aiSearch } from '../../lib/ai';
+import { hasRealAiSession, aiUnavailableMessage } from '../../lib/aiAvailability';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 const SORT_OPTIONS = ['Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
 
@@ -76,7 +77,7 @@ export default function ExploreScreen() {
   const [aiNote, setAiNote] = useState<{ query: string; summary: string; source: 'ai' | 'basic' } | null>(null);
   const inputRef = useRef<any>(null);
 
-  const handleWhatsAppFromExplore = (p: typeof sortedResults[0], e: any) => {
+  const handleWhatsAppFromExplore = (p: Property, e: any) => {
     e.stopPropagation?.();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const rawPhone = p.landlord?.phone;
@@ -182,9 +183,19 @@ export default function ExploreScreen() {
       Alert.alert('AI search', 'Type what you are looking for first, e.g. "2 bedroom flat in Bulawayo under $300".');
       return;
     }
+    // The AI Edge Functions enforce a per-user limit that requires a real signed-in account.
+    // Anonymous and demo sessions cannot use AI, so prompt for sign-in instead of silently falling back.
+    if (!(await hasRealAiSession())) {
+      Alert.alert('Sign in to use AI search', aiUnavailableMessage('auth'));
+      router.push({ pathname: '/login', params: { returnTo: '/(tabs)/explore' } });
+      return;
+    }
     setAiLoading(true);
     try {
       const result = await aiSearch(query, allCities);
+      if (result.source === 'basic' && result.unavailable) {
+        Alert.alert('AI unavailable', aiUnavailableMessage(result.unavailable));
+      }
       if (Object.keys(result.filters).length === 0) {
         Alert.alert('No filters found', 'I could not turn that into filters. Try adding a city, bedrooms or a budget.');
         return;
@@ -298,7 +309,7 @@ export default function ExploreScreen() {
 
       {aiNote && (
         <View style={styles.cityBanner}>
-          <Ionicons name="sparkles" size={15} color={Brand.terracotta} />
+          <Ionicons name="information-circle-outline" size={15} color={Brand.terracotta} />
           <Text style={styles.cityBannerText}>
             {aiNote.source === 'ai' ? 'AI understood' : 'Basic search understood'}:{' '}
             <Text style={styles.cityBannerBold}>{aiNote.summary}</Text>
@@ -332,7 +343,7 @@ export default function ExploreScreen() {
             {aiLoading ? (
               <ActivityIndicator size="small" color={Brand.white} />
             ) : (
-              <Ionicons name="sparkles-outline" size={11} color={Brand.white} />
+              <Ionicons name="search-outline" size={11} color={Brand.white} />
             )}
             <Text style={[styles.chipText, styles.chipTextActive]}>AI search</Text>
           </TouchableOpacity>
@@ -413,7 +424,6 @@ export default function ExploreScreen() {
             <Text style={styles.cardPrice}>${item.price}<Text style={styles.perMonth}>/mo</Text></Text>
             {item.rating ? (
               <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={11} color="#F59E0B" />
                 <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
               </View>
             ) : null}

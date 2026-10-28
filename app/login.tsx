@@ -17,11 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { classifyAuthError } from '../lib/authErrors';
 import type { UserRole } from '../types';
 
 export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'login' | 'signup' }) {
   const { initialTab, returnTo } = useLocalSearchParams<{ initialTab?: string; returnTo?: string }>();
-  const { signIn, signUp, resetPassword, signInAsDemo } = useAuth();
+  const { signIn, signUp, resetPassword, signInAsDemo, signInWithGoogle, isSupabaseEnabled } = useAuth();
   const { setUserRole, userRole } = useApp();
 
   const [tab, setTab] = useState<'login' | 'signup'>(
@@ -33,6 +34,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Sign up specific fields
   const [fullName, setFullName] = useState('');
@@ -89,14 +91,9 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
             },
           ],
         );
-      } else if (lower.includes('email not confirmed')) {
-        Alert.alert(
-          'Email Not Confirmed',
-          'Please verify your email via the link sent to your inbox before signing in.\n\nTip: You can also disable email verification in your Supabase Dashboard under Authentication -> Providers -> Email.',
-          [{ text: 'OK' }],
-        );
       } else {
-        Alert.alert('Sign In Failed', error);
+        const friendly = classifyAuthError(error);
+        Alert.alert(friendly.title, friendly.message);
       }
       return;
     }
@@ -126,14 +123,15 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     setLoading(false);
 
     if (result.error) {
-      Alert.alert('Registration Failed', result.error);
+      const friendly = classifyAuthError(result.error);
+      Alert.alert(friendly.title, friendly.message);
       return;
     }
 
     if (result.requiresEmailConfirmation) {
       Alert.alert(
         'Account Created!',
-        'A confirmation email has been sent to your inbox. Please confirm your email to sign in.\n\nTip: In your Supabase Dashboard, you can turn off "Confirm email" under Authentication -> Providers -> Email for instant logins without email verification.',
+        'A confirmation email has been sent to your inbox. Please tap the link in it to activate your account, then sign in.\n\nTip: check your spam folder if you don\u2019t see it.',
         [
           {
             text: 'OK',
@@ -168,6 +166,19 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const handleGuestAccess = (targetRole: UserRole = 'tenant') => {
     void setUserRole(targetRole);
     router.replace('/(tabs)');
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      router.replace(returnTo?.startsWith('/') ? (returnTo as Href) : '/(tabs)');
+    } catch (err) {
+      const friendly = classifyAuthError(err instanceof Error ? err.message : String(err));
+      Alert.alert(friendly.title, friendly.message);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -271,7 +282,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               >
                 <Ionicons name="flash" size={16} color={Brand.terracotta} />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: Brand.terracotta }}>
-                  ⚡ Demo Tenant
+                  Demo Tenant
                 </Text>
               </TouchableOpacity>
 
@@ -299,7 +310,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               >
                 <Ionicons name="business" size={16} color={Brand.navy} />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: Brand.navy }}>
-                  ⚡ Demo Landlord
+                  Demo Landlord
                 </Text>
               </TouchableOpacity>
             </View>
@@ -490,6 +501,32 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
 
           {/* Social / Guest Section */}
           <View style={styles.footerWrap}>
+            {isSupabaseEnabled && (
+              <>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or continue with</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]}
+                  onPress={handleGoogleLogin}
+                  disabled={googleLoading || loading}
+                  activeOpacity={0.85}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator color={Brand.navy} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={18} color={"#DB4437"} />
+                      <Text style={styles.googleBtnText}>Continue with Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>or continue without account</Text>
@@ -766,6 +803,23 @@ const styles = StyleSheet.create({
   },
   guestActionBtnText: {
     fontSize: 14,
+    fontWeight: '700',
+    color: Brand.navy,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Brand.white,
+    borderWidth: 1.5,
+    borderColor: Brand.gray300,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 4,
+  },
+  googleBtnText: {
+    fontSize: 15,
     fontWeight: '700',
     color: Brand.navy,
   },

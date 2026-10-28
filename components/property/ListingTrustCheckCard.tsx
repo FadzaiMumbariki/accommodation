@@ -31,7 +31,6 @@ export function ListingTrustCheckCard({
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
     performListingTrustCheck(property, allProperties)
       .then((res) => {
@@ -50,7 +49,7 @@ export function ListingTrustCheckCard({
     return () => {
       isMounted = false;
     };
-  }, [property.id, property.price, property.description]);
+  }, [allProperties, property]);
 
   if (loading) {
     return (
@@ -223,7 +222,10 @@ export function ListingTrustCheckCard({
                     }
                   />
                   <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.flagTitle}>{flag.title}</Text>
+                    <Text style={styles.flagTitle}>
+                      {flag.source === 'ai' ? 'AI signal: ' : ''}
+                      {flag.title}
+                    </Text>
                     <Text style={styles.flagDesc}>{flag.description}</Text>
                   </View>
                 </View>

@@ -13,20 +13,34 @@ interface ChatBubbleProps {
 export const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isCurrentUser, onRetry }) => {
   const msgType = message.type ?? 'text';
 
-  if (msgType === 'viewing_request' || msgType === 'viewing_confirmation') {
-    const isConfirmed = msgType === 'viewing_confirmation';
+  if (msgType === 'viewing_confirmation') {
     return (
       <View style={[styles.bubbleContainer, isCurrentUser ? styles.alignRight : styles.alignLeft]}>
-        <View style={[styles.viewingCard, isConfirmed ? styles.viewingCardConfirmed : styles.viewingCardPending]}>
+        <View style={[styles.viewingCard, styles.viewingCardConfirmed]}>
           <View style={styles.viewingHeader}>
-            <Ionicons
-              name={isConfirmed ? 'checkmark-circle' : 'calendar'}
-              size={20}
-              color={isConfirmed ? Brand.success : Brand.warning}
-            />
-            <Text style={styles.viewingTitle}>
-              {isConfirmed ? 'Viewing Confirmed' : 'Viewing Request'}
-            </Text>
+            <Ionicons name="checkmark-circle" size={20} color={Brand.success} />
+            <Text style={styles.viewingTitle}>Viewing Confirmed</Text>
+          </View>
+          <Text style={styles.viewingMessage}>{message.text}</Text>
+          {message.viewingDetails && (
+            <View style={styles.viewingDetails}>
+              <Text style={styles.viewingTimeText}>&#128197; {message.viewingDetails.date}</Text>
+              <Text style={styles.viewingTimeText}>&#9200; {message.viewingDetails.time}</Text>
+            </View>
+          )}
+          <Text style={[styles.timestamp, styles.timestampOther]}>{message.timestamp}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (msgType === 'viewing_request') {
+    return (
+      <View style={[styles.bubbleContainer, isCurrentUser ? styles.alignRight : styles.alignLeft]}>
+        <View style={[styles.viewingCard, styles.viewingCardPending]}>
+          <View style={styles.viewingHeader}>
+            <Ionicons name="calendar" size={20} color={Brand.warning} />
+            <Text style={styles.viewingTitle}>Viewing Request</Text>
           </View>
           <Text style={styles.viewingMessage}>{message.text}</Text>
           {message.viewingDetails && (
