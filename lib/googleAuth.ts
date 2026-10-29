@@ -16,25 +16,37 @@ export function extractAuthParams(url: string): {
   refreshToken: string | null;
   error: string | null;
 } {
-  const parsed = Linking.parse(url);
-  const queryParams = (parsed.queryParams ?? {}) as Record<string, string | undefined>;
+  let code: string | null = null;
+  let accessToken: string | null = null;
+  let refreshToken: string | null = null;
+  let error: string | null = null;
 
-  let code = queryParams.code ?? null;
-  let accessToken = queryParams.access_token ?? null;
-  let refreshToken = queryParams.refresh_token ?? null;
-  let error = queryParams.error_description ?? queryParams.error ?? null;
-
-  // Supabase often returns tokens or errors in the hash fragment
-  const hashIndex = url.indexOf('#');
-  if (hashIndex !== -1) {
-    const fragmentString = url.slice(hashIndex + 1);
-    const fragmentParams = new URLSearchParams(fragmentString);
-    if (!code) code = fragmentParams.get('code');
-    if (!accessToken) accessToken = fragmentParams.get('access_token');
-    if (!refreshToken) refreshToken = fragmentParams.get('refresh_token');
-    if (!error) {
-      error = fragmentParams.get('error_description') || fragmentParams.get('error');
+  try {
+    // 1. Check query parameters (?code=... or &code=...)
+    const qIndex = url.indexOf('?');
+    if (qIndex !== -1) {
+      const qString = url.slice(qIndex + 1).split('#')[0];
+      const qParams = new URLSearchParams(qString);
+      code = qParams.get('code');
+      accessToken = qParams.get('access_token');
+      refreshToken = qParams.get('refresh_token');
+      error = qParams.get('error_description') || qParams.get('error');
     }
+
+    // 2. Check hash fragments (#access_token=... or &access_token=...)
+    const hashIndex = url.indexOf('#');
+    if (hashIndex !== -1) {
+      const fragmentString = url.slice(hashIndex + 1);
+      const fragmentParams = new URLSearchParams(fragmentString);
+      if (!code) code = fragmentParams.get('code');
+      if (!accessToken) accessToken = fragmentParams.get('access_token');
+      if (!refreshToken) refreshToken = fragmentParams.get('refresh_token');
+      if (!error) {
+        error = fragmentParams.get('error_description') || fragmentParams.get('error');
+      }
+    }
+  } catch {
+    // Graceful fallback if URL is malformed
   }
 
   return { code, accessToken, refreshToken, error };
@@ -43,7 +55,7 @@ export function extractAuthParams(url: string): {
 /**
  * Completes the OAuth session using the code or tokens returned in the redirect URL.
  */
-async function completeFromRedirectUrl(url: string): Promise<boolean> {
+export async function completeFromRedirectUrl(url: string): Promise<boolean> {
   const { code, accessToken, refreshToken, error } = extractAuthParams(url);
 
   if (code) {
@@ -66,6 +78,22 @@ async function completeFromRedirectUrl(url: string): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Global deep-link handler for OAuth redirect URLs.
+ * Safely parses the URL and exchanges authorization code/tokens for a persistent session.
+ */
+export async function handleAuthRedirectUrl(url: string): Promise<boolean> {
+  if (!url || (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error='))) {
+    return false;
+  }
+  try {
+    return await completeFromRedirectUrl(url);
+  } catch (err) {
+    console.warn('[googleAuth] Failed to process auth redirect URL:', err);
+    return false;
+  }
 }
 
 /**

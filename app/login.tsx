@@ -127,6 +127,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
+      await setUserRole(role);
       const res = await signInWithGoogle();
       if (res) {
         router.replace(dest);

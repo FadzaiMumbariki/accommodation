@@ -7,11 +7,15 @@ import React, {
   type ReactNode,
 } from 'react';
 import { Alert } from 'react-native';
+import * as Linking from 'expo-linking';
 import type { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { clearPushToken, updateProfile } from '../lib/database';
-import { signInWithGoogle as runGoogleSignIn } from '../lib/googleAuth';
+import {
+  signInWithGoogle as runGoogleSignIn,
+  handleAuthRedirectUrl,
+} from '../lib/googleAuth';
 import type { UserRole } from '../types';
 import { changeUserRole, signUpWithRole, type SignUpResult } from '../lib/authActions';
 
@@ -69,14 +73,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (active) setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
+
+      if (event === 'SIGNED_IN' && s?.user) {
+        try {
+          const cachedRole = await AsyncStorage.getItem('imbafind_user_role');
+          const role = (cachedRole === 'landlord' || cachedRole === 'tenant') ? cachedRole : undefined;
+          const meta = s.user.user_metadata || {};
+          const fullName = meta.full_name || meta.name;
+          const avatarUrl = meta.avatar_url || meta.picture;
+
+          if (fullName || avatarUrl || role) {
+            await updateProfile(s.user.id, {
+              fullName: fullName || undefined,
+              avatarUrl: avatarUrl || undefined,
+              role,
+            });
+          }
+        } catch (err) {
+          console.warn('[AuthContext] Background profile sync failed:', err);
+        }
+      }
+    });
+
+    // Listen for incoming deep link redirects (e.g. imbafind://... or exp://...)
+    const linkSub = Linking.addEventListener('url', ({ url }) => {
+      void handleAuthRedirectUrl(url);
+    });
+
+    void Linking.getInitialURL().then(initialUrl => {
+      if (initialUrl && active) {
+        void handleAuthRedirectUrl(initialUrl);
+      }
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      linkSub.remove();
     };
   }, []);
 

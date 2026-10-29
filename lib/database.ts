@@ -1146,11 +1146,12 @@ export async function updateProfile(
   if (!supabase) return false;
 
   const payload: {
+    id: string;
     full_name?: string | null;
     phone?: string | null;
     avatar_url?: string | null;
     role?: 'tenant' | 'landlord';
-  } = {};
+  } = { id: userId };
   if (updates.fullName !== undefined) payload.full_name = updates.fullName;
   if (updates.phone !== undefined) payload.phone = updates.phone;
   if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
@@ -1158,8 +1159,7 @@ export async function updateProfile(
 
   const { error } = await supabase
     .from('profiles')
-    .update(payload)
-    .eq('id', userId);
+    .upsert(payload, { onConflict: 'id' });
 
   if (error) console.error('[updateProfile]', error.message);
   return !error;
