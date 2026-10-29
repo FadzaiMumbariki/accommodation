@@ -72,6 +72,7 @@ function AppShell() {
         <Stack.Screen name="legal/terms" options={{ presentation: 'card' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'card' }} />
         <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+        <Stack.Screen name="ai-chat" options={{ presentation: 'card' }} />
       </Stack>
     </>
   );

@@ -12,7 +12,6 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -26,31 +25,9 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { aiSearch } from '../../lib/ai';
 import { hasRealAiSession, aiUnavailableMessage } from '../../lib/aiAvailability';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
+import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
 const SORT_OPTIONS = ['Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
 
-function PropertyThumbnail({ uri }: { uri?: string }) {
-  const [failedUri, setFailedUri] = useState<string | null>(null);
-
-  if (!uri || failedUri === uri) {
-    return (
-      <View style={styles.cardImageFallback}>
-        <Ionicons name="home-outline" size={30} color={Brand.gray400} />
-        <Text style={styles.cardImageFallbackText}>Photo unavailable</Text>
-      </View>
-    );
-  }
-
-  return (
-    <Image
-      source={{ uri }}
-      style={styles.cardImage}
-      contentFit="cover"
-      transition={200}
-      cachePolicy="memory-disk"
-      onError={() => setFailedUri(uri)}
-    />
-  );
-}
 
 export default function ExploreScreen() {
   const {
@@ -75,10 +52,13 @@ export default function ExploreScreen() {
   const [sortOption, setSortOption] = useState<string>('Newest');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiNote, setAiNote] = useState<{ query: string; summary: string; source: 'ai' | 'basic' } | null>(null);
-  const inputRef = useRef<any>(null);
+  const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
-  const handleWhatsAppFromExplore = (p: Property, e: any) => {
-    e.stopPropagation?.();
+  const openProperty = useCallback((id: string) => {
+    router.push(`/property-details?id=${id}`);
+  }, []);
+
+  const handleWhatsAppFromExplore = useCallback((p: Property) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const rawPhone = p.landlord?.phone;
     if (!rawPhone) {
@@ -97,7 +77,7 @@ export default function ExploreScreen() {
     Linking.canOpenURL(appUrl)
       .then(can => Linking.openURL(can ? appUrl : webUrl))
       .catch(() => Linking.openURL(webUrl));
-  };
+  }, [openProperty]);
   const allCities = useMemo(
     () => [...new Set(properties.map(property => property.city))].sort(),
     [properties],
@@ -151,9 +131,6 @@ export default function ExploreScreen() {
       }
     }), [results, sortOption]);
 
-  const openProperty = (id: string) => {
-    router.push(`/property-details?id=${id}`);
-  };
 
   const handleSort = () => {
     Alert.alert('Sort Properties', 'Choose how you want to sort listings', [
@@ -165,10 +142,10 @@ export default function ExploreScreen() {
   const handleApplyFilters = (updated: Partial<SearchFilters>) => {
     const newFilters: PropertyFilters = { ...filters, ...updated };
     if (updated.propertyType === 'all') newFilters.propertyType = 'any';
-    if (updated.minPrice !== undefined) newFilters.budgetMin = updated.minPrice;
-    if (updated.maxPrice !== undefined) newFilters.budgetMax = updated.maxPrice;
+    if (updated.budgetMin !== undefined) newFilters.budgetMin = updated.budgetMin;
+    if (updated.budgetMax !== undefined) newFilters.budgetMax = updated.budgetMax;
     if (updated.bedrooms !== undefined) newFilters.bedrooms = updated.bedrooms;
-    if (updated.furnishedOnly !== undefined) newFilters.furnished = updated.furnishedOnly;
+    if (updated.furnished !== undefined) newFilters.furnished = updated.furnished;
     if ((updated.amenities?.length ?? 0) > 0) newFilters.amenities = updated.amenities;
     setFilters(newFilters);
   };
@@ -405,117 +382,16 @@ export default function ExploreScreen() {
     </View>
   );
 
-  const renderPropertyCard = useCallback(({ item }: { item: typeof sortedResults[0] }) => {
-    const amenities = (item.amenities || []).map(a => a.toLowerCase());
-    const hasBorehole = amenities.some(a => a.includes('borehole') || a.includes('tank'));
-    const hasSolar = amenities.some(a => a.includes('solar') || a.includes('inverter') || a.includes('generator'));
-    const hasDurawall = amenities.some(a => a.includes('durawall') || a.includes('gate') || a.includes('security'));
-    const hasWifi = amenities.some(a => a.includes('wifi') || a.includes('fibre') || a.includes('internet'));
-
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => openProperty(item.id)}
-        activeOpacity={0.88}
-      >
-        <PropertyThumbnail uri={item.images[0]} />
-        <View style={styles.cardBody}>
-          <View style={styles.priceRow}>
-            <Text style={styles.cardPrice}>${item.price}<Text style={styles.perMonth}>/mo</Text></Text>
-            {item.rating ? (
-              <View style={styles.ratingBadge}>
-                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-sharp" size={13} color={Brand.terracotta} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.locationMain} numberOfLines={1}>{item.suburb}, {item.city}</Text>
-              <Text style={styles.locationProvince}>{item.province}</Text>
-            </View>
-          </View>
-          <View style={styles.specsRow}>
-            <View style={styles.spec}>
-              <Ionicons name="bed-outline" size={12} color={Brand.gray500} />
-              <Text style={styles.specText}>{item.bedrooms} bed</Text>
-            </View>
-            <View style={styles.specDot} />
-            <View style={styles.spec}>
-              <Ionicons name="water-outline" size={12} color={Brand.gray500} />
-              <Text style={styles.specText}>{item.bathrooms} bath</Text>
-            </View>
-            <View style={styles.specDot} />
-            <View style={styles.spec}>
-              <Ionicons name="people-outline" size={12} color={Brand.gray500} />
-              <Text style={styles.specText}>{item.maxOccupants} max</Text>
-            </View>
-          </View>
-
-          {/* Zimbabwean Utility Badges */}
-          {(hasBorehole || hasSolar || hasDurawall || hasWifi) && (
-            <View style={styles.cardUtilityRow}>
-              {hasBorehole && (
-                <View style={[styles.cardUtilityPill, styles.cardUtilityWater]}>
-                  <Ionicons name="water" size={10} color="#0284C7" />
-                  <Text style={[styles.cardUtilityText, { color: '#0369A1' }]}>Borehole</Text>
-                </View>
-              )}
-              {hasSolar && (
-                <View style={[styles.cardUtilityPill, styles.cardUtilitySolar]}>
-                  <Ionicons name="sunny" size={10} color="#D97706" />
-                  <Text style={[styles.cardUtilityText, { color: '#B45309' }]}>Solar</Text>
-                </View>
-              )}
-              {hasDurawall && (
-                <View style={[styles.cardUtilityPill, styles.cardUtilitySecurity]}>
-                  <Ionicons name="shield-checkmark" size={10} color="#059669" />
-                  <Text style={[styles.cardUtilityText, { color: '#047857' }]}>Durawall</Text>
-                </View>
-              )}
-              {hasWifi && (
-                <View style={[styles.cardUtilityPill, styles.cardUtilityWifi]}>
-                  <Ionicons name="wifi" size={10} color="#4F46E5" />
-                  <Text style={[styles.cardUtilityText, { color: '#4338CA' }]}>Wi-Fi</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Action Row */}
-          <View style={styles.cardActionRow}>
-            <View style={styles.badgesRow}>
-              <View style={styles.availBadge}>
-                <Text style={styles.availBadgeText}>Available now</Text>
-              </View>
-              {item.verified && (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="shield-checkmark" size={10} color="#2563EB" />
-                  <Text style={styles.verifiedBadgeText}>Verified</Text>
-                </View>
-              )}
-            </View>
-
-            {item.landlord?.phone ? (
-              <TouchableOpacity
-                style={styles.cardWhatsAppButton}
-                onPress={(e) => handleWhatsAppFromExplore(item, e)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                accessibilityRole="button"
-                accessibilityLabel="Chat on WhatsApp"
-              >
-                <Ionicons name="logo-whatsapp" size={13} color={Brand.white} />
-                <Text style={styles.cardWhatsAppButtonText}>WhatsApp</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedResults]);
+  const renderPropertyCard = useCallback(
+    ({ item }: { item: typeof sortedResults[0] }) => (
+      <PropertyExploreCard
+        property={item}
+        onPress={openProperty}
+        onWhatsAppPress={handleWhatsAppFromExplore}
+      />
+    ),
+    [openProperty, handleWhatsAppFromExplore]
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -551,6 +427,19 @@ export default function ExploreScreen() {
               size={20}
               color={viewMode === 'map' ? Brand.white : Brand.navy}
             />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.headerIconBtn, styles.headerIconBtnAI]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/ai-chat');
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open AI chat search"
+          >
+            <Ionicons name="sparkles" size={18} color={Brand.white} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -655,6 +544,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: Brand.navy, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
+  headerIconBtnAI: {
+    backgroundColor: Brand.terracotta,
+  },
 
   searchWrapper: { paddingHorizontal: 16, marginBottom: 10, zIndex: 100 },
   searchBar: {
@@ -711,103 +603,7 @@ const styles = StyleSheet.create({
 
   listContent: { paddingHorizontal: 16, paddingBottom: 110 },
 
-  card: {
-    flexDirection: 'row', backgroundColor: Brand.white, borderRadius: 16,
-    overflow: 'hidden', borderWidth: 1, borderColor: Brand.gray100,
-    shadowColor: Brand.navy, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
-  },
-  cardImage: { width: 110, height: 130 },
-  cardImageFallback: {
-    width: 110,
-    height: 130,
-    backgroundColor: Brand.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  cardImageFallbackText: {
-    color: Brand.gray500,
-    fontSize: 10,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: 6,
-  },
-  cardBody: { flex: 1, padding: 12, justifyContent: 'center' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
-  cardPrice: { fontSize: 17, fontWeight: '900', color: Brand.terracotta },
-  perMonth: { fontSize: 11, fontWeight: '500', color: Brand.gray400 },
-  ratingBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
-  },
-  ratingText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
-  cardTitle: { fontSize: 13, fontWeight: '700', color: Brand.navy, marginBottom: 4 },
-  locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginBottom: 6 },
-  locationMain: { fontSize: 12, color: Brand.navy, fontWeight: '600' },
-  locationProvince: { fontSize: 10, color: Brand.gray400 },
-  specsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  spec: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  specText: { fontSize: 11, color: Brand.gray500, fontWeight: '500' },
-  specDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Brand.gray300 },
-  badgesRow: { flexDirection: 'row', gap: 6 },
-  availBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  availBadgeText: { color: '#16A34A', fontSize: 10, fontWeight: '700' },
-  verifiedBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#DBEAFE', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
-  },
-  verifiedBadgeText: { color: '#2563EB', fontSize: 10, fontWeight: '700' },
   headerIconBtnActive: {
     backgroundColor: Brand.terracotta,
-  },
-  cardUtilityRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 6,
-  },
-  cardUtilityPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  cardUtilityWater: {
-    backgroundColor: '#E0F2FE',
-  },
-  cardUtilitySolar: {
-    backgroundColor: '#FEF3C7',
-  },
-  cardUtilitySecurity: {
-    backgroundColor: '#D1FAE5',
-  },
-  cardUtilityWifi: {
-    backgroundColor: '#EEF2FF',
-  },
-  cardUtilityText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  cardActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  cardWhatsAppButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#25D366',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  cardWhatsAppButtonText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Brand.white,
   },
 });
