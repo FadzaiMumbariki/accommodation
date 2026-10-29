@@ -44,7 +44,13 @@
       "expo-secure-store",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ImbaFind uses your location to discover accommodation near you in Zimbabwe."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

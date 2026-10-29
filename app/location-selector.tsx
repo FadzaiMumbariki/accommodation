@@ -7,12 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { Brand } from '../constants/Colors';
+import { getCurrentUserLocation, findNearestLocation } from '../lib/locationService';
 
 const LOCATION_GROUPS = [
   {
@@ -52,10 +55,43 @@ const LOCATION_GROUPS = [
 export default function LocationSelectorScreen() {
   const { setFilters, filters } = useApp();
   const [search, setSearch] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   const handleSelect = (province: string, city: string) => {
     setFilters({ ...filters, province, city, suburb: undefined });
     router.push('/(tabs)/explore');
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setIsLocating(true);
+    try {
+      const result = await getCurrentUserLocation();
+      if (result.status === 'granted') {
+        const match = findNearestLocation(result.coords);
+        setFilters({
+          ...filters,
+          city: match ? match.city : undefined,
+          suburb: match ? match.suburb : undefined,
+          referenceCoordinates: result.coords,
+          nearby: true,
+        });
+        router.push('/(tabs)/explore');
+      } else if (result.status === 'denied') {
+        Alert.alert(
+          'Location Permission Needed',
+          'Please grant location access in your device settings to discover properties near your current position, or select your city from the list below.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Location Unavailable',
+          result.errorMessage || 'Could not determine your GPS location. Please select a city from the list below.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const filteredGroups = search.trim()
@@ -107,6 +143,31 @@ export default function LocationSelectorScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Current Location Option */}
+      <TouchableOpacity
+        style={styles.currentLocationBtn}
+        onPress={handleUseCurrentLocation}
+        activeOpacity={0.75}
+        disabled={isLocating}
+        accessibilityRole="button"
+        accessibilityLabel="Use current location"
+      >
+        <View style={styles.currentLocationIcon}>
+          {isLocating ? (
+            <ActivityIndicator size="small" color={Brand.terracotta} />
+          ) : (
+            <Ionicons name="navigate" size={18} color={Brand.terracotta} />
+          )}
+        </View>
+        <View style={styles.currentLocationContent}>
+          <Text style={styles.currentLocationTitle}>Use Current Location</Text>
+          <Text style={styles.currentLocationSubtitle}>
+            {isLocating ? 'Detecting your GPS position…' : 'Find accommodation closest to where you are'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Brand.gray400} />
+      </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {filteredGroups.map((group) => (
@@ -181,6 +242,40 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: Brand.navy,
+  },
+  currentLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Brand.cream,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Brand.terracotta + '40',
+    gap: 12,
+  },
+  currentLocationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Brand.terracotta + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currentLocationContent: {
+    flex: 1,
+  },
+  currentLocationTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Brand.navy,
+    marginBottom: 2,
+  },
+  currentLocationSubtitle: {
+    fontSize: 12,
+    color: Brand.gray600,
   },
   scroll: {
     paddingHorizontal: 20,

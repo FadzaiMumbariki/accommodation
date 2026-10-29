@@ -27,6 +27,11 @@ import { hasRealAiSession, aiUnavailableMessage } from '../../lib/aiAvailability
 import { filterMockProperties } from '../../lib/propertyFilters';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
+import {
+  getCurrentUserLocation,
+  findNearestLocation,
+  formatLocationLabel,
+} from '../../lib/locationService';
 const SORT_OPTIONS = ['Nearby', 'Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
 
 
@@ -52,6 +57,8 @@ export default function ExploreScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [sortOption, setSortOption] = useState<string>('Newest');
   const [aiLoading, setAiLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
   const [aiNote, setAiNote] = useState<{ query: string; summary: string; source: 'ai' | 'basic' } | null>(null);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
@@ -185,7 +192,45 @@ export default function ExploreScreen() {
     setFilters(newFilters);
   };
 
-  const handleResetFilters = () => { setFilters({}); setQ(''); setAiNote(null); };
+  const handleResetFilters = () => {
+    setFilters({});
+    setQ('');
+    setAiNote(null);
+    setUserLocationLabel(null);
+  };
+
+  const handleLocateUser = useCallback(async () => {
+    setIsLocating(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const result = await getCurrentUserLocation();
+      if (result.status === 'granted') {
+        const match = findNearestLocation(result.coords);
+        const label = match ? formatLocationLabel(match) : 'Current Location';
+        setUserLocationLabel(label);
+        setSortOption('Nearby');
+        setFilters({
+          ...filters,
+          referenceCoordinates: result.coords,
+          nearby: true,
+        });
+      } else if (result.status === 'denied') {
+        Alert.alert(
+          'Location Permission Needed',
+          'Please grant location access in your device settings to discover properties near your current position, or search by city name.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Location Unavailable',
+          result.errorMessage || 'Could not determine your GPS location. Please try searching for your city or suburb.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setIsLocating(false);
+    }
+  }, [filters, setFilters]);
 
   // Plain-English search ("2 bed flat in Bulawayo under $300"). The AI only returns filters; the
   // listings shown always come from the app's own data.
@@ -229,8 +274,16 @@ export default function ExploreScreen() {
   };
 
   const clearCityFilter = () => {
-    setFilters({ ...filters, city: undefined, suburb: undefined, province: undefined });
+    setFilters({
+      ...filters,
+      city: undefined,
+      suburb: undefined,
+      province: undefined,
+      nearby: undefined,
+      referenceCoordinates: undefined,
+    });
     setQ('');
+    setUserLocationLabel(null);
   };
 
   // ── Everything above the list lives in ListHeaderComponent ────────────────
@@ -268,6 +321,24 @@ export default function ExploreScreen() {
               <Ionicons name="close-circle" size={18} color={Brand.gray400} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            onPress={handleLocateUser}
+            disabled={isLocating}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Detect my location"
+            style={{ paddingHorizontal: 4 }}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color={Brand.terracotta} />
+            ) : (
+              <Ionicons
+                name="locate"
+                size={19}
+                color={sortOption === 'Nearby' || filters.nearby ? Brand.terracotta : Brand.gray400}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         {showSuggestions && citySuggestions.length > 0 && (
@@ -329,12 +400,14 @@ export default function ExploreScreen() {
         <View style={styles.cityBanner}>
           <Ionicons name="navigate-circle" size={16} color={Brand.terracotta} />
           <Text style={styles.cityBannerText}>
-            Showing <Text style={styles.cityBannerBold}>{sortedResults.length}</Text> nearby listings (sorted by distance)
+            Showing <Text style={styles.cityBannerBold}>{sortedResults.length}</Text> nearby listings{' '}
+            {userLocationLabel ? `(${userLocationLabel})` : '(sorted by distance)'}
           </Text>
           <TouchableOpacity
             onPress={() => {
               setSortOption('Newest');
-              setFilters({ ...filters, nearby: undefined });
+              setUserLocationLabel(null);
+              setFilters({ ...filters, nearby: undefined, referenceCoordinates: undefined });
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
@@ -371,6 +444,34 @@ export default function ExploreScreen() {
           style={{ flexGrow: 0 }}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 6, alignItems: 'center' }}
         >
+          <TouchableOpacity
+            style={[styles.chip, (sortOption === 'Nearby' || filters.nearby) && styles.chipActive]}
+            onPress={handleLocateUser}
+            disabled={isLocating}
+            accessibilityRole="button"
+            accessibilityLabel="Use current GPS location"
+          >
+            {isLocating ? (
+              <ActivityIndicator
+                size="small"
+                color={sortOption === 'Nearby' || filters.nearby ? Brand.white : Brand.terracotta}
+              />
+            ) : (
+              <Ionicons
+                name="navigate"
+                size={11}
+                color={sortOption === 'Nearby' || filters.nearby ? Brand.white : Brand.navy}
+              />
+            )}
+            <Text
+              style={[
+                styles.chipText,
+                (sortOption === 'Nearby' || filters.nearby) && styles.chipTextActive,
+              ]}
+            >
+              {userLocationLabel ? userLocationLabel : 'Near Me'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.chip, styles.chipActive]}
             onPress={runAiSearch}

@@ -23,6 +23,7 @@ import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
 import { formatDistance } from '../lib/coordinates';
+import { getCurrentUserLocation, findNearestLocation } from '../lib/locationService';
 import type { Property } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ type ChatMessage = TextMessage | ResultsMessage | ThinkingMessage;
 // ─── Quick-prompt chips ───────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
+  'Houses and apartments near my location',
   'Nearby houses or apartments in Harare',
   'Furnished apartment in Avondale',
   '3 bedroom house in Borrowdale',
@@ -269,6 +271,22 @@ export default function AiChatScreen() {
       // 3. Run AI search (calls Gemini Edge Function if signed in, falls back to local parser)
       const hasAuth = await hasRealAiSession();
       const result = await aiSearch(trimmed, allCities);
+
+      // 3b. If searching near current location and no reference coordinates returned, use device GPS
+      if (
+        /\b(?:near (?:my |current )?location|near me|closest to me)\b/i.test(trimmed) &&
+        !result.filters.referenceCoordinates
+      ) {
+        const userLoc = await getCurrentUserLocation();
+        if (userLoc.status === 'granted') {
+          result.filters.referenceCoordinates = userLoc.coords;
+          result.filters.nearby = true;
+          const match = findNearestLocation(userLoc.coords);
+          if (match && !result.filters.city) {
+            result.filters.city = match.city;
+          }
+        }
+      }
 
       // 4. Filter properties
       const matched = filterMockProperties(properties, result.filters);
