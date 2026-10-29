@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +22,7 @@ import { uploadPropertyImage } from '../lib/database';
 import { generateListingDescription } from '../lib/ai';
 import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { getMarketBenchmark } from '../lib/trustCheck';
+import { PropertyPhotoPicker } from '../components/property/PropertyPhotoPicker';
 import type { PropertyType } from '../types';
 
 const PROPERTY_TYPES: { label: string; value: PropertyType }[] = [
@@ -545,77 +545,15 @@ export default function AddPropertyScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Property Photos</Text>
-          <Text style={styles.photoHint}>Add up to 8 photos from your gallery</Text>
-          <View style={styles.photoGrid}>
-            {pickedImages.map((img, i) => (
-              <View
-                key={img + i}
-                style={styles.photoTile}
-              >
-                <Image
-                  source={{ uri: img }}
-                  style={styles.photoTileImage}
-                  contentFit="cover"
-                  transition={150}
-                  cachePolicy="memory-disk"
-                />
-                <TouchableOpacity
-                  style={styles.removeBtn}
-                  onPress={() => removeImage(img)}
-                  accessibilityLabel={`Remove photo ${i + 1}`}
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="close" size={12} color={Brand.white} />
-                </TouchableOpacity>
-                {uploadStates[img] === 'uploading' && (
-                  <View style={styles.photoStatus}>
-                    <ActivityIndicator size="small" color={Brand.white} />
-                    <Text style={styles.photoStatusText}>Uploading</Text>
-                  </View>
-                )}
-                {uploadStates[img] === 'uploaded' && (
-                  <View style={styles.photoStatus}>
-                    <Ionicons name="checkmark-circle" size={14} color={Brand.white} />
-                    <Text style={styles.photoStatusText}>Uploaded</Text>
-                  </View>
-                )}
-                {uploadStates[img] === 'failed' && (
-                  <View style={styles.photoStatus}>
-                    <Text style={styles.photoStatusText}>Failed</Text>
-                    <TouchableOpacity
-                      onPress={() => void uploadImage(img)}
-                      accessibilityLabel={`Retry uploading photo ${i + 1}`}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.photoRetry}>Retry</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            ))}
-            {/* Add photo button */}
-            {pickedImages.length < 8 && (
-              <TouchableOpacity
-                style={[styles.photoTile, styles.photoTileAdd]}
-                onPress={handlePickImage}
-                disabled={pickingImage}
-                accessibilityRole="button"
-                accessibilityLabel="Choose property photos"
-              >
-                {pickingImage ? (
-                  <ActivityIndicator color={Brand.terracotta} />
-                ) : (
-                  <>
-                    <Ionicons name="camera" size={28} color={Brand.gray400} />
-                    <Text style={styles.photoAddText}>Add Photo</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        <PropertyPhotoPicker
+          pickedImages={pickedImages}
+          uploadStates={uploadStates}
+          pickingImage={pickingImage}
+          onPickImage={handlePickImage}
+          onRemoveImage={removeImage}
+          onRetryUpload={(uri) => void uploadImage(uri)}
+          maxPhotos={8}
+        />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Available Amenities</Text>
@@ -840,79 +778,6 @@ const styles = StyleSheet.create({
     color: Brand.navy,
     minWidth: 20,
     textAlign: 'center',
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  photoTile: {
-    width: '23%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    position: 'relative',
-  },
-  photoTileActive: {
-    borderColor: Brand.terracotta,
-    shadowColor: Brand.terracotta,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  photoTileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  removeBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoStatus: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    minHeight: 24,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 3,
-  },
-  photoStatusText: { color: Brand.white, fontSize: 9, fontWeight: '700' },
-  photoRetry: { color: Brand.white, fontSize: 10, fontWeight: '800', textDecorationLine: 'underline' },
-  photoTileAdd: {
-    backgroundColor: Brand.gray100,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Brand.gray300,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  photoAddText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: Brand.gray500,
-    textAlign: 'center',
-  },
-  photoHint: {
-    fontSize: 12,
-    color: Brand.gray500,
-    marginBottom: 12,
-    marginTop: -8,
   },
   publishBtn: {
     backgroundColor: Brand.terracotta,

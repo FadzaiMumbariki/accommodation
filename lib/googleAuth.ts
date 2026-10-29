@@ -44,7 +44,7 @@ export async function signInWithGoogle(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo },
+    options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) throw error;
   if (!data.url) throw new Error('Could not start Google sign-in.');

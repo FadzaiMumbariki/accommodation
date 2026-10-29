@@ -166,13 +166,21 @@ export interface PropertyFilters {
   propertyType?: PropertyType | 'any' | 'all';
   bedrooms?: number | 'any';
   bathrooms?: number | 'any';
+  /** Canonical budget lower bound. Use this — not minPrice. */
   budgetMin?: number;
+  /** Canonical budget upper bound. Use this — not maxPrice. */
   budgetMax?: number;
+  /** @deprecated Use budgetMin instead */
   minPrice?: number;
+  /** @deprecated Use budgetMax instead */
   maxPrice?: number;
+  /** Canonical furnishing filter. Use this — not furnishedOnly. */
   furnished?: boolean | 'any' | 'furnished' | 'unfurnished';
+  /** @deprecated Use furnished instead */
   furnishedOnly?: boolean;
+  /** Canonical amenities list. Use this — not selectedAmenities. */
   amenities?: string[];
+  /** @deprecated Use amenities instead */
   selectedAmenities?: string[];
   availableNowOnly?: boolean;
   searchRadius?: number;

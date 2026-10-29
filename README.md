@@ -68,7 +68,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 ### 3. Run with the live backend
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
-2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql`, `supabase/migrations/005_property_image_ownership.sql`, and `supabase/migrations/006_ai_request_limits.sql`, then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run `supabase/create_test_users.sql` on a real project: it creates accounts with a known password and is for local testing only.
+2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql`, `supabase/migrations/005_property_image_ownership.sql`, and `supabase/migrations/006_ai_request_limits.sql`, then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
 3. Start the app with `npm start`.
 
 ### 4. Enable the AI features

@@ -12,6 +12,7 @@ import {
   Image,
   Pressable,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -19,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useApp } from '../context/AppContext';
 import { aiSearch } from '../lib/ai';
+import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
 import type { Property } from '../types';
@@ -153,6 +155,8 @@ const ResultCard = React.memo(({ property, onPress }: { property: Property; onPr
   </Pressable>
 ));
 
+ResultCard.displayName = 'ResultCard';
+
 // ─── Message Renderers ───────────────────────────────────────────────────────
 
 const AssistantBubble = ({ text }: { text: string }) => (
@@ -238,6 +242,20 @@ export default function AiChatScreen() {
     const trimmed = query.trim();
     if (!trimmed || isLoading) return;
 
+    // The AI Edge Functions enforce a per-user limit that requires a real signed-in account
+    // (auth.uid()). Anonymous and demo sessions cannot use AI, so prompt for sign-in instead
+    // of silently returning keyword matches that look like AI results.
+    if (!(await hasRealAiSession())) {
+      Alert.alert('Sign in to use AI search', aiUnavailableMessage('auth'), [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Sign in',
+          onPress: () => router.push({ pathname: '/login', params: { returnTo: '/ai-chat' } }),
+        },
+      ]);
+      return;
+    }
+
     Keyboard.dismiss();
     setInput('');
 
@@ -262,12 +280,20 @@ export default function AiChatScreen() {
       const top = matched.slice(0, 6);
 
       // 5. Replace thinking with results
+      // If the AI service was attempted but failed, say so rather than passing off the
+      // local keyword fallback as an AI answer.
+      const notice =
+        result.source === 'basic' && result.unavailable
+          ? `\n\n${aiUnavailableMessage(result.unavailable)}`
+          : '';
+
       const intro =
-        top.length > 0
+        (top.length > 0
           ? `Found ${top.length} propert${top.length === 1 ? 'y' : 'ies'} matching "${result.summary || trimmed}":${
               top.length > 3 ? '\n\nHere are the best matches 👇' : ''
             }`
-          : `I couldn't find any properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`;
+          : `I couldn't find any properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`) +
+        notice;
 
       setMessages(prev =>
         prev.map(m =>
@@ -369,7 +395,7 @@ export default function AiChatScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : null
+            ) : undefined
           }
         />
 

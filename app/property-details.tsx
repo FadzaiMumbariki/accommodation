@@ -11,8 +11,6 @@ import {
   Linking,
   Platform,
   Share,
-  TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,6 +31,9 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
 import { ReportDialog } from '../components/common/ReportDialog';
 import { ListingTrustCheckCard } from '../components/property/ListingTrustCheckCard';
+import { ReviewSection } from '../components/property/ReviewSection';
+import { PropertyUtilitiesCard } from '../components/property/PropertyUtilitiesCard';
+import { PropertyContactBar } from '../components/property/PropertyContactBar';
 
 const { width: W } = Dimensions.get('window');
 
@@ -472,77 +473,7 @@ export default function PropertyDetailsScreen() {
 
           {/* Key Utilities & Backup Infrastructure Highlights */}
           <Text style={styles.sectionHeader}>Utilities & Infrastructure</Text>
-          <View style={styles.utilitiesCard}>
-            <View style={styles.utilityItem}>
-              <View style={[styles.utilityIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="water" size={18} color="#0284C7" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.utilityTitle}>Water Supply</Text>
-                <Text style={styles.utilityDesc}>
-                  {(property.amenities || []).some(a => a.toLowerCase().includes('borehole'))
-                    ? 'Borehole Water & Pressure Tank'
-                    : (property.amenities || []).some(a => a.toLowerCase().includes('water'))
-                    ? 'Storage Water Tank Available'
-                    : 'Municipal Council Water'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.utilityDivider} />
-
-            <View style={styles.utilityItem}>
-              <View style={[styles.utilityIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="sunny" size={18} color="#D97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.utilityTitle}>Power Backup</Text>
-                <Text style={styles.utilityDesc}>
-                  {(property.amenities || []).some(a => a.toLowerCase().includes('solar'))
-                    ? 'Solar Power Backup Installed'
-                    : (property.amenities || []).some(a => a.toLowerCase().includes('inverter'))
-                    ? 'Inverter & Battery Backup'
-                    : (property.amenities || []).some(a => a.toLowerCase().includes('generator'))
-                    ? 'Generator Backup Available'
-                    : 'Standard ZESA Electricity'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.utilityDivider} />
-
-            <View style={styles.utilityItem}>
-              <View style={[styles.utilityIconWrap, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="shield-checkmark" size={18} color="#059669" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.utilityTitle}>Property Security</Text>
-                <Text style={styles.utilityDesc}>
-                  {(property.amenities || []).some(a => a.toLowerCase().includes('durawall') || a.toLowerCase().includes('wall'))
-                    ? 'Walled & Gated (Durawall)'
-                    : (property.amenities || []).some(a => a.toLowerCase().includes('security') || a.toLowerCase().includes('gate'))
-                    ? 'Secure Gated Compound'
-                    : 'Standard Boundary Security'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.utilityDivider} />
-
-            <View style={styles.utilityItem}>
-              <View style={[styles.utilityIconWrap, { backgroundColor: '#EEF2FF' }]}>
-                <Ionicons name="wifi" size={18} color="#4F46E5" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.utilityTitle}>Connectivity</Text>
-                <Text style={styles.utilityDesc}>
-                  {(property.amenities || []).some(a => a.toLowerCase().includes('wifi') || a.toLowerCase().includes('fibre') || a.toLowerCase().includes('internet'))
-                    ? 'High-speed Wi-Fi / Fibre Ready'
-                    : 'Mobile Network Coverage'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <PropertyUtilitiesCard amenities={property.amenities || []} />
 
           {/* Amenities Grid */}
           <Text style={styles.sectionHeader}>Amenities</Text>
@@ -582,92 +513,21 @@ export default function PropertyDetailsScreen() {
           />
 
           {/* Reviews Section */}
-          <Text style={styles.sectionHeader}>
-            Reviews {property.reviewsCount ? `(${property.reviewsCount})` : ''}
-          </Text>
-          {reviewsLoading ? (
-            <View style={styles.emptyReviews}>
-              <ActivityIndicator color={Brand.terracotta} />
-            </View>
-          ) : reviewsError ? (
-            <View style={styles.emptyReviews}>
-              <Text style={styles.emptyReviewsText}>{reviewsError}</Text>
-              <TouchableOpacity onPress={() => void retryReviews()} style={styles.reviewRetry}>
-                <Text style={styles.reviewRetryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : reviews.length > 0 ? (
-            <FlatList
-              data={reviews}
-              keyExtractor={(r) => r.id}
-              scrollEnabled={false}
-              renderItem={({ item: r }) => (
-                <View key={r.id} style={styles.reviewCard}>
-                  <View style={styles.reviewHeader}>
-                    <Text style={styles.reviewAuthor}>{r.authorName}</Text>
-                    <Text style={styles.reviewRating}>Rating: {r.rating} / 5</Text>
-                  </View>
-                  <Text style={styles.reviewText}>{r.text}</Text>
-                </View>
-              )}
-            />
-          ) : (
-            <View style={styles.emptyReviews}>
-              <Ionicons name="chatbubble-ellipses-outline" size={32} color={Brand.gray300} />
-              <Text style={styles.emptyReviewsText}>Be the first to review this property!</Text>
-            </View>
-          )}
-          {isSupabaseEnabled && (
-            <View style={styles.reviewForm}>
-              <Text style={styles.reviewFormTitle}>
-                {ownReview ? 'Edit your review' : 'Leave a review'}
-              </Text>
-              <View style={styles.ratingPicker}>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => setReviewRating(star)}
-                    accessibilityLabel={`Rate ${star} out of 5 stars`}
-                    accessibilityRole="button"
-                  >
-                    <Text
-                      style={[
-                        styles.reviewRatingChoice,
-                        star <= displayedReviewRating && styles.reviewRatingChoiceSelected,
-                      ]}
-                    >
-                      {star}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {ownReview && (
-                <Text style={styles.existingReviewText}>Current review: {ownReview.text}</Text>
-              )}
-              <TextInput
-                style={styles.reviewInput}
-                placeholder={ownReview ? 'Update your comment' : 'Share your experience'}
-                placeholderTextColor={Brand.gray400}
-                value={reviewText}
-                onChangeText={setReviewText}
-                multiline
-                maxLength={1000}
-                textAlignVertical="top"
-                accessibilityLabel="Review comment"
-              />
-              <TouchableOpacity
-                style={[styles.reviewSubmit, reviewSubmitting && styles.reviewSubmitDisabled]}
-                onPress={() => void submitReview()}
-                disabled={reviewSubmitting}
-              >
-                {reviewSubmitting
-                  ? <ActivityIndicator color={Brand.white} size="small" />
-                  : <Text style={styles.reviewSubmitText}>
-                      {ownReview ? 'Update review' : 'Submit review'}
-                    </Text>}
-              </TouchableOpacity>
-            </View>
-          )}
+          <ReviewSection
+            reviews={reviews}
+            loading={reviewsLoading}
+            error={reviewsError}
+            reviewsCount={property.reviewsCount}
+            isSupabaseEnabled={isSupabaseEnabled}
+            displayedReviewRating={displayedReviewRating}
+            reviewText={reviewText}
+            reviewSubmitting={reviewSubmitting}
+            ownReview={ownReview}
+            onRetry={() => void retryReviews()}
+            onRatingSelect={setReviewRating}
+            onReviewTextChange={setReviewText}
+            onSubmitReview={() => void submitReview()}
+          />
 
           {/* Landlord Card */}
           <Text style={styles.sectionHeader}>Landlord</Text>
@@ -762,39 +622,15 @@ export default function PropertyDetailsScreen() {
       </ScrollView>
 
       {/* Sticky Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.waBtn}
-          onPress={handleWhatsAppLandlord}
-          activeOpacity={0.8}
-          accessibilityLabel="Chat on WhatsApp"
-          accessibilityRole="button"
-        >
-          <Ionicons name="logo-whatsapp" size={22} color={Brand.white} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.msgBtn} onPress={handleMessage} activeOpacity={0.8}>
-          <Text style={styles.msgBtnText}>Message</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.viewingBtn} onPress={handleBookViewing} activeOpacity={0.85}>
-          <Text style={styles.viewingBtnText}>Book Viewing</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.heartBtn}
-          onPress={handleToggleSaved}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={saved ? `Remove ${property.title} from saved listings` : `Save ${property.title}`}
-        >
-          <Ionicons
-            name={saved ? 'heart' : 'heart-outline'}
-            size={22}
-            color={saved ? '#E5534B' : Brand.navy}
-          />
-        </TouchableOpacity>
-      </View>
+      <PropertyContactBar
+        saved={saved}
+        propertyTitle={property.title}
+        chatStarting={chatStarting}
+        onWhatsApp={handleWhatsAppLandlord}
+        onMessage={handleMessage}
+        onBookViewing={handleBookViewing}
+        onToggleSaved={handleToggleSaved}
+      />
       <ReportDialog
         visible={reportVisible}
         title="Report listing"
@@ -1027,101 +863,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  emptyReviews: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 28,
-    marginBottom: 24,
-    backgroundColor: Brand.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    gap: 8,
-  },
-  emptyReviewsText: {
-    fontSize: 13,
-    color: Brand.gray500,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  reviewRetry: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: Brand.terracotta },
-  reviewRetryText: { color: Brand.white, fontSize: 12, fontWeight: '700' },
-  reviewCard: {
-    backgroundColor: Brand.white,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  reviewAuthor: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Brand.navy,
-  },
-  reviewRating: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  reviewText: {
-    fontSize: 13,
-    color: Brand.gray600,
-    lineHeight: 19,
-  },
-  reviewForm: {
-    backgroundColor: Brand.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    padding: 14,
-    marginBottom: 24,
-  },
-  reviewFormTitle: { color: Brand.navy, fontSize: 15, fontWeight: '700' },
-  ratingPicker: { flexDirection: 'row', gap: 8, marginVertical: 10 },
-  reviewRatingChoice: {
-    minWidth: 40,
-    minHeight: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Brand.gray300,
-    color: Brand.navy,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    overflow: 'hidden',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  reviewRatingChoiceSelected: {
-    backgroundColor: Brand.terracotta,
-    borderColor: Brand.terracotta,
-    color: Brand.white,
-  },
-  existingReviewText: { color: Brand.gray500, fontSize: 12, marginBottom: 8 },
-  reviewInput: {
-    minHeight: 84,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    padding: 12,
-    color: Brand.navy,
-    fontSize: 14,
-  },
-  reviewSubmit: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: Brand.terracotta,
-    marginTop: 10,
-  },
-  reviewSubmitDisabled: { opacity: 0.6 },
-  reviewSubmitText: { color: Brand.white, fontSize: 14, fontWeight: '700' },
   landlordCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1197,116 +938,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Brand.white,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: Brand.gray200,
-    shadowColor: Brand.navy,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  msgBtn: {
-    flex: 1,
-    backgroundColor: Brand.white,
-    borderWidth: 1.5,
-    borderColor: Brand.terracotta,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  msgBtnText: {
-    color: Brand.terracotta,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  viewingBtn: {
-    flex: 1,
-    backgroundColor: Brand.terracotta,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  viewingBtnText: {
-    color: Brand.white,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   landlordActionBtnWhatsApp: {
     backgroundColor: '#25D366',
-  },
-  waBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#25D366',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#25D366',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  heartBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: Brand.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-  },
-  utilitiesCard: {
-    backgroundColor: Brand.white,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  utilityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 6,
-  },
-  utilityIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  utilityTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Brand.navy,
-  },
-  utilityDesc: {
-    fontSize: 12,
-    color: Brand.gray600,
-    marginTop: 1,
-  },
-  utilityDivider: {
-    height: 1,
-    backgroundColor: Brand.gray100,
-    marginVertical: 4,
   },
   safetyAlertCard: {
     flexDirection: 'row',

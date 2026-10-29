@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   brandImba: {
     fontSize: 40,
     fontWeight: '900',
-    color: Brand.terracotta,
+    color: Brand.navy,
     letterSpacing: -0.5,
   },
   brandFind: {

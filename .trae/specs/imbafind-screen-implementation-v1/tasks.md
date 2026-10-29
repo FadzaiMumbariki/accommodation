@@ -1,7 +1,14 @@
 # ImbaFind - Implementation Plan
 
+> **Status: COMPLETE.** All task code is implemented and both quality gates pass:
+> `npx tsc --noEmit` exits 0 and `npx expo lint` reports 0 errors / 0 warnings.
+> The former blockers (`src/` duplicate tree, AppContext naming mismatches, hardcoded
+> dashboard stats, `filteredProperties` furnished/amenities logic) are resolved and
+> verified in code. Manual/visual rubric items (TR-2.2, TR-13.2, AC-11) were not
+> independently re-verified by the agent and remain the user's call.
+
 ## Task 1: Code Health Cleanup (Delete src/, Fix Imports, Buffer polyfill import order)
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: None
 - **Description**:
@@ -16,7 +23,7 @@
 - **Notes**: Quickest win; removes ~36 duplicate lint warnings/errors
 
 ## Task 2: Fix TypeScript Type Errors (AppContext naming mismatches, union types)
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: None
 - **Description**:
@@ -33,7 +40,7 @@
   - `rule` TR-2.2: Heart save tap on PropertyCard does not throw TypeError; console shows no error, state toggles. Evidence: AppContext.savedPropertyIds includes/removes id after tap
 
 ## Task 3: Fix AppContext - Method Naming & Filter Logic (furnished + amenities)
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: Task 2
 - **Description**:
@@ -47,7 +54,7 @@
   - `rule` TR-3.2: Applications tab either removed OR shows a real EmptyState (no hardcoded card). Evidence: screen render shows no hardcoded single card.
 
 ## Task 4: Explore Screen — Wire Up Filter, Sort, List/Map Buttons + Search Improvements
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: Task 2, Task 3
 - **Description**:
@@ -62,7 +69,7 @@
   - `rule` TR-4.2: Type in search finds property by title substring (e.g. search "Modern" → includes "Modern 2 Bedroom House"). Evidence: visible results filtered
 
 ## Task 5: Home Screen - Wire All Dead Buttons (Bell, Search, Popular Cities, Quick Filters)
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: Task 4
 - **Description**:
@@ -77,7 +84,7 @@
   - `rule` TR-5.1: Every interactive element on Home has handler and behaves correctly (bell, search bar row, view all, 4 quick filters, 6 popular cities, cards in carousel, hearts). Evidence: onPress handlers all non-null
 
 ## Task 6: Messages + Chat — Working Search, FAB, Message Persistence, Active Now Visuals
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 2
 - **Description**:
@@ -92,7 +99,7 @@
   - `rule` TR-6.2: Messages search input filters conversation rows when typing a landlord name like "Thandiwe". Evidence: visible rows filter
 
 ## Task 7: Book Viewing Flow — Fix Success + Make Cancel/Confirm Work in My Activity
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 3
 - **Description**:
@@ -105,7 +112,7 @@
   - `rule` TR-7.2: Cancel CTA tap → viewing badge changes to Cancelled. Evidence: visual status badge updates
 
 ## Task 8: Landlord Dashboard — Replace Fake Stats with Real Computed Values
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: Task 3, Task 7
 - **Description**:
@@ -121,7 +128,7 @@
   - `rule` TR-8.2: All 3 quick action chips have onPress that navigates. Evidence: handlers present
 
 ## Task 9: Add Property — Fix Commercial Mismatch, Add Bedsitter Chip, Province Derivation
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 2
 - **Description**:
@@ -135,7 +142,7 @@
   - `rule` TR-9.2: Publish button actually creates a property with correct values (landlord l5, type, city, price). Evidence: after submit properties.length increments by 1 and dashboard Total Listings increments
 
 ## Task 10: Profile & Settings — Persist Toggles (Local), Wire Dead Menu Items, Role Consistency
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 8
 - **Description**:
@@ -150,7 +157,7 @@
   - `rule` TR-10.2: Switch Account Type → Tenant → Landlord pill updates → Landlord menu items visible. Evidence: pill label updates after tap
 
 ## Task 11: Property Details — Share Button, Reviews Fallback, Map Placeholder
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 5
 - **Description**:
@@ -163,7 +170,7 @@
   - `rule` TR-11.1: Share + Back + Save + Message Landlord + Book Viewing all 5 CTAs on Property Details have onPress handlers and show feedback/navigate. Evidence: code diff + manual test
 
 ## Task 12: Post Request — Fix Commercial Chip, Improve Form Validations
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: medium
 - **Depends On**: Task 2
 - **Description**:
@@ -178,7 +185,7 @@
   - `rule` TR-12.2: All property type chip values valid per PropertyType. Evidence: typecheck passes
 
 ## Task 13: Onboarding Slides — Ensure Design Images/Messaging Match 3-Slide Flow
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: low
 - **Depends On**: Task 1
 - **Description**:
@@ -191,7 +198,7 @@
   - `rubric` TR-13.2: Visual match with mockup slide images & layout. Scale 1-5; anchors 1=wrong text/flow 3=close but missing images 5=exact text+images+CTA flow; threshold >=4; Evidence=visual side-by-side comparison
 
 ## Task 14: Run Full Final Verification (lint + tsc + smoke test)
-- **Status**: `pending`
+- **Status**: `completed`
 - **Priority**: high
 - **Depends On**: Tasks 1-13
 - **Description**:

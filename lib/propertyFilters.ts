@@ -49,7 +49,7 @@ export function filterMockProperties(
       ? filters.selectedAmenities
       : filters.amenities ?? [];
     if (requestedAmenities.some(
-      requested => !amenities.some(amenity => amenity.includes(requested.toLowerCase())),
+      (requested: string) => !amenities.some(amenity => amenity.includes(requested.toLowerCase())),
     )) return false;
 
     return true;

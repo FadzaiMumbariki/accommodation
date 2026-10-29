@@ -42,6 +42,9 @@ coverage/
 # ad-hoc scripts
 *.py
 
+# local-only test seed data (contains shared test credentials)
+docs/testing/
+
 # generated native folders
 /ios
 /android

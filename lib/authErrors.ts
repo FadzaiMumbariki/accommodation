@@ -63,6 +63,16 @@ export function classifyAuthError(rawMessage: string | null | undefined, status?
       message: 'New account creation is currently disabled for this app. Please try again later.',
     };
   }
+  if (
+    msg.includes('provider is not enabled') ||
+    msg.includes('unsupported provider') ||
+    msg.includes('provider is disabled')
+  ) {
+    return {
+      title: 'This sign-in option is unavailable',
+      message: 'Google sign-in has not been enabled for this app yet. Please sign in with your email and password instead.',
+    };
+  }
   if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('could not connect') || msg.includes('timeout')) {
     return {
       title: 'No connection',

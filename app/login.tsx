@@ -22,7 +22,7 @@ import type { UserRole } from '../types';
 
 export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'login' | 'signup' }) {
   const { initialTab, returnTo } = useLocalSearchParams<{ initialTab?: string; returnTo?: string }>();
-  const { signIn, signUp, resetPassword, signInAsDemo, signInWithGoogle, isSupabaseEnabled } = useAuth();
+  const { signIn, signUp, resetPassword, signInWithGoogle, isSupabaseEnabled } = useAuth();
   const { setUserRole, userRole } = useApp();
 
   const [tab, setTab] = useState<'login' | 'signup'>(
@@ -47,14 +47,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const [nameFocused, setNameFocused] = useState(false);
   const [phoneFocused, setPhoneFocused] = useState(false);
 
-  const handleDemoLogin = async (demoRole: UserRole) => {
-    setLoading(true);
-    await setUserRole(demoRole);
-    await signInAsDemo(demoRole);
-    setLoading(false);
-    router.replace(returnTo?.startsWith('/') ? (returnTo as Href) : '/(tabs)');
-  };
-
   const handleLogin = async () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
@@ -67,34 +59,8 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     setLoading(false);
 
     if (error) {
-      const lower = error.toLowerCase();
-      if (lower.includes('invalid login credentials') || lower.includes('invalid credentials') || lower.includes('rate limit')) {
-        Alert.alert(
-          'Sign In Issue',
-          `Could not verify "${cleanEmail}".\n\nWould you like to sign in as a Demo User to test the app right now, or create a new account?`,
-          [
-            {
-              text: 'Login as Demo Tenant',
-              onPress: () => handleDemoLogin('tenant'),
-            },
-            {
-              text: 'Login as Demo Landlord',
-              onPress: () => handleDemoLogin('landlord'),
-            },
-            {
-              text: 'Create Account',
-              onPress: () => setTab('signup'),
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-          ],
-        );
-      } else {
-        const friendly = classifyAuthError(error);
-        Alert.alert(friendly.title, friendly.message);
-      }
+      const friendly = classifyAuthError(error);
+      Alert.alert(friendly.title, friendly.message);
       return;
     }
 
@@ -163,11 +129,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     ]);
   };
 
-  const handleGuestAccess = (targetRole: UserRole = 'tenant') => {
-    void setUserRole(targetRole);
-    router.replace('/(tabs)');
-  };
-
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
@@ -192,7 +153,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Bar with Brand and Guest button */}
+          {/* Top Bar with Brand */}
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
               <View style={styles.logoBadge}>
@@ -203,11 +164,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
                 <Text style={{ color: Brand.terracotta }}>Find</Text>
               </Text>
             </View>
-
-            <TouchableOpacity style={styles.guestBtnTop} onPress={() => handleGuestAccess('tenant')}>
-              <Text style={styles.guestBtnTopText}>Browse as Guest</Text>
-              <Ionicons name="chevron-forward" size={14} color={Brand.gray500} />
-            </TouchableOpacity>
           </View>
 
           {/* Heading */}
@@ -253,67 +209,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
                 Create Account
               </Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Quick 1-Tap Demo Logins */}
-          <View style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  backgroundColor: Brand.white,
-                  paddingVertical: 12,
-                  paddingHorizontal: 8,
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor: Brand.terracotta,
-                  shadowColor: Brand.navy,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-                onPress={() => handleDemoLogin('tenant')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="flash" size={16} color={Brand.terracotta} />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: Brand.terracotta }}>
-                  Demo Tenant
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  backgroundColor: Brand.white,
-                  paddingVertical: 12,
-                  paddingHorizontal: 8,
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor: Brand.navy,
-                  shadowColor: Brand.navy,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.05,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-                onPress={() => handleDemoLogin('landlord')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="business" size={16} color={Brand.navy} />
-                <Text style={{ fontSize: 13, fontWeight: '700', color: Brand.navy }}>
-                  Demo Landlord
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* ── Form Section ── */}
@@ -526,32 +421,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
                 </TouchableOpacity>
               </>
             )}
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue without account</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity
-                style={[styles.guestActionBtn, { flex: 1 }]}
-                onPress={() => handleGuestAccess('tenant')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="compass-outline" size={18} color={Brand.navy} />
-                <Text style={styles.guestActionBtnText}>Browse as Tenant</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.guestActionBtn, { flex: 1 }]}
-                onPress={() => handleGuestAccess('landlord')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="business-outline" size={18} color={Brand.terracotta} />
-                <Text style={styles.guestActionBtnText}>Try as Landlord</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -597,22 +466,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
-  },
-  guestBtnTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Brand.white,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-  },
-  guestBtnTopText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Brand.gray600,
   },
   headerWrap: {
     marginBottom: 20,
@@ -789,22 +642,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: Brand.gray400,
-  },
-  guestActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Brand.white,
-    borderWidth: 1.5,
-    borderColor: Brand.gray300,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  guestActionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Brand.navy,
   },
   googleBtn: {
     flexDirection: 'row',
