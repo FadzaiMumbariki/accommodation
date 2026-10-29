@@ -75,6 +75,22 @@ describe('googleAuth', () => {
       });
     });
 
+    it('exchanges a code only once when the listener and auth session both receive it', async () => {
+      (supabase!.auth.exchangeCodeForSession as any).mockResolvedValueOnce({
+        data: { session: {} as any, user: {} as any },
+        error: null,
+      });
+
+      const url = 'imbafind://?code=shared-code-789';
+      const [fromListener, fromSession] = await Promise.all([
+        handleAuthRedirectUrl(url),
+        completeFromRedirectUrl(url),
+      ]);
+      expect(fromListener).toBe(true);
+      expect(fromSession).toBe(true);
+      expect(supabase!.auth.exchangeCodeForSession).toHaveBeenCalledTimes(1);
+    });
+
     it('throws decoded error when error param is returned', async () => {
       await expect(
         completeFromRedirectUrl('imbafind://?error=access_denied&error_description=User+denied+consent')

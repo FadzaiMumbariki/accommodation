@@ -68,8 +68,10 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 ### 3. Run with the live backend
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
-2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then `supabase/migrations/004_push_tokens.sql`, `supabase/migrations/005_property_image_ownership.sql`, and `supabase/migrations/006_ai_request_limits.sql`, then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
-3. Start the app with `npm start`.
+2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then every file in `supabase/migrations/` from `003_reports.sql` up to the highest number, in order (`011_google_oauth_profile.sql` and `012_signup_phone.sql` install the sign-up trigger that creates profiles for email and Google accounts), then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
+3. In the Supabase dashboard, open **Authentication → URL Configuration**. Set the Site URL to `imbafind://` and add `imbafind://**`, `exp://**` and `http://localhost:8081/**` as redirect URLs, so that confirmation, password-reset and Google links open the app.
+4. Under **Authentication → Providers → Email**, either turn off "Confirm email", or set up custom SMTP under **Project Settings → Authentication**. Supabase's built-in email service only sends a few emails per hour, so sign-ups that need a confirmation email start failing with a rate-limit error after a couple of attempts.
+5. Start the app with `npm start`. Without `.env.local` the app runs in mock mode: email sign-in and sign-up are unavailable, and only the "Try as Tenant / Landlord" demo buttons work.
 
 ### 4. Enable the AI features
 
