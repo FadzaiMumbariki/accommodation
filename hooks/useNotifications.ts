@@ -30,7 +30,12 @@ export async function requestAndSavePushToken(
 
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-  if (!projectId) throw new Error('EAS project ID is missing from the app configuration.');
+  if (!projectId) {
+    console.warn(
+      '[useNotifications] EAS project ID is missing. Set EXPO_PUBLIC_EAS_PROJECT_ID or run "npx eas project:init" to enable remote push notifications.',
+    );
+    return null;
+  }
 
   const tokenResult = await notifications.getExpoPushTokenAsync?.({ projectId });
   const token = tokenResult?.data;

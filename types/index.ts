@@ -56,6 +56,7 @@ export interface Property {
   rating?: number;
   reviewsCount?: number;
   coordinates?: { lat: number; lng: number };
+  distanceKm?: number;
 }
 
 export interface Landlord {
@@ -164,6 +165,9 @@ export interface PropertyFilters {
   city?: string;
   suburb?: string;
   propertyType?: PropertyType | 'any' | 'all';
+  propertyTypes?: PropertyType[];
+  nearby?: boolean;
+  referenceCoordinates?: { latitude: number; longitude: number };
   bedrooms?: number | 'any';
   bathrooms?: number | 'any';
   /** Canonical budget lower bound. Use this — not minPrice. */

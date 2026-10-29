@@ -18,15 +18,16 @@ import * as Haptics from 'expo-haptics';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Brand } from '../../constants/Colors';
-import type { Property, PropertyFilters, SearchFilters } from '../../types';
+import type { Property, PropertyFilters, PropertyType, SearchFilters } from '../../types';
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { aiSearch } from '../../lib/ai';
 import { hasRealAiSession, aiUnavailableMessage } from '../../lib/aiAvailability';
+import { filterMockProperties } from '../../lib/propertyFilters';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
-const SORT_OPTIONS = ['Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
+const SORT_OPTIONS = ['Nearby', 'Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
 
 
 export default function ExploreScreen() {
@@ -89,9 +90,40 @@ export default function ExploreScreen() {
   }, [allCities, q]);
 
   useEffect(() => {
-    const search = q.trim() || undefined;
-    if (filters.search === search) return;
-    const timeout = setTimeout(() => setFilters({ ...filters, search }), 350);
+    const trimmed = q.trim();
+    const search = trimmed || undefined;
+    const isNearby = /\b(?:near|nearby|close|around)\b/i.test(trimmed);
+
+    // Detect multiple property types like "houses or apartments"
+    const types: PropertyType[] = [];
+    if (/\bhouses?\b/i.test(trimmed)) types.push('house');
+    if (/\b(?:apartments?|flats?)\b/i.test(trimmed)) {
+      if (!types.includes('apartment')) types.push('apartment');
+      if (!types.includes('flat')) types.push('flat');
+    }
+    if (/\brooms?\b/i.test(trimmed)) types.push('room');
+    if (/\bcottages?\b/i.test(trimmed)) types.push('cottage');
+    if (/\bbedsitters?\b/i.test(trimmed)) types.push('bedsitter');
+
+    const nextNearby = isNearby || filters.nearby;
+    const nextTypes = types.length > 0 ? types : filters.propertyTypes;
+
+    if (
+      filters.search === search &&
+      filters.nearby === nextNearby &&
+      JSON.stringify(filters.propertyTypes) === JSON.stringify(nextTypes)
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setFilters({
+        ...filters,
+        search,
+        nearby: nextNearby,
+        propertyTypes: nextTypes,
+      });
+    }, 350);
     return () => clearTimeout(timeout);
   }, [filters, q, setFilters]);
 
@@ -106,30 +138,33 @@ export default function ExploreScreen() {
   const activeCity = filters.city;
 
   const results = useMemo(() => {
-    if (isSupabaseEnabled) return filteredProperties;
-    const lower = q.toLowerCase().trim();
-    return filteredProperties.filter(p => {
-      if (!p.available) return false;
-      if (!lower) return true;
-      return (
-        p.city.toLowerCase().includes(lower) ||
-        p.suburb.toLowerCase().includes(lower) ||
-        p.title.toLowerCase().includes(lower) ||
-        p.propertyType.toLowerCase().includes(lower) ||
-        (p.description || '').toLowerCase().includes(lower)
-      );
+    const baseList = isSupabaseEnabled && filteredProperties.length > 0 ? filteredProperties : properties;
+    return filterMockProperties(baseList, {
+      ...filters,
+      search: q.trim() || filters.search,
+      nearby: sortOption === 'Nearby' || filters.nearby,
     });
-  }, [filteredProperties, isSupabaseEnabled, q]);
+  }, [filteredProperties, isSupabaseEnabled, properties, filters, q, sortOption]);
 
-  const sortedResults = useMemo(() =>
-    [...results].sort((a, b) => {
-      switch (sortOption) {
-        case 'Price Low→High': return a.price - b.price;
-        case 'Price High→Low': return b.price - a.price;
-        case 'Rating': return (b.rating ?? 0) - (a.rating ?? 0);
-        default: return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime();
+  const sortedResults = useMemo(() => {
+    const isNearbyQuery = Boolean(filters.nearby || /\b(?:near|nearby|close|around)\b/i.test(q));
+    const effectiveSort = sortOption === 'Newest' && isNearbyQuery ? 'Nearby' : sortOption;
+
+    return [...results].sort((a, b) => {
+      switch (effectiveSort) {
+        case 'Nearby':
+          return (a.distanceKm ?? 999999) - (b.distanceKm ?? 999999);
+        case 'Price Low→High':
+          return a.price - b.price;
+        case 'Price High→Low':
+          return b.price - a.price;
+        case 'Rating':
+          return (b.rating ?? 0) - (a.rating ?? 0);
+        default:
+          return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime();
       }
-    }), [results, sortOption]);
+    });
+  }, [filters.nearby, q, results, sortOption]);
 
 
   const handleSort = () => {
@@ -208,10 +243,16 @@ export default function ExploreScreen() {
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
-            placeholder="Enter city e.g. Masvingo, Harare…"
+            placeholder="Search nearby houses, apartments, cities…"
             placeholderTextColor={Brand.gray400}
             value={q}
-            onChangeText={text => { setQ(text); setShowSuggestions(text.trim().length > 0); }}
+            onChangeText={text => {
+              setQ(text);
+              setShowSuggestions(text.trim().length > 0);
+              if (/\b(?:near|nearby|close|around)\b/i.test(text) && sortOption !== 'Nearby') {
+                setSortOption('Nearby');
+              }
+            }}
             onFocus={() => q.trim().length > 0 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             returnKeyType="search"
@@ -278,6 +319,26 @@ export default function ExploreScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel={`Clear ${activeCity} location filter`}
+          >
+            <Ionicons name="close" size={16} color={Brand.gray500} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {(sortOption === 'Nearby' || filters.nearby) && !activeCity && (
+        <View style={styles.cityBanner}>
+          <Ionicons name="navigate-circle" size={16} color={Brand.terracotta} />
+          <Text style={styles.cityBannerText}>
+            Showing <Text style={styles.cityBannerBold}>{sortedResults.length}</Text> nearby listings (sorted by distance)
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              setSortOption('Newest');
+              setFilters({ ...filters, nearby: undefined });
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear nearby sort"
           >
             <Ionicons name="close" size={16} color={Brand.gray500} />
           </TouchableOpacity>

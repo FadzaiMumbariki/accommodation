@@ -1,6 +1,8 @@
 import type { PropertyFilters, PropertyType } from '../types';
 import type { AiUnavailableReason } from './aiAvailability';
 
+import { SUBURB_COORDINATES, SUBURB_TO_CITY, resolveLocationCoordinates } from './coordinates';
+
 export const PROPERTY_TYPES: PropertyType[] = ['house', 'apartment', 'room', 'cottage', 'flat', 'bedsitter'];
 
 export interface AiSearchResult {
@@ -28,11 +30,38 @@ export function sanitizeAiFilters(raw: unknown, knownCities: string[]): Omit<AiS
     if (match) filters.city = match;
   }
   if (typeof input.suburb === 'string' && input.suburb.trim() && input.suburb.length <= 40) {
-    filters.suburb = input.suburb.trim();
+    const trimmed = input.suburb.trim();
+    filters.suburb = trimmed;
+    // Auto-fill city if suburb is known and city was omitted
+    if (!filters.city) {
+      const parentCity = SUBURB_TO_CITY[trimmed.toLowerCase()];
+      if (parentCity && knownCities.some(c => c.toLowerCase() === parentCity.toLowerCase())) {
+        filters.city = parentCity;
+      }
+    }
   }
-  if (typeof input.propertyType === 'string' && PROPERTY_TYPES.includes(input.propertyType as PropertyType)) {
+
+  // Handle multiple property types (e.g. "houses or apartments")
+  if (Array.isArray(input.propertyTypes)) {
+    const valid = input.propertyTypes.filter(
+      (t): t is PropertyType => typeof t === 'string' && PROPERTY_TYPES.includes(t as PropertyType),
+    );
+    if (valid.length > 0) {
+      filters.propertyTypes = valid;
+      filters.propertyType = valid[0];
+    }
+  } else if (typeof input.propertyType === 'string' && PROPERTY_TYPES.includes(input.propertyType as PropertyType)) {
     filters.propertyType = input.propertyType as PropertyType;
   }
+
+  if (input.nearby === true) {
+    filters.nearby = true;
+    const coords = resolveLocationCoordinates(undefined, filters.city, filters.suburb);
+    if (coords) {
+      filters.referenceCoordinates = coords;
+    }
+  }
+
   const bedrooms = asNumber(input.bedrooms);
   if (bedrooms !== undefined) filters.bedrooms = clamp(Math.round(bedrooms), 0, 10);
   const bathrooms = asNumber(input.bathrooms);
@@ -61,8 +90,14 @@ export function sanitizeAiFilters(raw: unknown, knownCities: string[]): Omit<AiS
 
 export function describeFilters(f: PropertyFilters): string {
   const parts: string[] = [];
+  if (f.nearby) parts.push('nearby');
   if (typeof f.bedrooms === 'number') parts.push(`${f.bedrooms}+ bedrooms`);
-  if (f.propertyType && f.propertyType !== 'any' && f.propertyType !== 'all') parts.push(f.propertyType);
+  if (f.propertyTypes && f.propertyTypes.length > 1) {
+    const names = f.propertyTypes.map(t => `${t}s`);
+    parts.push(names.join(' or '));
+  } else if (f.propertyType && f.propertyType !== 'any' && f.propertyType !== 'all') {
+    parts.push(f.propertyType);
+  }
   if (f.suburb || f.city) parts.push(`in ${[f.suburb, f.city].filter(Boolean).join(', ')}`);
   if (f.budgetMin != null && f.budgetMax != null) parts.push(`$${f.budgetMin}-$${f.budgetMax}/mo`);
   else if (f.budgetMax != null) parts.push(`up to $${f.budgetMax}/mo`);
@@ -77,11 +112,49 @@ export function parseQueryLocally(query: string, knownCities: string[]): Omit<Ai
   const text = query.toLowerCase();
   const raw: Record<string, unknown> = {};
 
+  // Check for nearby/proximity intent
+  if (/\b(?:near|nearby|near\s*me|around\s*me|close\s*to|in\s*the\s*area|proximity)\b/.test(text)) {
+    raw.nearby = true;
+  }
+
+  // Detect city
   const city = knownCities.find(c => text.includes(c.toLowerCase()));
   if (city) raw.city = city;
 
-  const type = PROPERTY_TYPES.find(t => new RegExp(`\\b${t}s?\\b`).test(text));
-  if (type) raw.propertyType = type;
+  // Detect Zimbabwean suburb from coordinates database
+  for (const suburbName of Object.keys(SUBURB_COORDINATES)) {
+    const pattern = new RegExp(`\\b${suburbName}\\b`, 'i');
+    if (pattern.test(text)) {
+      raw.suburb = suburbName.charAt(0).toUpperCase() + suburbName.slice(1);
+      if (!raw.city && SUBURB_TO_CITY[suburbName]) {
+        raw.city = SUBURB_TO_CITY[suburbName];
+      }
+      break;
+    }
+  }
+
+  // Detect all mentioned property types (e.g. "houses or apartments")
+  const detectedTypes: PropertyType[] = [];
+  for (const t of PROPERTY_TYPES) {
+    if (new RegExp(`\\b${t}s?\\b`).test(text)) {
+      detectedTypes.push(t);
+    }
+  }
+
+  // Treat 'apartment' and 'flat' as related if apartments are requested
+  if (detectedTypes.includes('apartment') && !detectedTypes.includes('flat')) {
+    detectedTypes.push('flat');
+  } else if (detectedTypes.includes('flat') && !detectedTypes.includes('apartment')) {
+    detectedTypes.push('apartment');
+  }
+
+  if (detectedTypes.length > 1) {
+    raw.propertyTypes = detectedTypes;
+    raw.propertyType = detectedTypes[0];
+  } else if (detectedTypes.length === 1) {
+    raw.propertyType = detectedTypes[0];
+    raw.propertyTypes = [detectedTypes[0]];
+  }
 
   const beds = text.match(/(\d+)\s*(?:-|\s)?\s*(?:bed|bedroom|br)\b/);
   if (beds) raw.bedrooms = Number(beds[1]);

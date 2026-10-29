@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../../constants/Colors';
+import { formatDistance } from '../../lib/coordinates';
 import type { Property } from '../../types';
 
 interface PropertyExploreCardProps {
@@ -59,11 +60,19 @@ export const PropertyExploreCard = React.memo(function PropertyExploreCard({
             ${property.price}
             <Text style={styles.perMonth}>/mo</Text>
           </Text>
-          {property.rating ? (
-            <View style={styles.ratingBadge}>
-              <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
-            </View>
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
+              <View style={styles.distanceBadge}>
+                <Ionicons name="navigate-outline" size={10} color={Brand.terracotta} />
+                <Text style={styles.distanceText}>{formatDistance(property.distanceKm)}</Text>
+              </View>
+            )}
+            {property.rating ? (
+              <View style={styles.ratingBadge}>
+                <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
         <Text style={styles.cardTitle} numberOfLines={1}>
@@ -273,5 +282,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: Brand.white,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Brand.terracotta + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  distanceText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Brand.terracotta,
   },
 });

@@ -14,6 +14,7 @@ import { Property } from '../../types';
 import { Brand } from '../../constants/Colors';
 import { AvailabilityBadge } from '../common/AvailabilityBadge';
 import { useApp } from '../../context/AppContext';
+import { formatDistance } from '../../lib/coordinates';
 
 interface PropertyCardProps {
   property: Property;
@@ -114,6 +115,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               {property.province}
             </Text>
           </View>
+          {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
+            <View style={styles.cardDistanceBadge}>
+              <Ionicons name="navigate-outline" size={10} color={Brand.terracotta} />
+              <Text style={styles.cardDistanceText}>{formatDistance(property.distanceKm)}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.specsRow}>
@@ -406,6 +413,21 @@ const styles = StyleSheet.create({
     color: Brand.gray400,
     fontWeight: '400',
     lineHeight: 15,
+  },
+  cardDistanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Brand.terracotta + '15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'center',
+  },
+  cardDistanceText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Brand.terracotta,
   },
   specsRow: {
     flexDirection: 'row',

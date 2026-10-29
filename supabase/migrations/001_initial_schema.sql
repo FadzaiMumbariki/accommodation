@@ -21,12 +21,15 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
+drop policy if exists "Users can read own profile" on profiles;
 create policy "Users can read own profile"
   on profiles for select using (auth.uid() = id);
 
+drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can update own profile"
   on profiles for update using (auth.uid() = id);
 
+drop policy if exists "Users can insert own profile" on profiles;
 create policy "Users can insert own profile"
   on profiles for insert with check (auth.uid() = id);
 
@@ -82,15 +85,19 @@ create table if not exists properties (
 
 alter table properties enable row level security;
 
+drop policy if exists "Anyone can read available properties" on properties;
 create policy "Anyone can read available properties"
   on properties for select using (available = true or landlord_id = auth.uid());
 
+drop policy if exists "Landlords can insert properties" on properties;
 create policy "Landlords can insert properties"
   on properties for insert with check (auth.uid() = landlord_id);
 
+drop policy if exists "Landlords can update own properties" on properties;
 create policy "Landlords can update own properties"
   on properties for update using (auth.uid() = landlord_id);
 
+drop policy if exists "Landlords can delete own properties" on properties;
 create policy "Landlords can delete own properties"
   on properties for delete using (auth.uid() = landlord_id);
 
@@ -102,6 +109,7 @@ begin
 end;
 $$;
 
+drop trigger if exists properties_updated_at on properties;
 create trigger properties_updated_at
   before update on properties
   for each row execute function set_updated_at();
@@ -117,6 +125,7 @@ create table if not exists saved_properties (
 
 alter table saved_properties enable row level security;
 
+drop policy if exists "Users manage own saved properties" on saved_properties;
 create policy "Users manage own saved properties"
   on saved_properties for all using (auth.uid() = user_id);
 
@@ -143,12 +152,15 @@ create table if not exists accommodation_requests (
 
 alter table accommodation_requests enable row level security;
 
+drop policy if exists "Users manage own requests" on accommodation_requests;
 create policy "Users manage own requests"
   on accommodation_requests for all using (auth.uid() = user_id);
 
+drop policy if exists "Landlords can read active requests" on accommodation_requests;
 create policy "Landlords can read active requests"
   on accommodation_requests for select using (status = 'active');
 
+drop trigger if exists accommodation_requests_updated_at on accommodation_requests;
 create trigger accommodation_requests_updated_at
   before update on accommodation_requests
   for each row execute function set_updated_at();
@@ -170,15 +182,19 @@ create table if not exists viewing_requests (
 
 alter table viewing_requests enable row level security;
 
+drop policy if exists "Tenants manage own viewings" on viewing_requests;
 create policy "Tenants manage own viewings"
   on viewing_requests for all using (auth.uid() = tenant_id);
 
+drop policy if exists "Landlords can see viewings for their properties" on viewing_requests;
 create policy "Landlords can see viewings for their properties"
   on viewing_requests for select using (auth.uid() = landlord_id);
 
+drop policy if exists "Landlords can update viewing status" on viewing_requests;
 create policy "Landlords can update viewing status"
   on viewing_requests for update using (auth.uid() = landlord_id);
 
+drop trigger if exists viewing_requests_updated_at on viewing_requests;
 create trigger viewing_requests_updated_at
   before update on viewing_requests
   for each row execute function set_updated_at();
@@ -199,6 +215,7 @@ create table if not exists conversations (
 
 alter table conversations enable row level security;
 
+drop policy if exists "Participants can access conversations" on conversations;
 create policy "Participants can access conversations"
   on conversations for all using (auth.uid() = tenant_id or auth.uid() = landlord_id);
 
@@ -215,6 +232,7 @@ create table if not exists messages (
 
 alter table messages enable row level security;
 
+drop policy if exists "Conversation participants can access messages" on messages;
 create policy "Conversation participants can access messages"
   on messages for all using (
     exists (
@@ -238,11 +256,14 @@ create table if not exists reviews (
 
 alter table reviews enable row level security;
 
+drop policy if exists "Anyone can read reviews" on reviews;
 create policy "Anyone can read reviews"
   on reviews for select using (true);
 
+drop policy if exists "Tenants can write reviews" on reviews;
 create policy "Tenants can write reviews"
   on reviews for insert with check (auth.uid() = author_id);
 
+drop policy if exists "Authors can update own reviews" on reviews;
 create policy "Authors can update own reviews"
   on reviews for update using (auth.uid() = author_id);

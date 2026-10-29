@@ -17,7 +17,7 @@ export const DEFAULT_MAP_CENTER: Coordinates = {
 };
 
 // Suburb-specific coordinates (Harare, Bulawayo, etc.)
-const SUBURB_COORDINATES: Record<string, Coordinates> = {
+export const SUBURB_COORDINATES: Record<string, Coordinates> = {
   // Harare suburbs
   'avondale': { latitude: -17.7885, longitude: 31.0384 },
   'avondale west': { latitude: -17.7820, longitude: 31.0290 },
@@ -84,7 +84,7 @@ const SUBURB_COORDINATES: Record<string, Coordinates> = {
 };
 
 // City-level coordinates fallback
-const CITY_COORDINATES: Record<string, Coordinates> = {
+export const CITY_COORDINATES: Record<string, Coordinates> = {
   'harare': { latitude: -17.8252, longitude: 31.0335 },
   'chitungwiza': { latitude: -18.0127, longitude: 31.0756 },
   'bulawayo': { latitude: -20.1500, longitude: 28.5833 },
@@ -104,6 +104,153 @@ const CITY_COORDINATES: Record<string, Coordinates> = {
   'kariba': { latitude: -16.5167, longitude: 28.8000 },
   'chegutu': { latitude: -18.1306, longitude: 30.1408 },
 };
+
+/**
+ * Mapping of known Zimbabwean suburbs to their parent city.
+ */
+export const SUBURB_TO_CITY: Record<string, string> = {
+  // Harare
+  'avondale': 'Harare',
+  'avondale west': 'Harare',
+  'mount pleasant': 'Harare',
+  'belgravia': 'Harare',
+  'borrowdale': 'Harare',
+  'borrowdale west': 'Harare',
+  'borrowdale brook': 'Harare',
+  'eastlea': 'Harare',
+  'milton park': 'Harare',
+  'alexandra park': 'Harare',
+  'harare cbd': 'Harare',
+  'marlborough': 'Harare',
+  'westgate': 'Harare',
+  'glen view': 'Harare',
+  'highfield': 'Harare',
+  'mabelreign': 'Harare',
+  'greendale': 'Harare',
+  'hatfield': 'Harare',
+  'waterfalls': 'Harare',
+  'warren park': 'Harare',
+  'mbare': 'Harare',
+  'ruwa': 'Harare',
+
+  // Chitungwiza
+  'chitungwiza': 'Chitungwiza',
+  'st marys': 'Chitungwiza',
+  'seke': 'Chitungwiza',
+  'unit l': 'Chitungwiza',
+  'zengeni': 'Chitungwiza',
+
+  // Bulawayo
+  'hillside': 'Bulawayo',
+  'kumalo': 'Bulawayo',
+  'khumalo': 'Bulawayo',
+  'suburbs': 'Bulawayo',
+  'morningside': 'Bulawayo',
+  'bradfield': 'Bulawayo',
+  'woodville': 'Bulawayo',
+  'cowdray park': 'Bulawayo',
+  'nkulumane': 'Bulawayo',
+  'luveve': 'Bulawayo',
+  'pumula': 'Bulawayo',
+  'makokoba': 'Bulawayo',
+  'waterford': 'Bulawayo',
+  'riverside': 'Bulawayo',
+  'nketa': 'Bulawayo',
+  'sunningdale': 'Bulawayo',
+  'bulawayo cbd': 'Bulawayo',
+
+  // Gweru
+  'daylesford': 'Gweru',
+  'harben park': 'Gweru',
+  'lundi park': 'Gweru',
+  'mkoba': 'Gweru',
+  'ascot': 'Gweru',
+  'senga': 'Gweru',
+  'southdowns': 'Gweru',
+  'gweru cbd': 'Gweru',
+
+  // Mutare
+  'chikanga': 'Mutare',
+  'dangamvura': 'Mutare',
+  'sakubva': 'Mutare',
+  'murambi': 'Mutare',
+  'hobhouse': 'Mutare',
+  'yeovil': 'Mutare',
+  'mutare cbd': 'Mutare',
+
+  // Masvingo
+  'rhodene': 'Masvingo',
+  'mucheke': 'Masvingo',
+  'rujeko': 'Masvingo',
+  'target kopje': 'Masvingo',
+  'masvingo cbd': 'Masvingo',
+
+  // Chinhoyi
+  'chikonohono': 'Chinhoyi',
+  'cold stream': 'Chinhoyi',
+  'chinhoyi cbd': 'Chinhoyi',
+};
+
+/**
+ * Calculates Haversine distance between two coordinates in kilometers.
+ */
+export function calculateDistanceKm(coord1: Coordinates, coord2: Coordinates): number {
+  const R = 6371; // Earth radius in kilometers
+  const dLat = (coord2.latitude - coord1.latitude) * (Math.PI / 180);
+  const dLon = (coord2.longitude - coord1.longitude) * (Math.PI / 180);
+  const lat1 = coord1.latitude * (Math.PI / 180);
+  const lat2 = coord2.latitude * (Math.PI / 180);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const km = R * c;
+
+  return Math.round(km * 10) / 10;
+}
+
+/**
+ * Formats a distance in kilometers to a user-friendly string (e.g. "800m away" or "2.4 km away").
+ */
+export function formatDistance(km?: number | null): string {
+  if (km == null || !Number.isFinite(km)) return '';
+  if (km < 1) {
+    const meters = Math.max(50, Math.round(km * 1000));
+    return `${meters}m away`;
+  }
+  return `${km.toFixed(1)} km away`;
+}
+
+/**
+ * Resolves a coordinate reference from a free text query, city, or suburb.
+ */
+export function resolveLocationCoordinates(
+  queryOrLocation?: string,
+  city?: string,
+  suburb?: string,
+): Coordinates | null {
+  if (suburb) {
+    const norm = suburb.trim().toLowerCase();
+    if (SUBURB_COORDINATES[norm]) return SUBURB_COORDINATES[norm];
+  }
+  if (city) {
+    const norm = city.trim().toLowerCase();
+    if (CITY_COORDINATES[norm]) return CITY_COORDINATES[norm];
+  }
+  if (queryOrLocation) {
+    const norm = queryOrLocation.trim().toLowerCase();
+    // Suburb match
+    for (const [sub, coords] of Object.entries(SUBURB_COORDINATES)) {
+      if (norm.includes(sub)) return coords;
+    }
+    // City match
+    for (const [c, coords] of Object.entries(CITY_COORDINATES)) {
+      if (norm.includes(c)) return coords;
+    }
+  }
+  return null;
+}
 
 /**
  * Resolves latitude and longitude for a property based on its suburb, city, and a pseudo-hash
@@ -136,3 +283,28 @@ export function getPropertyCoordinates(
 
   return base;
 }
+
+/**
+ * Sorts an array of properties by proximity to reference coordinates.
+ * Attaches the calculated `distanceKm` to each property.
+ */
+export function sortByProximity<T extends { city: string; suburb: string; id?: string; coordinates?: { lat: number; lng: number } }>(
+  items: T[],
+  referenceCoords: Coordinates,
+  maxDistanceKm?: number,
+): (T & { distanceKm: number })[] {
+  const withDistance = items.map(item => {
+    const itemCoords: Coordinates = item.coordinates
+      ? { latitude: item.coordinates.lat, longitude: item.coordinates.lng }
+      : getPropertyCoordinates(item.city, item.suburb, item.id || '');
+    const distanceKm = calculateDistanceKm(referenceCoords, itemCoords);
+    return { ...item, distanceKm };
+  });
+
+  const filtered = typeof maxDistanceKm === 'number' && maxDistanceKm > 0
+    ? withDistance.filter(i => i.distanceKm <= maxDistanceKm)
+    : withDistance;
+
+  return filtered.sort((a, b) => a.distanceKm - b.distanceKm);
+}
+

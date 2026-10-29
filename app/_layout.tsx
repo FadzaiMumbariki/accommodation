@@ -11,6 +11,9 @@ import { Brand } from '../constants/Colors';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { installErrorReporting } from '../lib/errorReporting';
 import { useNotifications } from '../hooks/useNotifications';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 LogBox.ignoreLogs([
   "The action 'ROUTE_NAMES_CHANGED'",
@@ -73,6 +76,8 @@ function AppShell() {
         <Stack.Screen name="profile-edit" options={{ presentation: 'card' }} />
         <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
         <Stack.Screen name="ai-chat" options={{ presentation: 'card' }} />
+        <Stack.Screen name="admin-verifications" options={{ presentation: 'card' }} />
+        <Stack.Screen name="reset-password" options={{ presentation: 'card' }} />
       </Stack>
     </>
   );

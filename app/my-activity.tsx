@@ -25,6 +25,7 @@ export default function MyActivityScreen() {
     viewings,
     properties,
     savedPropertyIds,
+    conversations,
     updateViewingStatus,
     userRole,
     activityLoading,
@@ -270,16 +271,103 @@ export default function MyActivityScreen() {
         {/* ── APPLICATIONS TAB ─────────────────────────────────────────── */}
         {activeTab === 'Applications' && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Recent Activity</Text>
-            <View style={styles.emptySection}>
-              <Ionicons name="time-outline" size={36} color={Brand.gray300} />
-              <Text style={styles.emptySectionText}>
-                No recent activity yet. Properties you view, enquire about, or save will appear here.
-              </Text>
-              <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/explore')}>
-                <Text style={styles.emptyBtnText}>Browse Properties</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.sectionHeaderTitle}>Recent Activity & Inquiries</Text>
+            {viewings.length === 0 && conversations.length === 0 ? (
+              <View style={styles.emptySection}>
+                <Ionicons name="time-outline" size={36} color={Brand.gray300} />
+                <Text style={styles.emptySectionText}>
+                  No recent activity yet. Properties you view, enquire about, or save will appear here.
+                </Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/explore')}>
+                  <Text style={styles.emptyBtnText}>Browse Properties</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {viewings.slice(0, 5).map(v => (
+                  <TouchableOpacity
+                    key={`act-view-${v.id}`}
+                    style={styles.savedCard}
+                    activeOpacity={0.8}
+                    onPress={() => openProp(v.propertyId)}
+                  >
+                    <View style={styles.cardIconBox}>
+                      <Ionicons name="calendar" size={18} color={Brand.terracotta} />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        Viewing: {v.propertyTitle || 'Property Viewing'}
+                      </Text>
+                      <Text style={styles.cardLocation}>
+                        {v.date} at {v.time} • {v.attendees} {v.attendees === 1 ? 'attendee' : 'attendees'}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.savedPill,
+                        v.status === 'confirmed'
+                          ? { backgroundColor: '#D1FAE5' }
+                          : v.status === 'rejected' || v.status === 'cancelled'
+                          ? styles.cancelledPill
+                          : styles.pendingPill,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.savedPillText,
+                          v.status === 'confirmed'
+                            ? { color: '#059669' }
+                            : v.status === 'rejected' || v.status === 'cancelled'
+                            ? styles.cancelledPillText
+                            : styles.pendingPillText,
+                        ]}
+                      >
+                        {v.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+
+                {conversations.slice(0, 5).map(c => (
+                  <TouchableOpacity
+                    key={`act-conv-${c.id}`}
+                    style={styles.savedCard}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/chat',
+                        params: { conversationId: c.id },
+                      })
+                    }
+                  >
+                    <View style={[styles.cardIconBox, { backgroundColor: '#EEF2FF' }]}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color="#4F46E5" />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        Inquiry: {c.participantName}
+                      </Text>
+                      <Text style={styles.cardLocation} numberOfLines={1}>
+                        {c.lastMessage || 'Conversation started'}
+                      </Text>
+                    </View>
+                    {c.unreadCount > 0 ? (
+                      <View style={[styles.savedPill, { backgroundColor: Brand.terracotta }]}>
+                        <Text style={[styles.savedPillText, { color: Brand.white }]}>
+                          {c.unreadCount} NEW
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.savedPill, { backgroundColor: Brand.gray100 }]}>
+                        <Text style={[styles.savedPillText, { color: Brand.gray600 }]}>
+                          CHAT
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -446,6 +534,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 10,
+  },
+  cardIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Brand.terracotta + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardInfo: {
     flex: 1,

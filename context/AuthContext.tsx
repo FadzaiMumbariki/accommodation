@@ -34,8 +34,10 @@ interface AuthContextValue {
   changeRole: (userId: string, role: UserRole) => Promise<boolean>;
   /** Send password reset email. Returns error message on failure. */
   resetPassword: (email: string) => Promise<string | null>;
-  /** Sign in with Google via Supabase OAuth. Throws with a user-facing message on failure. */
-  signInWithGoogle: () => Promise<void>;
+  /** Sign in with Google via Supabase OAuth. Returns true on success, false on cancellation. */
+  signInWithGoogle: () => Promise<boolean>;
+  /** Instant demo sign in with mock profile — works without Supabase credentials. */
+  signInAsDemo: (role?: UserRole) => Promise<void>;
   /** Whether the app is running with real Supabase credentials. */
   isSupabaseEnabled: boolean;
 }
@@ -96,13 +98,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone: string | undefined,
       role: UserRole,
     ): Promise<SignUpResult> => {
+      if (!supabase) {
+        // No backend — return a clear error so the UI doesn't silently pretend to succeed
+        return {
+          error: 'Account creation requires a backend connection. Use "Try Demo" to explore the app.',
+          requiresEmailConfirmation: false,
+        };
+      }
       return signUpWithRole(supabase, email, password, fullName, phone, role);
     },
     [],
   );
 
   const signOut = useCallback(async (options?: { localOnly?: boolean }) => {
-    if (!supabase) return;
+    if (!supabase) {
+      // Demo mode sign-out — just clear local state
+      setUser(null);
+      setSession(null);
+      try {
+        await AsyncStorage.multiRemove([
+          'imbafind_user_role',
+          '@imbafind_cached_properties',
+          '@imbafind_cached_properties_time',
+        ]);
+      } catch {
+        // ignore storage errors on demo signout
+      }
+      return;
+    }
     if (user && !options?.localOnly) {
       try {
         await clearPushToken(user.id);
@@ -144,8 +167,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
-  const signInWithGoogle = useCallback(async (): Promise<void> => {
-    await runGoogleSignIn();
+  const signInWithGoogle = useCallback(async (): Promise<boolean> => {
+    const res = await runGoogleSignIn();
+    return Boolean(res.success);
+  }, []);
+
+  const signInAsDemo = useCallback(async (role: UserRole = 'tenant') => {
+    const demoUser: User = {
+      id: role === 'landlord' ? '00000000-0000-0000-0000-000000000001' : '00000000-0000-0000-0000-000000000002',
+      email: role === 'landlord' ? 'landlord@imbafind.co.zw' : 'tenant@imbafind.co.zw',
+      app_metadata: { provider: 'demo' },
+      user_metadata: {
+        full_name: role === 'landlord' ? 'Tendai Makoni' : 'Farai Moyo',
+        role,
+      },
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    };
+    const demoSession = {
+      access_token: 'demo-token',
+      refresh_token: 'demo-refresh',
+      expires_in: 3600,
+      token_type: 'bearer',
+      user: demoUser,
+    } as Session;
+
+    setUser(demoUser);
+    setSession(demoSession);
+    await AsyncStorage.setItem('imbafind_user_role', role);
   }, []);
 
   return (
@@ -160,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         changeRole,
         resetPassword,
         signInWithGoogle,
+        signInAsDemo,
         isSupabaseEnabled,
       }}
     >

@@ -6,6 +6,7 @@
  */
 import { supabase } from './supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { resolveLocationCoordinates, sortByProximity } from './coordinates';
 import type {
   Property,
   PropertyFilters,
@@ -231,7 +232,9 @@ export async function fetchProperties(
   if (filters?.city) query = query.ilike('city', filters.city);
   if (filters?.suburb) query = query.ilike('suburb', filters.suburb);
   if (filters?.province) query = query.ilike('province', filters.province);
-  if (filters?.propertyType && filters.propertyType !== 'any') {
+  if (filters?.propertyTypes && filters.propertyTypes.length > 0) {
+    query = query.in('property_type', filters.propertyTypes);
+  } else if (filters?.propertyType && filters.propertyType !== 'any') {
     query = query.eq('property_type', filters.propertyType);
   }
   const minPrice = filters?.budgetMin ?? filters?.minPrice;
@@ -258,8 +261,17 @@ export async function fetchProperties(
     return { properties: [], hasMore: false };
   }
   const rows = data ?? [];
+  let propertyList = rows.map(rowToProperty);
+
+  const ref =
+    filters?.referenceCoordinates ||
+    (filters?.nearby ? resolveLocationCoordinates(filters?.search, filters?.city, filters?.suburb) : undefined);
+  if (ref) {
+    propertyList = sortByProximity(propertyList, ref, filters?.searchRadius);
+  }
+
   return {
-    properties: rows.map(rowToProperty),
+    properties: propertyList,
     hasMore: count != null ? from + rows.length < count : rows.length === PROPERTY_PAGE_SIZE,
   };
 }

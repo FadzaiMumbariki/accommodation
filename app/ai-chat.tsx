@@ -12,7 +12,6 @@ import {
   Image,
   Pressable,
   Keyboard,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -23,6 +22,7 @@ import { aiSearch } from '../lib/ai';
 import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
+import { formatDistance } from '../lib/coordinates';
 import type { Property } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,11 +60,11 @@ type ChatMessage = TextMessage | ResultsMessage | ThinkingMessage;
 // ─── Quick-prompt chips ───────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
-  '3 bedroom house in Harare',
-  '2 bed flat in Bulawayo under $300',
+  'Nearby houses or apartments in Harare',
   'Furnished apartment in Avondale',
+  '3 bedroom house in Borrowdale',
+  '2 bed flat in Bulawayo under $300',
   'Budget room in Gweru with wifi',
-  '4 bed home in Masvingo with solar',
 ];
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -100,6 +100,14 @@ const ResultCard = React.memo(({ property, onPress }: { property: Property; onPr
             {property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)}
           </Text>
         </View>
+        {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
+          <View style={[styles.badge, styles.badgeNearby]}>
+            <Ionicons name="navigate-outline" size={11} color={Brand.terracotta} />
+            <Text style={[styles.badgeText, { color: Brand.terracotta }]}>
+              {formatDistance(property.distanceKm)}
+            </Text>
+          </View>
+        )}
         {property.verified && (
           <View style={[styles.badge, styles.badgeVerified]}>
             <Ionicons name="checkmark-circle" size={11} color={Brand.success} />
@@ -242,20 +250,6 @@ export default function AiChatScreen() {
     const trimmed = query.trim();
     if (!trimmed || isLoading) return;
 
-    // The AI Edge Functions enforce a per-user limit that requires a real signed-in account
-    // (auth.uid()). Anonymous and demo sessions cannot use AI, so prompt for sign-in instead
-    // of silently returning keyword matches that look like AI results.
-    if (!(await hasRealAiSession())) {
-      Alert.alert('Sign in to use AI search', aiUnavailableMessage('auth'), [
-        { text: 'Not now', style: 'cancel' },
-        {
-          text: 'Sign in',
-          onPress: () => router.push({ pathname: '/login', params: { returnTo: '/ai-chat' } }),
-        },
-      ]);
-      return;
-    }
-
     Keyboard.dismiss();
     setInput('');
 
@@ -272,7 +266,8 @@ export default function AiChatScreen() {
     setIsLoading(true);
 
     try {
-      // 3. Run AI search (with local fallback)
+      // 3. Run AI search (calls Gemini Edge Function if signed in, falls back to local parser)
+      const hasAuth = await hasRealAiSession();
       const result = await aiSearch(trimmed, allCities);
 
       // 4. Filter properties
@@ -280,12 +275,13 @@ export default function AiChatScreen() {
       const top = matched.slice(0, 6);
 
       // 5. Replace thinking with results
-      // If the AI service was attempted but failed, say so rather than passing off the
-      // local keyword fallback as an AI answer.
+      const signinHint = !hasAuth
+        ? '\n\n💡 Sign in to your ImbaFind account for full Gemini AI search.'
+        : '';
       const notice =
-        result.source === 'basic' && result.unavailable
+        result.source === 'basic' && result.unavailable && hasAuth
           ? `\n\n${aiUnavailableMessage(result.unavailable)}`
-          : '';
+          : signinHint;
 
       const intro =
         (top.length > 0
@@ -536,6 +532,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   badgeVerified: { backgroundColor: Brand.successLight },
+  badgeNearby: { backgroundColor: Brand.terracotta + '15' },
   badgeText: { fontSize: 11, fontWeight: '600', color: Brand.terracotta },
   cardTitle: { fontSize: 13, fontWeight: '700', color: Brand.navy, marginTop: 1 },
   cardLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },

@@ -9,10 +9,21 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.imbafind.app"
+      "bundleIdentifier": "com.imbafind.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ImbaFind uses your camera so you can take photos of accommodation listings and upload profile pictures.",
+        "NSPhotoLibraryUsageDescription": "ImbaFind accesses your photo library so you can select property photos and profile avatars.",
+        "NSLocationWhenInUseUsageDescription": "ImbaFind uses your location to discover accommodation near you in Zimbabwe."
+      }
     },
     "android": {
       "package": "com.imbafind.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

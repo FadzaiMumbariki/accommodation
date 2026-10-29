@@ -1,6 +1,7 @@
+import React, { useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Alert,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -10,6 +11,7 @@ import { Brand } from '../../constants/Colors';
 import { POPULAR_CITIES } from '../../constants/locations';
 import { PropertyCard } from '../../components/property/PropertyCard';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { sortByProximity, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
 
 export default function HomeScreen() {
   const {
@@ -18,13 +20,22 @@ export default function HomeScreen() {
     setFilters,
     filters,
     conversations,
+    viewings,
     isOffline,
     hasCachedProperties,
     propertiesLoading,
     refreshProperties,
   } = useApp();
 
-  const nearbyProperties = properties.filter(p => p.available).slice(0, 6);
+  const totalUnread =
+    conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) +
+    viewings.filter(v => v.status === 'pending').length;
+
+  const nearbyProperties = useMemo(() => {
+    const available = properties.filter(p => p.available);
+    const sorted = sortByProximity(available, DEFAULT_MAP_CENTER);
+    return sorted.slice(0, 6);
+  }, [properties]);
 
   const openProperty = (id: string) => {
     router.push(`/property-details?id=${id}`);
@@ -56,13 +67,7 @@ export default function HomeScreen() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const handleNotifications = () => {
-    const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-    Alert.alert(
-      'Notifications',
-      totalUnread > 0
-        ? `You have ${totalUnread} new message${totalUnread === 1 ? '' : 's'}`
-        : "You're up to date! No new notifications."
-    );
+    router.push('/notifications');
   };
 
   return (
@@ -90,6 +95,7 @@ export default function HomeScreen() {
           accessibilityLabel="View notifications"
         >
           <Ionicons name="notifications-outline" size={22} color={Brand.navy} />
+          {totalUnread > 0 && <View style={styles.notifBadge} />}
         </TouchableOpacity>
       </View>
 
@@ -197,6 +203,16 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.white, alignItems: 'center', justifyContent: 'center',
     shadowColor: Brand.navy, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Brand.terracotta,
   },
   searchBar: {
     flexDirection: 'row', alignItems: 'center',

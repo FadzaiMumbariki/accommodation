@@ -45,4 +45,18 @@ describe('parseQueryLocally', () => {
   it('reports when nothing was recognised', () => {
     expect(describeFilters({})).toBe('No filters recognised');
   });
+
+  it('recognises "nearby houses or apartments" and extracts both property types', () => {
+    const { filters, summary } = parseQueryLocally('nearby houses or apartments', cities);
+    expect(filters.nearby).toBe(true);
+    expect(filters.propertyTypes).toEqual(expect.arrayContaining(['house', 'apartment', 'flat']));
+    expect(summary.toLowerCase()).toContain('nearby');
+  });
+
+  it('resolves known Zimbabwean suburb and infers city', () => {
+    const { filters } = parseQueryLocally('furnished apartment in Avondale', cities);
+    expect(filters.suburb).toBe('Avondale');
+    expect(filters.city).toBe('Harare');
+    expect(filters.furnished).toBe(true);
+  });
 });

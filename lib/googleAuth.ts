@@ -6,35 +6,73 @@ import { supabase } from './supabase';
 export type OAuthProvider = 'google';
 
 /**
- * Extracts the PKCE `code` that Supabase appends to the redirect URL and exchanges it for a
- * session. Supabase may return the code either as a query param (`?code=…`) or in the URL
- * fragment (`#code=…`), so both are checked. On native the auth result comes back through the
- * in-app browser's return URL.
+ * Extracts authentication parameters from the OAuth return URL.
+ * Checks both query parameters (?code=... or ?error=...) and hash fragments (#access_token=... or #error=...),
+ * safely handling custom protocols (exp://, imbafind://, http://) across Expo Go and standalone builds.
  */
-async function completeFromRedirectUrl(url: string): Promise<void> {
-  // Normalise the custom scheme to a parseable http origin, preserving the query/fragment.
-  const normalised = url.replace(/^imbafind:\/\/[^?#]*/i, 'https://placeholder.local');
-  const parsed = new URL(normalised);
-  const query = new URLSearchParams(parsed.search.replace(/^\?/, ''));
-  const fragment = new URLSearchParams(parsed.hash.replace(/^[#?]/, ''));
-  const getParam = (key: string): string | null => query.get(key) ?? fragment.get(key);
+export function extractAuthParams(url: string): {
+  code: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  error: string | null;
+} {
+  const parsed = Linking.parse(url);
+  const queryParams = (parsed.queryParams ?? {}) as Record<string, string | undefined>;
 
-  const code = getParam('code');
-  if (code) {
-    const { error } = await supabase!.auth.exchangeCodeForSession(code);
-    if (error) throw error;
-    return;
+  let code = queryParams.code ?? null;
+  let accessToken = queryParams.access_token ?? null;
+  let refreshToken = queryParams.refresh_token ?? null;
+  let error = queryParams.error_description ?? queryParams.error ?? null;
+
+  // Supabase often returns tokens or errors in the hash fragment
+  const hashIndex = url.indexOf('#');
+  if (hashIndex !== -1) {
+    const fragmentString = url.slice(hashIndex + 1);
+    const fragmentParams = new URLSearchParams(fragmentString);
+    if (!code) code = fragmentParams.get('code');
+    if (!accessToken) accessToken = fragmentParams.get('access_token');
+    if (!refreshToken) refreshToken = fragmentParams.get('refresh_token');
+    if (!error) {
+      error = fragmentParams.get('error_description') || fragmentParams.get('error');
+    }
   }
-  const reason = getParam('error_description') || getParam('error');
-  if (reason) throw new Error(reason);
-  throw new Error('Google sign-in did not complete. Please try again.');
+
+  return { code, accessToken, refreshToken, error };
+}
+
+/**
+ * Completes the OAuth session using the code or tokens returned in the redirect URL.
+ */
+async function completeFromRedirectUrl(url: string): Promise<boolean> {
+  const { code, accessToken, refreshToken, error } = extractAuthParams(url);
+
+  if (code) {
+    const { error: exchangeError } = await supabase!.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw exchangeError;
+    return true;
+  }
+
+  if (accessToken && refreshToken) {
+    const { error: sessionError } = await supabase!.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionError) throw sessionError;
+    return true;
+  }
+
+  if (error) {
+    throw new Error(decodeURIComponent(error.replace(/\+/g, ' ')));
+  }
+
+  return false;
 }
 
 /**
  * Signs the user in with Google via Supabase OAuth. On web it redirects the page; on native it
- * opens the system browser and exchanges the returned authorization code for a session.
+ * opens an in-app browser session and exchanges the returned authorization code/tokens for a session.
  */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(): Promise<{ success: boolean; cancelled?: boolean }> {
   if (!supabase) throw new Error('Sign-in is not configured for this build.');
 
   const redirectTo =
@@ -44,25 +82,37 @@ export async function signInWithGoogle(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo, skipBrowserRedirect: true },
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'select_account',
+      },
+    },
   });
   if (error) throw error;
   if (!data.url) throw new Error('Could not start Google sign-in.');
 
   if (Platform.OS === 'web') {
     window.location.assign(data.url);
-    return;
+    return { success: false, cancelled: false };
   }
 
-  await WebBrowser.warmUpAsync();
   try {
+    await WebBrowser.warmUpAsync();
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
     if (result.type === 'cancel' || result.type === 'dismiss') {
-      throw new Error('Google sign-in was cancelled.');
+      return { success: false, cancelled: true };
     }
+
     if ('url' in result && result.url) {
-      await completeFromRedirectUrl(result.url);
+      const completed = await completeFromRedirectUrl(result.url);
+      return { success: completed };
     }
+
+    return { success: false };
   } finally {
     void WebBrowser.coolDownAsync();
   }
