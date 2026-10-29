@@ -58,15 +58,15 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const handleLogin = async () => {
     setFormError(null);
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-    if (!cleanEmail || !cleanPassword) {
+    // Passwords are sent exactly as typed; spaces can be part of a real password.
+    if (!cleanEmail || !password) {
       const msg = 'Please enter both your email address and password.';
       setFormError(msg);
       Alert.alert('Missing fields', msg);
       return;
     }
     setLoading(true);
-    const error = await signIn(cleanEmail, cleanPassword);
+    const error = await signIn(cleanEmail, password);
     setLoading(false);
     if (error) {
       const friendly = classifyAuthError(error);
@@ -78,28 +78,34 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   };
 
   const handleSignUp = async () => {
+    setFormError(null);
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
+    const fail = (title: string, message: string) => {
+      setFormError(message);
+      Alert.alert(title, message);
+    };
     if (!fullName.trim()) {
-      Alert.alert('Missing name', 'Please enter your full name.');
+      fail('Missing name', 'Please enter your full name.');
       return;
     }
     if (!cleanEmail) {
-      Alert.alert('Missing email', 'Please enter your email address.');
+      fail('Missing email', 'Please enter your email address.');
       return;
     }
     // Match the "Min. 8 characters" placeholder
-    if (cleanPassword.length < 8) {
-      Alert.alert('Password too short', 'Your password must be at least 8 characters long.');
+    if (password.length < 8) {
+      fail('Password too short', 'Your password must be at least 8 characters long.');
       return;
     }
     setLoading(true);
-    await setUserRole(role);
-    const result = await signUp(cleanEmail, cleanPassword, fullName.trim(), phone.trim() || undefined, role);
+    // Cache the role locally only; the new account gets it through sign-up metadata,
+    // and an already signed-in user's profile must not be changed from this screen.
+    await setUserRole(role, { localOnly: true });
+    const result = await signUp(cleanEmail, password, fullName.trim(), phone.trim() || undefined, role);
     setLoading(false);
     if (result.error) {
       const friendly = classifyAuthError(result.error);
-      Alert.alert(friendly.title, friendly.message);
+      fail(friendly.title, friendly.message);
       return;
     }
     // Navigate to the account-created screen; pass checkEmail flag if confirmation is needed
@@ -127,7 +133,8 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      await setUserRole(role);
+      // Only applied to the profile if Google creates a brand-new account (see AuthContext).
+      await setUserRole(role, { localOnly: true });
       const res = await signInWithGoogle();
       if (res) {
         router.replace(dest);

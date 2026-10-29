@@ -7,6 +7,7 @@ export interface RoleSignUpClient {
       email: string;
       password: string;
       options: {
+        emailRedirectTo?: string;
         data: {
           full_name: string;
           phone: string | null;
@@ -32,6 +33,7 @@ export async function signUpWithRole(
   fullName: string,
   phone: string | undefined,
   role: UserRole,
+  emailRedirectTo?: string,
 ): Promise<SignUpResult> {
   if (!client) return { error: null, requiresEmailConfirmation: false };
 
@@ -39,6 +41,8 @@ export async function signUpWithRole(
     email,
     password,
     options: {
+      // Where the confirmation link lands; without it Supabase falls back to the Site URL.
+      ...(emailRedirectTo ? { emailRedirectTo } : {}),
       data: {
         full_name: fullName,
         phone: phone?.trim() || null,

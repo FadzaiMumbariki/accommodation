@@ -48,7 +48,7 @@ export function classifyAuthError(rawMessage: string | null | undefined, status?
   ) {
     return {
       title: 'Password too short',
-      message: 'Please choose a password with at least 6 characters.',
+      message: 'Please choose a password with at least 8 characters.',
     };
   }
   if (msg.includes('email address is invalid') || msg.includes('invalid email') || msg.includes('provide a valid email')) {

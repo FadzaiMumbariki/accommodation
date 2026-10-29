@@ -48,6 +48,42 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Accounts whose first sign-in happened within this window of creation count as new. */
+const NEW_USER_WINDOW_MS = 2 * 60 * 1000;
+
+function isNewlyCreatedUser(user: User): boolean {
+  if (!user.created_at || !user.last_sign_in_at) return false;
+  const created = Date.parse(user.created_at);
+  const lastSignIn = Date.parse(user.last_sign_in_at);
+  if (Number.isNaN(created) || Number.isNaN(lastSignIn)) return false;
+  return Math.abs(lastSignIn - created) < NEW_USER_WINDOW_MS;
+}
+
+/**
+ * Applies the role picked before sign-up (e.g. before "Continue with Google") and the
+ * provider's name/avatar to a brand-new profile. Only runs for new accounts so that
+ * existing users never have their role or edited profile overwritten on login.
+ */
+async function syncNewUserProfile(user: User): Promise<void> {
+  try {
+    const cachedRole = await AsyncStorage.getItem('imbafind_user_role');
+    const role = (cachedRole === 'landlord' || cachedRole === 'tenant') ? cachedRole : undefined;
+    const meta = user.user_metadata || {};
+    const fullName = meta.full_name || meta.name;
+    const avatarUrl = meta.avatar_url || meta.picture;
+
+    if (fullName || avatarUrl || role) {
+      await updateProfile(user.id, {
+        fullName: fullName || undefined,
+        avatarUrl: avatarUrl || undefined,
+        role,
+      });
+    }
+  } catch (err) {
+    console.warn('[AuthContext] Background profile sync failed:', err);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -73,28 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (active) setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+    // The callback must stay synchronous: awaiting another Supabase call inside it can
+    // deadlock the auth client (see supabase-js onAuthStateChange docs), so the profile
+    // sync is deferred until after the auth event has finished processing.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
 
-      if (event === 'SIGNED_IN' && s?.user) {
-        try {
-          const cachedRole = await AsyncStorage.getItem('imbafind_user_role');
-          const role = (cachedRole === 'landlord' || cachedRole === 'tenant') ? cachedRole : undefined;
-          const meta = s.user.user_metadata || {};
-          const fullName = meta.full_name || meta.name;
-          const avatarUrl = meta.avatar_url || meta.picture;
-
-          if (fullName || avatarUrl || role) {
-            await updateProfile(s.user.id, {
-              fullName: fullName || undefined,
-              avatarUrl: avatarUrl || undefined,
-              role,
-            });
-          }
-        } catch (err) {
-          console.warn('[AuthContext] Background profile sync failed:', err);
-        }
+      if (event === 'SIGNED_IN' && s?.user && isNewlyCreatedUser(s.user)) {
+        const newUser = s.user;
+        setTimeout(() => {
+          void syncNewUserProfile(newUser);
+        }, 0);
       }
     });
 
@@ -118,11 +144,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (!supabase) {
-      // Mock mode — always succeed
-      return null;
+      // No backend — fail clearly instead of "succeeding" without ever setting a user
+      return 'Signing in requires a backend connection. Use "Try as Tenant" or "Try as Landlord" to explore the app.';
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    if (error) return error.message?.trim() || `Sign-in failed (code ${error.status ?? 500}).`;
     return null;
   }, []);
 
@@ -141,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           requiresEmailConfirmation: false,
         };
       }
-      return signUpWithRole(supabase, email, password, fullName, phone, role);
+      return signUpWithRole(supabase, email, password, fullName, phone, role, Linking.createURL('/login'));
     },
     [],
   );

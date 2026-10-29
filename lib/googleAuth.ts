@@ -55,13 +55,29 @@ export function extractAuthParams(url: string): {
 /**
  * Completes the OAuth session using the code or tokens returned in the redirect URL.
  */
+// The same redirect can reach both the deep-link listener and openAuthSessionAsync.
+// A PKCE code can only be exchanged once, so concurrent callers share one exchange.
+const codeExchanges = new Map<string, Promise<boolean>>();
+
+function exchangeCodeOnce(code: string): Promise<boolean> {
+  const existing = codeExchanges.get(code);
+  if (existing) return existing;
+  const exchange = (async () => {
+    const { error: exchangeError } = await supabase!.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw exchangeError;
+    return true;
+  })();
+  codeExchanges.set(code, exchange);
+  // Forget failed attempts so a fresh retry is possible.
+  exchange.catch(() => codeExchanges.delete(code));
+  return exchange;
+}
+
 export async function completeFromRedirectUrl(url: string): Promise<boolean> {
   const { code, accessToken, refreshToken, error } = extractAuthParams(url);
 
   if (code) {
-    const { error: exchangeError } = await supabase!.auth.exchangeCodeForSession(code);
-    if (exchangeError) throw exchangeError;
-    return true;
+    return exchangeCodeOnce(code);
   }
 
   if (accessToken && refreshToken) {

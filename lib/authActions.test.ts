@@ -34,6 +34,18 @@ describe('authentication role actions', () => {
     expect(result).toEqual({ error: null, requiresEmailConfirmation: true });
   });
 
+  it('passes the email confirmation redirect when provided', async () => {
+    const signUp = jest.fn(async (_credentials: Parameters<RoleSignUpClient['auth']['signUp']>[0]) => ({
+      data: { session: null as Session | null },
+      error: null,
+    }));
+    const client: RoleSignUpClient = { auth: { signUp } };
+
+    await signUpWithRole(client, 'a@b.com', 'password1', 'A B', undefined, 'landlord', 'imbafind://login');
+
+    expect(signUp.mock.calls[0][0].options.emailRedirectTo).toBe('imbafind://login');
+  });
+
   it('persists role changes through the profile updater', async () => {
     const persistProfile = jest.fn(async (_id: string, _updates: { role: UserRole }) => true);
 
