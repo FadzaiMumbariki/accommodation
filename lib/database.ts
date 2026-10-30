@@ -21,6 +21,7 @@ import type {
   ChatMessageType,
   UserRole,
   AvailabilityStatus,
+  BlockedUser,
 } from '../types';
 
 function generateUuid(): string {
@@ -776,17 +777,87 @@ const CONVERSATION_SELECT =
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('conversations')
-    .select(CONVERSATION_SELECT)
-    .or(`tenant_id.eq.${userId},landlord_id.eq.${userId}`)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
+  const [convResult, blockedIds] = await Promise.all([
+    supabase
+      .from('conversations')
+      .select(CONVERSATION_SELECT)
+      .or(`tenant_id.eq.${userId},landlord_id.eq.${userId}`)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+    fetchBlockedUserIds(userId).catch(err => {
+      console.warn('[fetchConversations] Could not fetch blocked users:', err);
+      return [] as string[];
+    }),
+  ]);
+  if (convResult.error) {
+    console.error('[fetchConversations]', convResult.error.message);
+    throw convResult.error;
+  }
+  const blockedSet = new Set(blockedIds);
+  return (convResult.data ?? [])
+    .map(row => rowToConversation(row, userId))
+    .filter(c => !blockedSet.has(c.participantId));
+}
+
+export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('blocked_users')
+    .insert({ blocker_id: blockerId, blocked_id: blockedId });
   if (error) {
-    console.error('[fetchConversations]', error.message);
+    console.error('[blockUser]', error.message);
     throw error;
   }
-  return (data ?? []).map(row => rowToConversation(row, userId));
+}
+
+export async function unblockUser(blockerId: string, blockedId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('blocked_users')
+    .delete()
+    .eq('blocker_id', blockerId)
+    .eq('blocked_id', blockedId);
+  if (error) {
+    console.error('[unblockUser]', error.message);
+    throw error;
+  }
+}
+
+export async function fetchBlockedUsers(blockerId: string): Promise<BlockedUser[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .select('blocked_id, created_at, blocked:profiles!blocked_users_blocked_id_fkey(full_name, avatar_url)')
+    .eq('blocker_id', blockerId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[fetchBlockedUsers]', error.message);
+    throw error;
+  }
+  return (data ?? []).map((row: any) => ({
+    id: row.blocked_id,
+    fullName: row.blocked?.full_name ?? 'ImbaFind member',
+    avatarUrl: row.blocked?.avatar_url ?? undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function fetchBlockedUserIds(userId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .select('blocker_id, blocked_id')
+    .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+  if (error) {
+    console.error('[fetchBlockedUserIds]', error.message);
+    throw error;
+  }
+  const ids = new Set<string>();
+  for (const row of (data ?? []) as { blocker_id: string; blocked_id: string }[]) {
+    if (row.blocker_id === userId) ids.add(row.blocked_id);
+    if (row.blocked_id === userId) ids.add(row.blocker_id);
+  }
+  return Array.from(ids);
 }
 
 export async function fetchConversationById(

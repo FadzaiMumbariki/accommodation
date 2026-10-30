@@ -14,135 +14,9 @@ import { ChatBubble } from '../components/chat/ChatBubble';
 import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { ReportDialog } from '../components/common/ReportDialog';
-import { insertReport } from '../lib/database';
+import { insertReport, blockUser } from '../lib/database';
 import { hasRealSession } from '../lib/session';
-import type { ChatMessage } from '../types';
 
-type ReplyRule = { keywords: string[]; replies: string[] };
-
-const REPLY_RULES: ReplyRule[] = [
-  {
-    keywords: ['rent', 'price', 'cost', 'how much', 'monthly', 'per month', 'rate', 'fee', 'charge'],
-    replies: [
-      "The monthly rent is listed on the property page. Please check the listing for the exact amount — it includes utilities like water. Deposit is one month's rent upfront.",
-      "Rent is as advertised on the listing. It's payable monthly in USD. Would you like details on what's included?",
-    ],
-  },
-  {
-    keywords: ['deposit', 'security', 'upfront', 'advance'],
-    replies: [
-      "Deposit is 1 month's rent + a $50 refundable key deposit. Both are due before move-in.",
-      "We require a security deposit equal to one month's rent, paid upfront before you move in.",
-    ],
-  },
-  {
-    keywords: ['available', 'still available', 'taken', 'occupied', 'vacant', 'free'],
-    replies: [
-      "Yes, the property is still available! Would you like to book a viewing?",
-      "It's available right now. A few people have enquired but nothing confirmed yet — first to book a viewing gets priority.",
-    ],
-  },
-  {
-    keywords: ['view', 'viewing', 'visit', 'see', 'come', 'show', 'tour', 'when can'],
-    replies: [
-      "You can view any weekday between 9am–5pm or Saturday morning. Which day works for you?",
-      "I'm available for viewings Mon–Fri. Just let me know your preferred date and time!",
-    ],
-  },
-  {
-    keywords: ['water', 'borehole', 'council water', 'taps', 'running water'],
-    replies: [
-      "Yes, we have borehole water that runs 24/7 — no council water interruptions here.",
-      "There's a borehole + a 5000L tank for backup. Water is never a problem at this property.",
-    ],
-  },
-  {
-    keywords: ['electricity', 'zesa', 'power', 'solar', 'load shedding', 'loadshedding', 'inverter'],
-    replies: [
-      "We have solar backup power so load shedding doesn't affect you. ZESA is also connected.",
-      "Solar inverter + battery keeps the lights on during load shedding. No disruptions.",
-    ],
-  },
-  {
-    keywords: ['wifi', 'internet', 'fibre', 'broadband', 'connection'],
-    replies: [
-      "Yes, high-speed fibre Wi-Fi is available at the property. Ask about the monthly package.",
-      "Internet is available — we have a fibre connection. You can set up your own account easily.",
-    ],
-  },
-  {
-    keywords: ['furnished', 'furniture', 'beds', 'sofas', 'appliances', 'fridge', 'stove', 'kitchen'],
-    replies: [
-      "The property comes fully furnished — beds, sofas, kitchen appliances are all included.",
-      "It's furnished. Kitchen has a stove and fridge. All major furniture is provided.",
-    ],
-  },
-  {
-    keywords: ['parking', 'car', 'garage', 'vehicle', 'park'],
-    replies: [
-      "Yes, there's paved parking for up to 2 vehicles inside the yard.",
-      "Parking is available within the secured yard. No street parking needed.",
-    ],
-  },
-  {
-    keywords: ['security', 'safe', 'guard', 'wall', 'gate', 'alarm', 'fence'],
-    replies: [
-      "The property has a durawall boundary, electric gate, and 24/7 security guard.",
-      "Very secure — gated, high perimeter wall, and we have a security company on patrol.",
-    ],
-  },
-  {
-    keywords: ['pets', 'dog', 'cat', 'animals'],
-    replies: [
-      "Small pets are allowed with prior approval. Please let me know what pet you have.",
-      "We consider pets on a case-by-case basis. Small, well-behaved pets are usually fine.",
-    ],
-  },
-  {
-    keywords: ['lease', 'contract', 'agreement', 'months', 'duration', 'long', 'short term', 'minimum'],
-    replies: [
-      "We offer a standard 6-month lease with option to renew. Shorter stays can be discussed.",
-      "Minimum lease is 6 months. Long-term tenants are preferred and get priority.",
-    ],
-  },
-  {
-    keywords: ['location', 'where', 'address', 'directions', 'suburb', 'near', 'close to', 'distance'],
-    replies: [
-      "The full address is on the listing. It's close to public transport and main shopping centres.",
-      "Check the listing for the exact location. I can send you a WhatsApp pin when we confirm a viewing.",
-    ],
-  },
-  {
-    keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'howzit'],
-    replies: [
-      "Hello! Thanks for reaching out. How can I help you today?",
-      "Hi there! Feel free to ask me anything about the property.",
-    ],
-  },
-  {
-    keywords: ['thank', 'thanks', 'appreciate', 'cheers'],
-    replies: [
-      "You're welcome! Let me know if you have any other questions.",
-      "Happy to help! Feel free to ask anything else.",
-    ],
-  },
-];
-
-const FALLBACK_REPLIES = [
-  "Thanks for your message! Could you clarify a bit more so I can give you the right answer?",
-  "Good question! Feel free to ask about rent, availability, viewing times, or amenities.",
-  "I'll get back to you shortly. In the meantime, feel free to ask about the property details.",
-];
-
-function pickReply(userText: string): string {
-  const lower = userText.toLowerCase();
-  for (const rule of REPLY_RULES) {
-    if (rule.keywords.some(k => lower.includes(k))) {
-      return rule.replies[Math.floor(Math.random() * rule.replies.length)];
-    }
-  }
-  return FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)];
-}
 
 export default function ChatScreen() {
   const {
@@ -168,8 +42,8 @@ export default function ChatScreen() {
   }>();
   const conversation = conversations.find(c => c.id === selectedConversationId);
   const [draftText, setDraftText] = useState('');
-  const [injectedReplies, setInjectedReplies] = useState<Record<string, ChatMessage[]>>({});
   const [sending, setSending] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [openingError, setOpeningError] = useState<string | null>(null);
   const [reportVisible, setReportVisible] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -263,8 +137,6 @@ export default function ChatScreen() {
   }
 
   const relatedProperty = properties.find(p => p.id === conversation.propertyId);
-  const convReplies = isSupabaseEnabled ? [] : injectedReplies[conversation.id] || [];
-  const mergedMessages = [...conversation.messages, ...convReplies];
 
   const handleCall = () => {
     const phone = conversation.participantPhone ?? relatedProperty?.landlord?.phone;
@@ -277,6 +149,42 @@ export default function ChatScreen() {
       console.error('[ChatScreen] Could not open phone link:', error);
       Alert.alert('Could not place call', 'Please try again.');
     });
+  };
+
+  const handleBlockUser = () => {
+    if (!conversation) return;
+    if (isSupabaseEnabled && !requireAuth('/chat')) return;
+    Alert.alert(
+      `Block ${conversation.participantName}?`,
+      'They will no longer be able to message you, and their conversations will be hidden.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) {
+              Alert.alert('Sign in required', 'Please sign in to block users.');
+              return;
+            }
+            setBlocking(true);
+            try {
+              await blockUser(user.id, conversation.participantId);
+              Alert.alert('User blocked', `${conversation.participantName} has been blocked.`);
+              router.back();
+            } catch (error) {
+              console.error('[ChatScreen] Could not block user:', error);
+              Alert.alert(
+                'Could not block user',
+                error instanceof Error ? error.message : 'Please try again.',
+              );
+            } finally {
+              setBlocking(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const submitUserReport = async (reason: string, details: string): Promise<boolean> => {
@@ -335,21 +243,6 @@ export default function ChatScreen() {
     } finally {
       setSending(false);
     }
-    if (!isSupabaseEnabled) setTimeout(() => {
-      const replyText = pickReply(text);
-      const replyMsg: ChatMessage = {
-        id: `msg-${Date.now()}-r`,
-        senderId: conversation.participantId,
-        text: replyText,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
-      setInjectedReplies(prev => ({
-        ...prev,
-        [conversation.id]: [...(prev[conversation.id] || []), replyMsg],
-      }));
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
-    }, 2000);
   };
 
   return (
@@ -388,6 +281,7 @@ export default function ChatScreen() {
             <TouchableOpacity
               onPress={handleCall}
               style={styles.callBtn}
+              accessibilityRole="button"
               accessibilityLabel="Call conversation participant"
             >
               <Ionicons name="call-outline" size={22} color={Brand.navy} />
@@ -395,13 +289,25 @@ export default function ChatScreen() {
           ) : null}
           {isSupabaseEnabled && (
             <TouchableOpacity
+              onPress={handleBlockUser}
+              style={styles.callBtn}
+              disabled={blocking}
+              accessibilityRole="button"
+              accessibilityLabel="Block conversation participant"
+            >
+              <Ionicons name="ban-outline" size={20} color={Brand.error} />
+            </TouchableOpacity>
+          )}
+          {isSupabaseEnabled && (
+            <TouchableOpacity
               onPress={() => {
                 if (requireAuth('/chat')) setReportVisible(true);
               }}
               style={styles.callBtn}
+              accessibilityRole="button"
               accessibilityLabel="Report conversation participant"
             >
-              <Ionicons name="flag-outline" size={21} color={Brand.error} />
+              <Ionicons name="flag-outline" size={20} color={Brand.error} />
             </TouchableOpacity>
           )}
         </View>
@@ -453,7 +359,7 @@ export default function ChatScreen() {
       )}
       <FlatList
         ref={listRef}
-        data={mergedMessages}
+        data={conversation.messages}
         keyExtractor={m => m.id}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}

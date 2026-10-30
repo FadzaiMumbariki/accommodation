@@ -148,10 +148,9 @@ export default function MessagesScreen() {
                   />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarInitial}>{item.participantName[0]}</Text>
+                    <Text style={styles.avatarInitial}>{(item.participantName ?? '?')[0]}</Text>
                   </View>
                 )}
-                {item.unreadCount > 0 && <View style={styles.onlineDot} />}
               </View>
               <View style={styles.convoBody}>
                 <View style={styles.convoTop}>
@@ -211,7 +210,7 @@ export default function MessagesScreen() {
       {isMobile && (
         <TouchableOpacity style={styles.fab} onPress={newMessage} activeOpacity={0.85}>
           <Ionicons name="add-outline" size={22} color={Brand.white} />
-          <Text style={styles.fabText}>new message</Text>
+          <Text style={styles.fabText}>New message</Text>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -286,11 +285,6 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.navy + '20', alignItems: 'center', justifyContent: 'center',
   },
   avatarInitial: { fontSize: 20, fontWeight: '700', color: Brand.navy },
-  onlineDot: {
-    position: 'absolute', bottom: 1, right: 1,
-    width: 13, height: 13, borderRadius: 7,
-    backgroundColor: Brand.success, borderWidth: 2, borderColor: Brand.white,
-  },
   convoBody: { flex: 1 },
   convoTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   participantName: { fontSize: 15, fontWeight: '700', color: Brand.navy },

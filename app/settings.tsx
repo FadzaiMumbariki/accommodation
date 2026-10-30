@@ -20,8 +20,14 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { PRIVACY_POLICY_URL } from '../constants/links';
-import { clearPushToken, deleteAccountAndPropertyImages } from '../lib/database';
+import {
+  clearPushToken,
+  deleteAccountAndPropertyImages,
+  fetchBlockedUsers,
+  unblockUser,
+} from '../lib/database';
 import { requestAndSavePushToken } from '../hooks/useNotifications';
+import type { BlockedUser } from '../types';
 
 const SETTINGS_KEY = 'imbafind_notification_settings';
 
@@ -33,6 +39,28 @@ export default function SettingsScreen() {
   const [viewingReminders, setViewingReminders] = useState(true);
   const [smsAlerts, setSmsAlerts] = useState(true);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user || !isSupabaseEnabled) return;
+    let active = true;
+    void (async () => {
+      setLoadingBlocked(true);
+      try {
+        const users = await fetchBlockedUsers(user.id);
+        if (active) setBlockedUsers(users);
+      } catch (err) {
+        console.error('[Settings] Could not fetch blocked users:', err);
+      } finally {
+        if (active) setLoadingBlocked(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user, isSupabaseEnabled]);
 
   // Load persisted settings on mount
   useEffect(() => {
@@ -154,6 +182,36 @@ export default function SettingsScreen() {
           text: 'Delete account',
           style: 'destructive',
           onPress: () => void deleteAccount(),
+        },
+      ],
+    );
+  };
+
+  const handleUnblock = (target: BlockedUser) => {
+    if (!user) return;
+    Alert.alert(
+      `Unblock ${target.fullName}?`,
+      'They will be able to message you again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            setUnblockingId(target.id);
+            try {
+              await unblockUser(user.id, target.id);
+              setBlockedUsers(prev => prev.filter(u => u.id !== target.id));
+              Alert.alert('User unblocked', `${target.fullName} has been unblocked.`);
+            } catch (error) {
+              console.error('[Settings] Could not unblock user:', error);
+              Alert.alert(
+                'Could not unblock user',
+                error instanceof Error ? error.message : 'Please try again.',
+              );
+            } finally {
+              setUnblockingId(null);
+            }
+          },
         },
       ],
     );
@@ -302,6 +360,57 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
           </TouchableOpacity>
         </View>
+
+        {/* Blocked Users */}
+        {isSupabaseEnabled && user && (
+          <>
+            <Text style={styles.sectionHeader}>Blocked Users</Text>
+            <View style={styles.card}>
+              {loadingBlocked ? (
+                <View style={styles.blockedLoadingWrap}>
+                  <ActivityIndicator size="small" color={Brand.terracotta} />
+                </View>
+              ) : blockedUsers.length === 0 ? (
+                <View style={styles.blockedEmptyWrap}>
+                  <Text style={styles.blockedEmptyText}>
+                    You have not blocked any users.
+                  </Text>
+                </View>
+              ) : (
+                blockedUsers.map((bUser, index) => (
+                  <View key={bUser.id}>
+                    {index > 0 && <View style={styles.divider} />}
+                    <View style={styles.blockedUserRow}>
+                      <View style={styles.blockedUserInfo}>
+                        <View style={styles.blockedAvatarPlaceholder}>
+                          <Text style={styles.blockedAvatarInitial}>
+                            {(bUser.fullName || '?')[0].toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={styles.blockedUserName} numberOfLines={1}>
+                          {bUser.fullName}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.unblockBtn}
+                        onPress={() => handleUnblock(bUser)}
+                        disabled={unblockingId === bUser.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Unblock ${bUser.fullName}`}
+                      >
+                        {unblockingId === bUser.id ? (
+                          <ActivityIndicator size="small" color={Brand.terracotta} />
+                        ) : (
+                          <Text style={styles.unblockBtnText}>Unblock</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          </>
+        )}
 
         {isSupabaseEnabled && user && (
           <>
@@ -480,4 +589,61 @@ const styles = StyleSheet.create({
   },
   deleteAccountDisabled: { opacity: 0.6 },
   deleteAccountText: { color: Brand.error, fontSize: 14, fontWeight: '700' },
+  blockedLoadingWrap: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockedEmptyWrap: {
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  blockedEmptyText: {
+    fontSize: 13,
+    color: Brand.gray500,
+  },
+  blockedUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  blockedUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 12,
+  },
+  blockedAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Brand.navy + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockedAvatarInitial: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Brand.navy,
+  },
+  blockedUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Brand.navy,
+    flex: 1,
+  },
+  unblockBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Brand.terracotta,
+  },
+  unblockBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Brand.terracotta,
+  },
 });
