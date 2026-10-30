@@ -373,6 +373,18 @@ begin
     raise exception 'You are not a participant in this conversation.';
   end if;
 
+  -- Determine other participant
+  v_recipient := case when v_conv.tenant_id = auth.uid() then v_conv.landlord_id else v_conv.tenant_id end;
+
+  -- Check if either party has blocked the other
+  if exists (
+    select 1 from public.blocked_users
+    where (blocker_id = auth.uid() and blocked_id = v_recipient)
+       or (blocker_id = v_recipient and blocked_id = auth.uid())
+  ) then
+    raise exception 'Cannot send message to this user.';
+  end if;
+
   insert into public.messages (conversation_id, sender_id, text)
   values (p_conversation_id, auth.uid(), v_text)
   returning * into v_message;
@@ -409,6 +421,37 @@ $$;
 
 revoke all on function public.send_chat_message(uuid, text) from public;
 grant execute on function public.send_chat_message(uuid, text) to authenticated;
+
+-- 6.1 BLOCKED USERS
+create table if not exists public.blocked_users (
+  blocker_id uuid not null references public.profiles(id) on delete cascade,
+  blocked_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  constraint blocked_users_no_self_block check (blocker_id != blocked_id)
+);
+
+create index if not exists idx_blocked_users_blocked_id on public.blocked_users(blocked_id);
+
+alter table public.blocked_users enable row level security;
+
+drop policy if exists "Users can view blocks they created or where they are blocked" on public.blocked_users;
+create policy "Users can view blocks they created or where they are blocked"
+  on public.blocked_users for select
+  to authenticated
+  using (auth.uid() = blocker_id or auth.uid() = blocked_id);
+
+drop policy if exists "Users can block other users" on public.blocked_users;
+create policy "Users can block other users"
+  on public.blocked_users for insert
+  to authenticated
+  with check (auth.uid() = blocker_id);
+
+drop policy if exists "Users can unblock users they blocked" on public.blocked_users;
+create policy "Users can unblock users they blocked"
+  on public.blocked_users for delete
+  to authenticated
+  using (auth.uid() = blocker_id);
 
 
 

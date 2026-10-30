@@ -155,6 +155,13 @@ export interface Conversation {
   unreadCount: number;
 }
 
+export interface BlockedUser {
+  id: string;
+  fullName: string;
+  avatarUrl?: string;
+  createdAt: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Unified filter type — replaces the old split SearchFilters + FilterState
 // ─────────────────────────────────────────────────────────────────────────────

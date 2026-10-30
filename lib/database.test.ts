@@ -126,6 +126,10 @@ import {
   fetchVerifiableLandlords,
   setPropertyVerified,
   setUserVerified,
+  blockUser,
+  unblockUser,
+  fetchBlockedUsers,
+  fetchBlockedUserIds,
 } from './database';
 import { filterMockProperties } from './propertyFilters';
 import { MOCK_PROPERTIES } from '../constants/mockData';
@@ -1094,5 +1098,95 @@ describe('insertViewing conflict protection', () => {
       .rejects.toThrow(/finish uploading/i);
     await expect(updateProperty('property-1', { images: ['content://cache.jpg'] }))
       .rejects.toThrow(/finish uploading/i);
+  });
+
+  describe('blocking and blocked users', () => {
+    it('blockUser inserts blocker and blocked IDs', async () => {
+      resolveFor('blocked_users', 'insert', { error: null });
+      await blockUser('user-a', 'user-b');
+      expect(payloadFor('blocked_users.insert')).toEqual({
+        blocker_id: 'user-a',
+        blocked_id: 'user-b',
+      });
+    });
+
+    it('unblockUser deletes matching blocker and blocked IDs', async () => {
+      resolveFor('blocked_users', 'delete', { error: null });
+      await unblockUser('user-a', 'user-b');
+      expect(pairsFor('blocked_users.eq')).toContainEqual(['blocker_id', 'user-a']);
+      expect(pairsFor('blocked_users.eq')).toContainEqual(['blocked_id', 'user-b']);
+    });
+
+    it('fetchBlockedUsers loads and formats blocked profiles', async () => {
+      resolveFor('blocked_users', 'select', {
+        data: [
+          {
+            blocked_id: 'user-b',
+            created_at: '2026-03-01T10:00:00Z',
+            blocked: { full_name: 'Blocked Person', avatar_url: 'https://example.com/b.jpg' },
+          },
+        ],
+        error: null,
+      });
+      const list = await fetchBlockedUsers('user-a');
+      expect(list).toEqual([
+        {
+          id: 'user-b',
+          fullName: 'Blocked Person',
+          avatarUrl: 'https://example.com/b.jpg',
+          createdAt: '2026-03-01T10:00:00Z',
+        },
+      ]);
+    });
+
+    it('fetchBlockedUserIds returns blocked IDs across both blocker and blocked directions', async () => {
+      resolveFor('blocked_users', 'select', {
+        data: [
+          { blocker_id: 'user-a', blocked_id: 'user-b' },
+          { blocker_id: 'user-c', blocked_id: 'user-a' },
+        ],
+        error: null,
+      });
+      const ids = await fetchBlockedUserIds('user-a');
+      expect(ids.sort()).toEqual(['user-b', 'user-c']);
+    });
+
+    it('fetchConversations filters out conversations with blocked users', async () => {
+      queueFor('conversations', 'select', [{
+        data: [
+          {
+            id: 'c-1',
+            tenant_id: 'user-a',
+            landlord_id: 'landlord-normal',
+            last_message: 'Hi',
+            last_message_at: '2026-03-01T12:00:00Z',
+            tenant_unread: 0,
+            landlord_unread: 0,
+            landlord: { full_name: 'Landlord Normal', avatar_url: null, phone: null },
+            properties: { title: 'Nice house' },
+          },
+          {
+            id: 'c-2',
+            tenant_id: 'user-a',
+            landlord_id: 'landlord-blocked',
+            last_message: 'Spam',
+            last_message_at: '2026-03-01T11:00:00Z',
+            tenant_unread: 1,
+            landlord_unread: 0,
+            landlord: { full_name: 'Landlord Blocked', avatar_url: null, phone: null },
+            properties: { title: 'Spam listing' },
+          },
+        ],
+        error: null,
+      }]);
+      queueFor('blocked_users', 'select', [{
+        data: [{ blocker_id: 'user-a', blocked_id: 'landlord-blocked' }],
+        error: null,
+      }]);
+
+      const convs = await fetchConversations('user-a');
+      expect(convs).toHaveLength(1);
+      expect(convs[0].participantId).toBe('landlord-normal');
+    });
   });
 });
