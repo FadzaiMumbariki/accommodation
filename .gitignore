@@ -48,3 +48,6 @@ docs/testing/
 # generated native folders
 /ios
 /android
+
+# supabase temporary CLI state
+supabase/.temp/
