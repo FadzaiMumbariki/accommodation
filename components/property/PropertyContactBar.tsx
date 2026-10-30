@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../../constants/Colors';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface PropertyContactBarProps {
   saved: boolean;
@@ -26,46 +27,50 @@ export function PropertyContactBar({
   onBookViewing,
   onToggleSaved,
 }: PropertyContactBarProps) {
+  const { isMobile } = useResponsive();
+
   return (
-    <View style={styles.bottomBar}>
-      <TouchableOpacity
-        style={styles.waBtn}
-        onPress={onWhatsApp}
-        activeOpacity={0.8}
-        accessibilityLabel="Chat on WhatsApp"
-        accessibilityRole="button"
-      >
-        <Ionicons name="logo-whatsapp" size={22} color={Brand.white} />
-      </TouchableOpacity>
+    <View style={[styles.bottomBar, !isMobile && styles.bottomBarDesktop]}>
+      <View style={[styles.innerRow, !isMobile && styles.innerRowDesktop]}>
+        <TouchableOpacity
+          style={styles.waBtn}
+          onPress={onWhatsApp}
+          activeOpacity={0.8}
+          accessibilityLabel="Chat on WhatsApp"
+          accessibilityRole="button"
+        >
+          <Ionicons name="logo-whatsapp" size={22} color={Brand.white} />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.msgBtn}
-        onPress={onMessage}
-        activeOpacity={0.8}
-        disabled={chatStarting}
-      >
-        <Text style={styles.msgBtnText}>Message</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.msgBtn}
+          onPress={onMessage}
+          activeOpacity={0.8}
+          disabled={chatStarting}
+        >
+          <Text style={styles.msgBtnText}>Message</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.viewingBtn} onPress={onBookViewing} activeOpacity={0.85}>
-        <Text style={styles.viewingBtnText}>Book Viewing</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.viewingBtn} onPress={onBookViewing} activeOpacity={0.85}>
+          <Text style={styles.viewingBtnText}>Book Viewing</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.heartBtn}
-        onPress={onToggleSaved}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel={
-          saved ? `Remove ${propertyTitle} from saved listings` : `Save ${propertyTitle}`
-        }
-      >
-        <Ionicons
-          name={saved ? 'heart' : 'heart-outline'}
-          size={22}
-          color={saved ? '#E5534B' : Brand.navy}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.heartBtn}
+          onPress={onToggleSaved}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={
+            saved ? `Remove ${propertyTitle} from saved listings` : `Save ${propertyTitle}`
+          }
+        >
+          <Ionicons
+            name={saved ? 'heart' : 'heart-outline'}
+            size={22}
+            color={saved ? '#E5534B' : Brand.navy}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -80,9 +85,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     borderTopWidth: 1,
     borderTopColor: Brand.gray200,
     shadowColor: Brand.navy,
@@ -90,6 +92,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 8,
+  },
+  bottomBarDesktop: {
+    paddingBottom: 16,
+    paddingTop: 14,
+  },
+  innerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  innerRowDesktop: {
+    maxWidth: 1180,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
   },
   waBtn: {
     width: 44,
