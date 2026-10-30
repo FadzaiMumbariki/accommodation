@@ -341,8 +341,9 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.navRow}
-            onPress={() => void openPrivacyPolicy()}
-            accessibilityLabel="Open hosted privacy policy"
+            onPress={() => router.push('/legal/privacy')}
+            accessibilityRole="button"
+            accessibilityLabel="View in-app Privacy Policy"
           >
             <Ionicons name="shield-checkmark-outline" size={20} color={Brand.navy} />
             <Text style={styles.navRowText}>Privacy Policy</Text>
@@ -354,10 +355,25 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.navRow}
             onPress={() => router.push('/legal/terms')}
+            accessibilityRole="button"
+            accessibilityLabel="View Terms of Service"
           >
             <Ionicons name="document-text-outline" size={20} color={Brand.navy} />
             <Text style={styles.navRowText}>Terms of Service</Text>
             <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.navRow}
+            onPress={() => void openPrivacyPolicy()}
+            accessibilityRole="button"
+            accessibilityLabel="Open hosted privacy policy in browser"
+          >
+            <Ionicons name="globe-outline" size={20} color={Brand.terracotta} />
+            <Text style={styles.navRowText}>Hosted Privacy Policy (Web)</Text>
+            <Ionicons name="open-outline" size={18} color={Brand.gray400} />
           </TouchableOpacity>
         </View>
 
