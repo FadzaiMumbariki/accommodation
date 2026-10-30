@@ -142,6 +142,17 @@ The client intentionally has no action that can set `verified`.
 
 Apply `supabase/migrations/003_reports.sql` after the existing schema and security migrations to enable reports, chat message writes, and viewing-slot conflict protection.
 
+### Push notifications setup
+
+Push notifications in ImbaFind are powered by Expo Push Notifications and delivered via Supabase database triggers:
+- **EAS Project ID:** Push tokens require an EAS Project ID. Configure your project with `npx eas-cli@latest init`, or ensure `EXPO_PUBLIC_EAS_PROJECT_ID` / `extra.eas.projectId` in `app.json` is set to your project's UUID.
+- **Android Google Services:** Production Android builds require Firebase Cloud Messaging (FCM v1). Download your `google-services.json` from the Firebase Console, place it in the project root, ensure `android.googleServicesFile` is referenced in `app.json`, and upload your FCM v1 Service Account Key to Expo using `npx eas-cli@latest credentials`.
+- **Database Triggers:** Applying `supabase/migrations/008_push_notifications.sql` and `supabase/migrations/016_push_notifications_hardening.sql` configures automatic push dispatch for chat messages and viewing requests. Triggers strictly ensure:
+  1. Messages never notify their sender.
+  2. Notifications are silenced if either the sender or recipient has blocked the other in `public.blocked_users`.
+  3. Notifications fail gracefully if the recipient does not have a registered device token.
+- **Edge Function:** Alternatively, `supabase/functions/push-notify` can be called from external services or cron jobs with `{ recipientId, title, body, data }`.
+
 ### Release environment setup
 
 Apply `supabase/migrations/004_push_tokens.sql` after migration 003 to store Expo push tokens. Link the app to an EAS project with `npx eas-cli@latest init`; this adds the project ID used by push notifications.
