@@ -153,29 +153,41 @@ Push notifications in ImbaFind are powered by Expo Push Notifications and delive
   3. Notifications fail gracefully if the recipient does not have a registered device token.
 - **Edge Function:** Alternatively, `supabase/functions/push-notify` can be called from external services or cron jobs with `{ recipientId, title, body, data }`.
 
-### Release environment setup
+### Environment variables & EAS build configuration
 
-Apply `supabase/migrations/004_push_tokens.sql` after migration 003 to store Expo push tokens. Link the app to an EAS project with `npx eas-cli@latest init`; this adds the project ID used by push notifications.
+The following environment variables are used by ImbaFind across local development, preview builds, and production:
 
-Set the public Supabase URL and anon key in each EAS environment used by the `development`, `preview`, and `production` build profiles. The client must only contain the Supabase anon key, never a service-role key:
+| Variable | Required In | Purpose | Exposure / Scope |
+| --- | --- | --- | --- |
+| `EXPO_PUBLIC_SUPABASE_URL` | Live / Production | Supabase project URL (`https://xyz.supabase.co`) | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Live / Production | Supabase anonymous public key | Public (client-bundled) |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Optional / Recommended | Google Maps API key for Android/iOS native map tiles | Public (client-bundled) |
+| `EXPO_PUBLIC_EAS_PROJECT_ID` | Production / Preview | EAS project UUID for push notifications | Public (client-bundled) |
+| `EXPO_PUBLIC_ENABLE_DEMO` | Optional (`false` in prod) | Force enables "Try as Tenant / Landlord" demo logins | Public (client-bundled) |
+| `EXPO_PUBLIC_SENTRY_ENABLED` | Production (`true`/`false`) | Enables/disables Sentry native & error reporting | Public (client-bundled) |
+| `EXPO_PUBLIC_SENTRY_DSN` | If Sentry enabled | Sentry Project DSN | Public (client-bundled) |
+| `SENTRY_ORG` | Build time (if Sentry) | Sentry Organization slug | EAS Environment / CI |
+| `SENTRY_PROJECT` | Build time (if Sentry) | Sentry Project slug | EAS Environment / CI |
+| `SENTRY_AUTH_TOKEN` | Build time (if Sentry) | Sentry authentication token for source maps | Secret (Never public!) |
+
+#### Configuring with EAS CLI (`eas env:create` / `eas env:set`)
+
+For EAS Build environments (`preview` and `production`), set variables using the EAS CLI:
 
 ```sh
-npx eas-cli@latest env:set --name EXPO_PUBLIC_SUPABASE_URL --value https://YOUR_PROJECT.supabase.co --environment production --visibility plaintext
-npx eas-cli@latest env:set --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value YOUR_ANON_KEY --environment production --visibility plaintext
+# Create / set public environment variables for production
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value https://YOUR_PROJECT.supabase.co --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value YOUR_SUPABASE_ANON_KEY --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value YOUR_GOOGLE_MAPS_KEY --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_EAS_PROJECT_ID --value YOUR_EAS_PROJECT_ID --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_ENABLE_DEMO --value false --visibility plaintext
+
+# Sentry release tracking (Optional)
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SENTRY_ENABLED --value true --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SENTRY_DSN --value YOUR_SENTRY_DSN --visibility plaintext
+npx eas-cli@latest env:create --environment production --name SENTRY_ORG --value YOUR_SENTRY_ORG --visibility plaintext
+npx eas-cli@latest env:create --environment production --name SENTRY_PROJECT --value YOUR_SENTRY_PROJECT --visibility plaintext
+npx eas-cli@latest secret:create --name SENTRY_AUTH_TOKEN --value YOUR_SENTRY_AUTH_TOKEN --scope project
 ```
 
-Repeat these commands with the appropriate environment name (`development` or `preview`) and values. These are public client configuration values; do not put a service-role key in an EAS environment or client bundle. For local development, copy `.env.example` to `.env.local` and fill in the public Supabase values. With no credentials, the app continues to use mock mode.
-
-Crash reporting is disabled by default. To enable Sentry, create a Sentry project, then set `EXPO_PUBLIC_SENTRY_ENABLED=true`, `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, and `SENTRY_PROJECT` in the appropriate EAS environment. Add `SENTRY_AUTH_TOKEN` as an EAS secret for source-map uploads. Rebuild the native app after enabling the config plugin. The support contact values live in `constants/support.ts`; replace them with verified contacts before release.
-
-For example, set production Sentry values with:
-
-```sh
-npx eas-cli@latest env:set --name EXPO_PUBLIC_SENTRY_ENABLED --value true --environment production --visibility plaintext
-npx eas-cli@latest env:set --name EXPO_PUBLIC_SENTRY_DSN --value YOUR_SENTRY_DSN --environment production --visibility plaintext
-npx eas-cli@latest env:set --name SENTRY_ORG --value YOUR_SENTRY_ORG --environment production --visibility plaintext
-npx eas-cli@latest env:set --name SENTRY_PROJECT --value YOUR_SENTRY_PROJECT --environment production --visibility plaintext
-npx eas-cli@latest env:set --name SENTRY_AUTH_TOKEN --value YOUR_SENTRY_AUTH_TOKEN --environment production --visibility secret
-```
-
-Repeat for other build environments if needed. Never commit the Sentry auth token.
+Repeat with `--environment preview` for internal testing builds. Never commit secret tokens or credentials to source control. For local development, copy `.env.example` to `.env.local` and fill in the public Supabase values. With no credentials, the app continues to use mock mode.

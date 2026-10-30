@@ -77,11 +77,14 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
       .catch(() => Linking.openURL(webUrl));
   };
 
-  // Try to load native react-native-maps if on mobile
+  const mapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const isMapsKeyMissing = !mapsApiKey;
+
+  // Try to load native react-native-maps if on mobile and key is available
   let MapComponent: any = null;
   let MarkerComponent: any = null;
 
-  if (Platform.OS !== 'web') {
+  if (Platform.OS !== 'web' && (Platform.OS === 'ios' || !isMapsKeyMissing)) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Maps = require('react-native-maps');
@@ -111,6 +114,14 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
 
   return (
     <View style={styles.container}>
+      {isMapsKeyMissing && (
+        <View style={styles.missingKeyBanner}>
+          <Ionicons name="warning-outline" size={16} color="#92400E" />
+          <Text style={styles.missingKeyBannerText}>
+            Google Maps API key not configured. Showing interactive location list.
+          </Text>
+        </View>
+      )}
       {MapComponent && MarkerComponent ? (
         <MapComponent
           style={StyleSheet.absoluteFill}
@@ -515,5 +526,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: Brand.white,
+  },
+  missingKeyBanner: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  missingKeyBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '600',
   },
 });
