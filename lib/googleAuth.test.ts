@@ -3,6 +3,7 @@ import {
   extractAuthParams,
   completeFromRedirectUrl,
   handleAuthRedirectUrl,
+  isGoogleAuthCallbackUrl,
 } from './googleAuth';
 import { supabase } from './supabase';
 
@@ -111,9 +112,30 @@ describe('googleAuth', () => {
         error: null,
       });
 
-      const handled = await handleAuthRedirectUrl('imbafind://?code=valid-code');
+      const handled = await handleAuthRedirectUrl('imbafind://auth/callback?code=valid-code');
       expect(handled).toBe(true);
       expect(supabase!.auth.exchangeCodeForSession).toHaveBeenCalledWith('valid-code');
+    });
+  });
+
+  describe('isGoogleAuthCallbackUrl', () => {
+    it('returns true for native auth callback URLs with code or tokens', () => {
+      expect(isGoogleAuthCallbackUrl('imbafind://auth/callback?code=mock-code')).toBe(true);
+      expect(isGoogleAuthCallbackUrl('exp://127.0.0.1:8081/--/auth/callback#access_token=token&refresh_token=rt')).toBe(true);
+    });
+
+    it('returns true for web auth callback URLs with error', () => {
+      expect(isGoogleAuthCallbackUrl('https://imbafind.co.zw/auth/callback?error=access_denied')).toBe(true);
+    });
+
+    it('returns false for password reset URLs so they are not hijacked', () => {
+      expect(isGoogleAuthCallbackUrl('imbafind://reset-password?code=reset-code-123')).toBe(false);
+      expect(isGoogleAuthCallbackUrl('https://imbafind.co.zw/reset-password#access_token=reset-token')).toBe(false);
+    });
+
+    it('returns false for unrelated URLs and non-auth callback URLs', () => {
+      expect(isGoogleAuthCallbackUrl('imbafind://tabs/explore')).toBe(false);
+      expect(isGoogleAuthCallbackUrl('')).toBe(false);
     });
   });
 });

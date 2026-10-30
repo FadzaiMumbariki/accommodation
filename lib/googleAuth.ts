@@ -97,6 +97,17 @@ export async function completeFromRedirectUrl(url: string): Promise<boolean> {
 }
 
 /**
+ * Checks whether an incoming deep link or URL is specifically an OAuth callback URL.
+ * Distinguishes OAuth callbacks from password-reset links (/reset-password).
+ */
+export function isGoogleAuthCallbackUrl(url: string): boolean {
+  if (!url) return false;
+  const isCallbackPath = url.includes('/auth/callback') || url.includes('auth/callback');
+  const hasAuthParams = url.includes('code=') || url.includes('access_token=') || url.includes('error=');
+  return isCallbackPath && hasAuthParams;
+}
+
+/**
  * Global deep-link handler for OAuth redirect URLs.
  * Safely parses the URL and exchanges authorization code/tokens for a persistent session.
  */
@@ -107,7 +118,9 @@ export async function handleAuthRedirectUrl(url: string): Promise<boolean> {
   try {
     return await completeFromRedirectUrl(url);
   } catch (err) {
-    console.warn('[googleAuth] Failed to process auth redirect URL:', err);
+    if (__DEV__) {
+      console.warn('[googleAuth] Failed to process auth redirect URL:', err);
+    }
     return false;
   }
 }
@@ -121,8 +134,12 @@ export async function signInWithGoogle(): Promise<{ success: boolean; cancelled?
 
   const redirectTo =
     Platform.OS === 'web' && typeof window !== 'undefined'
-      ? `${window.location.origin}/`
-      : Linking.createURL('/');
+      ? `${window.location.origin}/auth/callback`
+      : Linking.createURL('auth/callback');
+
+  if (__DEV__) {
+    console.log('[GoogleAuth] Platform:', Platform.OS, 'redirectTo:', redirectTo);
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

@@ -303,26 +303,30 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               </TouchableOpacity>
             )}
 
-            {/* Demo buttons — always visible, no account needed */}
-            <View style={styles.demoRow}>
-              <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('tenant')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
-                {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
-                  <>
-                    <Ionicons name="home-outline" size={15} color={Brand.terracotta} />
-                    <Text style={styles.demoBtnText}>Try as Tenant</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('landlord')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
-                {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
-                  <>
-                    <Ionicons name="key-outline" size={15} color={Brand.terracotta} />
-                    <Text style={styles.demoBtnText}>Try as Landlord</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.demoNote}>No account needed — explore with demo data</Text>
+            {/* Demo buttons — shown in dev or when explicitly enabled */}
+            {(__DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO === 'true') && (
+              <>
+                <View style={styles.demoRow}>
+                  <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('tenant')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
+                    {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
+                      <>
+                        <Ionicons name="home-outline" size={15} color={Brand.terracotta} />
+                        <Text style={styles.demoBtnText}>Try as Tenant</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('landlord')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
+                    {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
+                      <>
+                        <Ionicons name="key-outline" size={15} color={Brand.terracotta} />
+                        <Text style={styles.demoBtnText}>Try as Landlord</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.demoNote}>No account needed — explore with demo data</Text>
+              </>
+            )}
           </View>
 
         </ScrollView>
