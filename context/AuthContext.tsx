@@ -15,6 +15,7 @@ import { clearPushToken, updateProfile } from '../lib/database';
 import {
   signInWithGoogle as runGoogleSignIn,
   handleAuthRedirectUrl,
+  isGoogleAuthCallbackUrl,
 } from '../lib/googleAuth';
 import type { UserRole } from '../types';
 import { changeUserRole, signUpWithRole, type SignUpResult } from '../lib/authActions';
@@ -124,13 +125,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Listen for incoming deep link redirects (e.g. imbafind://... or exp://...)
+    // Listen for incoming deep link redirects (e.g. imbafind://auth/callback)
     const linkSub = Linking.addEventListener('url', ({ url }) => {
-      void handleAuthRedirectUrl(url);
+      if (isGoogleAuthCallbackUrl(url)) {
+        void handleAuthRedirectUrl(url);
+      }
     });
 
     void Linking.getInitialURL().then(initialUrl => {
-      if (initialUrl && active) {
+      if (initialUrl && active && isGoogleAuthCallbackUrl(initialUrl)) {
         void handleAuthRedirectUrl(initialUrl);
       }
     });
