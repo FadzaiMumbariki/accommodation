@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../context/AppContext';
+import { useChat } from '../context/ChatContext';
+import { useProperties } from '../context/PropertyContext';
 import { Brand } from '../constants/Colors';
 import { ChatBubble } from '../components/chat/ChatBubble';
 import { useAuth } from '../context/AuthContext';
@@ -150,14 +151,14 @@ export default function ChatScreen() {
     setSelectedConversationId,
     sendMessage,
     retryMessage,
-    properties,
     openConversation,
     startConversationWithUser,
     loadOlderMessages,
     hasOlderMessages,
-    chatMessageLoading,
-    chatMessageError,
-  } = useApp();
+    messageLoading: chatMessageLoading,
+    messageError: chatMessageError,
+  } = useChat();
+  const { properties } = useProperties();
   const { user, isSupabaseEnabled } = useAuth();
   const requireAuth = useRequireAuth();
   const { recipientId, recipientName, conversationId: linkedConversationId } = useLocalSearchParams<{

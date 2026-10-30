@@ -19,6 +19,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,61 +34,119 @@ import { fetchProfile } from '../lib/database';
 // ─────────────────────────────────────────────────────────────────────────────
 // Role context (small — stays here)
 // ─────────────────────────────────────────────────────────────────────────────
-interface RoleContextValue {
+export interface RoleContextValue {
   userRole: UserRole;
   userName: string;
   isAdmin: boolean;
+  roleLoading: boolean;
   /** Sets the role. `localOnly` caches it without touching the signed-in user's profile. */
   setUserRole: (role: UserRole, options?: { localOnly?: boolean }) => Promise<boolean>;
 }
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
+export function useRole(): RoleContextValue {
+  const ctx = useContext(RoleContext);
+  if (!ctx) throw new Error('useRole must be used within AppProvider');
+  return ctx;
+}
+
 const ROLE_KEY = 'imbafind_user_role';
+
+function isDemoUser(user: any): boolean {
+  return Boolean(
+    user &&
+    (user.app_metadata?.provider === 'demo' ||
+     user.id === '00000000-0000-0000-0000-000000000001' ||
+     user.id === '00000000-0000-0000-0000-000000000002')
+  );
+}
 
 function RoleProvider({ children }: { children: ReactNode }) {
   const { user, changeRole, isSupabaseEnabled } = useAuth();
+  const userId = user?.id;
   const [userRole, setUserRoleState] = useState<UserRole>('tenant');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    if (user) {
-      void fetchProfile(user.id).then(profile => {
-        if (!active || !profile) return;
-        setUserRoleState(profile.role);
-        setIsAdmin(profile.isAdmin);
-      });
-      return () => {
-        active = false;
-      };
-    }
 
-    if (isSupabaseEnabled) {
-      // Intentional synchronous reset so a stale role (e.g. from a previous
-      // landlord session) doesn't persist after the user logs out.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUserRoleState('tenant');
-      setIsAdmin(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    void AsyncStorage.getItem(ROLE_KEY).then(stored => {
-      if (active && (stored === 'landlord' || stored === 'tenant')) {
-        setUserRoleState(stored);
+    async function resolveRole() {
+      // Demo users: keep demo mode local-only without querying Supabase RLS
+      if (user && isDemoUser(user)) {
+        const demoRole = (user.user_metadata?.role as UserRole) || 'tenant';
+        if (active) {
+          setUserRoleState(demoRole);
+          setIsAdmin(false);
+          setRoleLoading(false);
+        }
+        return;
       }
-    }).catch(error => {
-      console.error('[RoleProvider] Failed to read cached role:', error);
-    });
+
+      if (userId) {
+        setRoleLoading(true);
+        try {
+          const profile = await fetchProfile(userId);
+          if (!active) return;
+          if (profile) {
+            setUserRoleState(profile.role);
+            setIsAdmin(profile.isAdmin);
+          } else {
+            // Null profile fallback
+            setIsAdmin(false);
+            const stored = await AsyncStorage.getItem(ROLE_KEY);
+            if (active && (stored === 'landlord' || stored === 'tenant')) {
+              setUserRoleState(stored);
+            }
+          }
+        } catch (error) {
+          console.error('[RoleProvider] Failed to fetch profile:', error);
+          if (active) {
+            setIsAdmin(false);
+            try {
+              const stored = await AsyncStorage.getItem(ROLE_KEY);
+              if (active && (stored === 'landlord' || stored === 'tenant')) {
+                setUserRoleState(stored);
+              }
+            } catch {}
+          }
+        } finally {
+          if (active) setRoleLoading(false);
+        }
+        return;
+      }
+
+      if (isSupabaseEnabled) {
+        if (active) {
+          setUserRoleState('tenant');
+          setIsAdmin(false);
+          setRoleLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const stored = await AsyncStorage.getItem(ROLE_KEY);
+        if (active && (stored === 'landlord' || stored === 'tenant')) {
+          setUserRoleState(stored);
+        }
+      } catch (error) {
+        console.error('[RoleProvider] Failed to read cached role:', error);
+      } finally {
+        if (active) setRoleLoading(false);
+      }
+    }
+
+    void resolveRole();
+
     return () => {
       active = false;
     };
-  }, [isSupabaseEnabled, user]);
+  }, [isSupabaseEnabled, userId, user]);
 
   const setUserRole = useCallback(async (role: UserRole, options?: { localOnly?: boolean }): Promise<boolean> => {
-    if (user && isSupabaseEnabled && !options?.localOnly) {
+    if (user && isSupabaseEnabled && !options?.localOnly && !isDemoUser(user)) {
       const updated = await changeRole(user.id, role);
       if (!updated) return false;
     }
@@ -106,7 +165,7 @@ function RoleProvider({ children }: { children: ReactNode }) {
     'User';
 
   return (
-    <RoleContext.Provider value={{ userRole, userName, isAdmin, setUserRole }}>
+    <RoleContext.Provider value={{ userRole, userName, isAdmin, roleLoading, setUserRole }}>
       {children}
     </RoleContext.Provider>
   );
@@ -117,7 +176,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <RoleProvider>
-      <RoleConsumerWrapper key={user?.id ?? 'guest'} userId={user?.id}>
+      <RoleConsumerWrapper userId={user?.id}>
         {children}
       </RoleConsumerWrapper>
     </RoleProvider>
@@ -132,7 +191,12 @@ function RoleConsumerWrapper({
   children: ReactNode;
   userId?: string;
 }) {
-  const { userRole, userName } = useContext(RoleContext)!;
+  const { userRole, userName, roleLoading } = useContext(RoleContext)!;
+
+  if (roleLoading) {
+    return null;
+  }
+
   return (
     <PropertyProvider userId={userId} userRole={userRole}>
       <SavedProvider userId={userId}>
@@ -158,72 +222,75 @@ export function useApp() {
   const chat = useChat();
   const activity = useActivity();
 
-  /** @deprecated Use useSaved().toggleSaved instead */
-  const toggleSaveProperty = saved.toggleSaved;
-  /** @deprecated Use useSaved().isSaved instead */
-  const isPropertySaved = saved.isSaved;
-  const setFilters: (filters: PropertyFilters) => void = properties.setFilters;
+  return useMemo(() => {
+    /** @deprecated Use useSaved().toggleSaved instead */
+    const toggleSaveProperty = saved.toggleSaved;
+    /** @deprecated Use useSaved().isSaved instead */
+    const isPropertySaved = saved.isSaved;
+    const setFilters: (filters: PropertyFilters) => void = properties.setFilters;
 
-  return {
-    // Role
-    userRole: roleCtx.userRole,
-    userName: roleCtx.userName,
-    isAdmin: roleCtx.isAdmin,
-    setUserRole: roleCtx.setUserRole,
+    return {
+      // Role
+      userRole: roleCtx.userRole,
+      userName: roleCtx.userName,
+      isAdmin: roleCtx.isAdmin,
+      roleLoading: roleCtx.roleLoading,
+      setUserRole: roleCtx.setUserRole,
 
-    // Properties
-    properties: properties.properties,
-    myListings: properties.myListings,
-    propertiesLoading: properties.loading,
-    isOffline: properties.isOffline,
-    hasCachedProperties: properties.hasCachedProperties,
-    lastSyncedAt: properties.lastSyncedAt,
-    propertiesError: properties.error,
-    refreshProperties: properties.refresh,
-    hasMoreProperties: properties.hasMoreProperties,
-    loadMoreProperties: properties.loadMoreProperties,
-    filters: properties.filters,
-    setFilters,
-    filteredProperties: properties.filteredProperties,
-    addProperty: properties.addProperty,
-    updateProperty: properties.updateProperty,
-    deleteProperty: properties.deleteProperty,
+      // Properties
+      properties: properties.properties,
+      myListings: properties.myListings,
+      propertiesLoading: properties.loading,
+      isOffline: properties.isOffline,
+      hasCachedProperties: properties.hasCachedProperties,
+      lastSyncedAt: properties.lastSyncedAt,
+      propertiesError: properties.error,
+      refreshProperties: properties.refresh,
+      hasMoreProperties: properties.hasMoreProperties,
+      loadMoreProperties: properties.loadMoreProperties,
+      filters: properties.filters,
+      setFilters,
+      filteredProperties: properties.filteredProperties,
+      addProperty: properties.addProperty,
+      updateProperty: properties.updateProperty,
+      deleteProperty: properties.deleteProperty,
 
-    // Saved
-    savedPropertyIds: saved.savedPropertyIds,
-    toggleSaved: saved.toggleSaved,
-    isSaved: saved.isSaved,
-    toggleSaveProperty,
-    isPropertySaved,
+      // Saved
+      savedPropertyIds: saved.savedPropertyIds,
+      toggleSaved: saved.toggleSaved,
+      isSaved: saved.isSaved,
+      toggleSaveProperty,
+      isPropertySaved,
 
-    // Chat
-    conversations: chat.conversations,
-    sendMessage: chat.sendMessage,
-    startConversation: chat.startConversation,
-    startConversationWithUser: chat.startConversationWithUser,
-    openConversation: chat.openConversation,
-    retryMessage: chat.retryMessage,
-    loadOlderMessages: chat.loadOlderMessages,
-    hasOlderMessages: chat.hasOlderMessages,
-    chatLoading: chat.loading,
-    chatError: chat.error,
-    chatMessageLoading: chat.messageLoading,
-    chatMessageError: chat.messageError,
-    refreshConversations: chat.refresh,
-    selectedConversationId: chat.selectedConversationId,
-    setSelectedConversationId: chat.setSelectedConversationId,
+      // Chat
+      conversations: chat.conversations,
+      sendMessage: chat.sendMessage,
+      startConversation: chat.startConversation,
+      startConversationWithUser: chat.startConversationWithUser,
+      openConversation: chat.openConversation,
+      retryMessage: chat.retryMessage,
+      loadOlderMessages: chat.loadOlderMessages,
+      hasOlderMessages: chat.hasOlderMessages,
+      chatLoading: chat.loading,
+      chatError: chat.error,
+      chatMessageLoading: chat.messageLoading,
+      chatMessageError: chat.messageError,
+      refreshConversations: chat.refresh,
+      selectedConversationId: chat.selectedConversationId,
+      setSelectedConversationId: chat.setSelectedConversationId,
 
-    // Activity
-    viewings: activity.viewings,
-    addViewing: activity.addViewing,
-    updateViewingStatus: activity.updateViewingStatus,
-    activityLoading: activity.loading,
-    activityError: activity.error,
-    refreshActivity: activity.refresh,
-    requests: activity.requests,
-    addRequest: activity.addRequest,
-    updateRequestStatus: activity.updateRequestStatus,
-    selectedPropertyId: activity.selectedPropertyId,
-    setSelectedPropertyId: activity.setSelectedPropertyId,
-  };
+      // Activity
+      viewings: activity.viewings,
+      addViewing: activity.addViewing,
+      updateViewingStatus: activity.updateViewingStatus,
+      activityLoading: activity.loading,
+      activityError: activity.error,
+      refreshActivity: activity.refresh,
+      requests: activity.requests,
+      addRequest: activity.addRequest,
+      updateRequestStatus: activity.updateRequestStatus,
+      selectedPropertyId: activity.selectedPropertyId,
+      setSelectedPropertyId: activity.setSelectedPropertyId,
+    };
+  }, [roleCtx, properties, saved, chat, activity]);
 }

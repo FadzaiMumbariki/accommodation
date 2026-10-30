@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../../context/AppContext';
+import { useRole } from '../../context/AppContext';
+import { useChat } from '../../context/ChatContext';
 import { Brand } from '../../constants/Colors';
 import { ConversationSkeleton } from '../../components/common/Skeleton';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -39,11 +40,11 @@ export default function MessagesScreen() {
   const {
     conversations,
     setSelectedConversationId,
-    chatLoading,
-    chatError,
-    refreshConversations,
-    userRole,
-  } = useApp();
+    loading: chatLoading,
+    error: chatError,
+    refresh: refreshConversations,
+  } = useChat();
+  const { userRole } = useRole();
   const [searchText, setSearchText] = useState('');
   const { isMobile } = useResponsive();
 
