@@ -22,8 +22,6 @@ import type { Property, PropertyFilters, PropertyType, SearchFilters } from '../
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
-import { aiSearch } from '../../lib/ai';
-import { hasRealAiSession, aiUnavailableMessage } from '../../lib/aiAvailability';
 import { filterMockProperties } from '../../lib/propertyFilters';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
@@ -56,10 +54,8 @@ export default function ExploreScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [sortOption, setSortOption] = useState<string>('Newest');
-  const [aiLoading, setAiLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
-  const [aiNote, setAiNote] = useState<{ query: string; summary: string; source: 'ai' | 'basic' } | null>(null);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const openProperty = useCallback((id: string) => {
@@ -195,7 +191,6 @@ export default function ExploreScreen() {
   const handleResetFilters = () => {
     setFilters({});
     setQ('');
-    setAiNote(null);
     setUserLocationLabel(null);
   };
 
@@ -232,39 +227,6 @@ export default function ExploreScreen() {
     }
   }, [filters, setFilters]);
 
-  // Plain-English search ("2 bed flat in Bulawayo under $300"). The AI only returns filters; the
-  // listings shown always come from the app's own data.
-  const runAiSearch = async () => {
-    const query = q.trim();
-    if (!query) {
-      Alert.alert('AI search', 'Type what you are looking for first, e.g. "2 bedroom flat in Bulawayo under $300".');
-      return;
-    }
-    // The AI Edge Functions enforce a per-user limit that requires a real signed-in account.
-    // Anonymous and demo sessions cannot use AI, so prompt for sign-in instead of silently falling back.
-    if (!(await hasRealAiSession())) {
-      Alert.alert('Sign in to use AI search', aiUnavailableMessage('auth'));
-      router.push({ pathname: '/login', params: { returnTo: '/(tabs)/explore' } });
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const result = await aiSearch(query, allCities);
-      if (result.source === 'basic' && result.unavailable) {
-        Alert.alert('AI unavailable', aiUnavailableMessage(result.unavailable));
-      }
-      if (Object.keys(result.filters).length === 0) {
-        Alert.alert('No filters found', 'I could not turn that into filters. Try adding a city, bedrooms or a budget.');
-        return;
-      }
-      setFilters(result.filters);
-      setQ('');
-      setShowSuggestions(false);
-      setAiNote({ query, summary: result.summary, source: result.source });
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const selectCity = (city: string) => {
     setQ(city);
@@ -418,24 +380,6 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      {aiNote && (
-        <View style={styles.cityBanner}>
-          <Ionicons name="information-circle-outline" size={15} color={Brand.terracotta} />
-          <Text style={styles.cityBannerText}>
-            {aiNote.source === 'ai' ? 'AI understood' : 'Basic search understood'}:{' '}
-            <Text style={styles.cityBannerBold}>{aiNote.summary}</Text>
-            {aiNote.source === 'ai' ? ' (AI-generated, check the filters)' : ''}
-          </Text>
-          <TouchableOpacity
-            onPress={handleResetFilters}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear AI search filters"
-          >
-            <Ionicons name="close" size={16} color={Brand.gray500} />
-          </TouchableOpacity>
-        </View>
-      )}
 
       <View style={{ height: 44, marginBottom: 10 }}>
         <ScrollView
@@ -471,20 +415,6 @@ export default function ExploreScreen() {
             >
               {userLocationLabel ? userLocationLabel : 'Near Me'}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, styles.chipActive]}
-            onPress={runAiSearch}
-            disabled={aiLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Search with AI"
-          >
-            {aiLoading ? (
-              <ActivityIndicator size="small" color={Brand.white} />
-            ) : (
-              <Ionicons name="search-outline" size={11} color={Brand.white} />
-            )}
-            <Text style={[styles.chipText, styles.chipTextActive]}>AI search</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.chip} onPress={() => setShowFilterModal(true)}>
             <Ionicons name="options-outline" size={11} color={Brand.navy} />
