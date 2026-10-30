@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
@@ -12,14 +12,19 @@ export default function SplashScreen() {
   useEffect(() => {
     if (loading) return;
 
-    // Fast, smooth transition instead of artificial 2-second freeze
+    // On web / laptops, immediately land on the website homepage to explore listings
+    if (Platform.OS === 'web') {
+      router.replace('/(tabs)');
+      return;
+    }
+
     const timer = setTimeout(() => {
       if (session) {
         router.replace('/(tabs)');
       } else {
         router.replace('/login');
       }
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [loading, session]);
