@@ -20,6 +20,9 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { PRIVACY_POLICY_URL } from '../../constants/links';
 import { ReportDialog } from '../../components/common/ReportDialog';
 import { insertReport } from '../../lib/database';
+import { useResponsive } from '../../hooks/useResponsive';
+import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
+import { WebFooter } from '../../components/navigation/WebFooter';
 
 export default function ProfileScreen() {
   const [reportVisible, setReportVisible] = useState(false);
@@ -27,6 +30,8 @@ export default function ProfileScreen() {
   const { userName, userRole, setUserRole, isAdmin } = useApp();
   const { signOut, user } = useAuth();
   const requireAuth = useRequireAuth();
+
+  const { isMobile } = useResponsive();
 
   const switchRole = async () => {
     if (!requireAuth('/(tabs)/profile')) return;
@@ -187,22 +192,25 @@ export default function ProfileScreen() {
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)')}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="Go to home"
-        >
-          <Ionicons name="arrow-back" size={22} color={Brand.navy} />
-        </TouchableOpacity>
-      </View>
+      {isMobile && (
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)')}
+            style={styles.backBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home"
+          >
+            <Ionicons name="arrow-back" size={22} color={Brand.navy} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, !isMobile && { paddingBottom: 0 }]}
         showsVerticalScrollIndicator={false}
       >
+        <ResponsiveContainer maxWidth={760}>
         {/* User Card */}
         <View style={styles.userCard}>
           <Image
@@ -258,6 +266,8 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        </ResponsiveContainer>
+        {!isMobile && <WebFooter />}
       </ScrollView>
 
       <ReportDialog

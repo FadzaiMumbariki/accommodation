@@ -14,10 +14,15 @@ import * as Haptics from 'expo-haptics';
 import { useApp } from '../../context/AppContext';
 import { Brand } from '../../constants/Colors';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { useResponsive } from '../../hooks/useResponsive';
+import { PropertyCard } from '../../components/property/PropertyCard';
+import { WebFooter } from '../../components/navigation/WebFooter';
 
 export default function SavedScreen() {
   const { properties, savedPropertyIds, toggleSaved } = useApp();
   const requireAuth = useRequireAuth();
+  const { isMobile, numColumns } = useResponsive();
+
   const savedProperties = properties.filter((p) => savedPropertyIds.includes(p.id));
 
   const openProperty = (id: string) => {
@@ -26,94 +31,116 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+      <View style={[styles.header, !isMobile && styles.headerDesktop]}>
         <Text style={styles.screenTitle}>Saved Properties</Text>
+        <Text style={styles.screenSub}>
+          {savedProperties.length} {savedProperties.length === 1 ? 'property' : 'properties'} saved
+        </Text>
       </View>
 
       <FlatList
+        key={`saved-grid-${numColumns}`}
         data={savedProperties}
         keyExtractor={(p) => p.id}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? styles.desktopColumnWrapper : undefined}
         style={{ flex: 1 }}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => openProperty(item.id)}
-            activeOpacity={0.88}
-          >
-            <Image
-              source={{ uri: item.images[0] }}
-              style={styles.cardImage}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-            <View style={styles.cardDetails}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (!requireAuth(`/property-details?id=${item.id}`)) return;
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    toggleSaved(item.id);
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${item.title} from saved listings`}
-                >
-                  <Ionicons name="heart" size={20} color={Brand.terracotta} />
-                </TouchableOpacity>
+        contentContainerStyle={[styles.listContent, !isMobile && styles.listContentDesktop]}
+        ItemSeparatorComponent={numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined}
+        renderItem={({ item }) => {
+          if (numColumns > 1) {
+            return (
+              <View style={styles.gridItemWrapper}>
+                <PropertyCard
+                  property={item}
+                  onPress={() => openProperty(item.id)}
+                />
               </View>
-              <Text style={styles.cardLocation} numberOfLines={1}>
-                {item.suburb}, {item.city}
-              </Text>
-              <Text style={styles.cardPrice}>${item.price}/month</Text>
-
-              <View style={styles.availPill}>
-                <Text style={styles.availPillText}>Available now</Text>
-              </View>
-
-              <View style={styles.specsRow}>
-                <View style={styles.spec}>
-                  <Ionicons name="bed-outline" size={13} color={Brand.gray500} />
-                  <Text style={styles.specText}>{item.bedrooms}</Text>
-                </View>
-                <View style={styles.spec}>
-                  <Ionicons name="water-outline" size={13} color={Brand.gray500} />
-                  <Text style={styles.specText}>{item.bathrooms}</Text>
-                </View>
-                <View style={styles.spec}>
-                  <Ionicons name="people-outline" size={13} color={Brand.gray500} />
-                  <Text style={styles.specText}>{item.maxOccupants}</Text>
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        ListFooterComponent={
-          <View style={styles.footerPrompt}>
-            <View style={styles.heartIconWrap}>
-              <Ionicons name="heart-outline" size={24} color={Brand.terracotta} />
-            </View>
-            <Text style={styles.footerTitle}>
-              {savedProperties.length === 0
-                ? "You haven't saved any properties yet."
-                : 'Looking for more options?'}
-            </Text>
-            <Text style={styles.footerSubtitle}>
-              Save properties you like and find them here later.
-            </Text>
+            );
+          }
+          return (
             <TouchableOpacity
-              style={styles.exploreBtn}
-              onPress={() => router.push('/(tabs)/explore')}
-              activeOpacity={0.85}
+              style={styles.card}
+              onPress={() => openProperty(item.id)}
+              activeOpacity={0.88}
             >
-              <Text style={styles.exploreBtnText}>Explore accommodation</Text>
+              <Image
+                source={{ uri: item.images[0] }}
+                style={styles.cardImage}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.cardDetails}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!requireAuth(`/property-details?id=${item.id}`)) return;
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      toggleSaved(item.id);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove from saved"
+                  >
+                    <Ionicons name="heart" size={20} color={Brand.terracotta} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.cardLocation} numberOfLines={1}>
+                  {item.suburb ? `${item.suburb}, ${item.city}` : item.city}
+                </Text>
+
+                <Text style={styles.cardPrice}>
+                  ${item.price}
+                  <Text style={styles.perMonth}>/mo</Text>
+                </Text>
+
+                <View style={styles.cardSpecs}>
+                  <View style={styles.spec}>
+                    <Ionicons name="bed-outline" size={13} color={Brand.gray500} />
+                    <Text style={styles.specText}>{item.bedrooms}</Text>
+                  </View>
+                  <View style={styles.spec}>
+                    <Ionicons name="water-outline" size={13} color={Brand.gray500} />
+                    <Text style={styles.specText}>{item.bathrooms}</Text>
+                  </View>
+                  <View style={styles.spec}>
+                    <Ionicons name="people-outline" size={13} color={Brand.gray500} />
+                    <Text style={styles.specText}>{item.maxOccupants}</Text>
+                  </View>
+                </View>
+              </View>
             </TouchableOpacity>
-          </View>
+          );
+        }}
+        ListFooterComponent={
+          <>
+            <View style={styles.footerPrompt}>
+              <View style={styles.heartIconWrap}>
+                <Ionicons name="heart-outline" size={24} color={Brand.terracotta} />
+              </View>
+              <Text style={styles.footerTitle}>
+                {savedProperties.length === 0
+                  ? "You haven't saved any properties yet."
+                  : 'Looking for more options?'}
+              </Text>
+              <Text style={styles.footerSubtitle}>
+                Save properties you like and find them here anytime on mobile or desktop.
+              </Text>
+              <TouchableOpacity
+                style={styles.exploreBtn}
+                onPress={() => router.push('/(tabs)/explore')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.exploreBtnText}>Explore accommodation</Text>
+              </TouchableOpacity>
+            </View>
+            {!isMobile && <WebFooter />}
+          </>
         }
       />
     </SafeAreaView>
@@ -130,118 +157,134 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Brand.gray200,
   },
+  headerDesktop: {
+    maxWidth: 1240,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 18,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+  },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     color: Brand.navy,
+  },
+  screenSub: {
+    fontSize: 13,
+    color: Brand.gray500,
+    marginTop: 4,
   },
   listContent: {
     padding: 16,
     paddingBottom: 100,
   },
+  listContentDesktop: {
+    maxWidth: 1240,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  desktopColumnWrapper: {
+    gap: 16,
+    marginBottom: 16,
+  },
+  gridItemWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
   card: {
     flexDirection: 'row',
     backgroundColor: Brand.white,
-    borderRadius: 16,
-    padding: 12,
-    gap: 12,
-    shadowColor: Brand.navy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 14,
+    padding: 10,
     borderWidth: 1,
-    borderColor: Brand.gray100,
+    borderColor: Brand.gray200,
   },
   cardImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
+    width: 90,
+    height: 90,
+    borderRadius: 10,
+    backgroundColor: Brand.gray100,
   },
   cardDetails: {
     flex: 1,
-    justifyContent: 'center',
+    marginLeft: 12,
+    justifyContent: 'space-between',
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: Brand.navy,
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   cardLocation: {
     fontSize: 12,
     color: Brand.gray500,
     marginTop: 2,
-    marginBottom: 4,
   },
   cardPrice: {
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
     color: Brand.terracotta,
-    marginBottom: 6,
+    marginTop: 4,
   },
-  availPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginBottom: 6,
+  perMonth: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: Brand.gray400,
   },
-  availPillText: {
-    color: '#16A34A',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  specsRow: {
+  cardSpecs: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginTop: 6,
   },
   spec: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
   },
   specText: {
     fontSize: 11,
     color: Brand.gray500,
-    fontWeight: '600',
   },
   footerPrompt: {
-    marginTop: 28,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 36,
+    paddingHorizontal: 20,
   },
   heartIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Brand.white,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Brand.terracotta + '15',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
   },
   footerTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: Brand.navy,
+    marginBottom: 6,
     textAlign: 'center',
-    marginBottom: 4,
   },
   footerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: Brand.gray500,
     textAlign: 'center',
+    maxWidth: 280,
     marginBottom: 16,
+    lineHeight: 18,
   },
   exploreBtn: {
     backgroundColor: Brand.terracotta,
@@ -250,8 +293,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   exploreBtnText: {
-    color: Brand.white,
     fontSize: 13,
     fontWeight: '700',
+    color: Brand.white,
   },
 });

@@ -25,6 +25,9 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { filterMockProperties } from '../../lib/propertyFilters';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
+import { PropertyCard } from '../../components/property/PropertyCard';
+import { useResponsive } from '../../hooks/useResponsive';
+import { WebFooter } from '../../components/navigation/WebFooter';
 import {
   getCurrentUserLocation,
   findNearestLocation,
@@ -57,6 +60,7 @@ export default function ExploreScreen() {
   const [isLocating, setIsLocating] = useState(false);
   const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
+  const { isMobile, numColumns } = useResponsive();
 
   const openProperty = useCallback((id: string) => {
     router.push(`/property-details?id=${id}`);
@@ -475,30 +479,44 @@ export default function ExploreScreen() {
   );
 
   const renderPropertyCard = useCallback(
-    ({ item }: { item: typeof sortedResults[0] }) => (
-      <PropertyExploreCard
-        property={item}
-        onPress={openProperty}
-        onWhatsAppPress={handleWhatsAppFromExplore}
-      />
-    ),
-    [openProperty, handleWhatsAppFromExplore]
+    ({ item }: { item: typeof sortedResults[0] }) => {
+      if (numColumns > 1) {
+        return (
+          <View style={styles.gridItemWrapper}>
+            <PropertyCard
+              property={item}
+              onPress={() => openProperty(item.id)}
+            />
+          </View>
+        );
+      }
+      return (
+        <PropertyExploreCard
+          property={item}
+          onPress={openProperty}
+          onWhatsAppPress={handleWhatsAppFromExplore}
+        />
+      );
+    },
+    [numColumns, openProperty, handleWhatsAppFromExplore]
   );
 
   return (
     <SafeAreaView style={styles.safe}>
 
       {/* Header — stays fixed above the scrollable list */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.push('/(tabs)')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="Go to home"
-        >
-          <Ionicons name="arrow-back" size={22} color={Brand.navy} />
-        </TouchableOpacity>
+      <View style={[styles.header, !isMobile && styles.headerDesktop]}>
+        {isMobile && (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.push('/(tabs)')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home"
+          >
+            <Ionicons name="arrow-back" size={22} color={Brand.navy} />
+          </TouchableOpacity>
+        )}
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Find accommodation</Text>
           {activeCity && <Text style={styles.headerSub}>in {activeCity}</Text>}
@@ -558,17 +576,20 @@ export default function ExploreScreen() {
       ) : (
         /* FlatList owns everything — no siblings competing for height */
         <FlatList
-        data={sortedResults}
-        keyExtractor={p => p.id}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        onEndReached={() => {
-          if (hasMoreProperties) void loadMoreProperties();
-        }}
-        onEndReachedThreshold={0.5}
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={listHeader}
-        renderItem={renderPropertyCard}
+          key={`explore-grid-${numColumns}`}
+          data={sortedResults}
+          keyExtractor={p => p.id}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? styles.desktopColumnWrapper : undefined}
+          contentContainerStyle={[styles.listContent, !isMobile && styles.listContentDesktop]}
+          ItemSeparatorComponent={numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined}
+          onEndReached={() => {
+            if (hasMoreProperties) void loadMoreProperties();
+          }}
+          onEndReachedThreshold={0.5}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={listHeader}
+          renderItem={renderPropertyCard}
         ListEmptyComponent={
           propertiesLoading ? (
             <ActivityIndicator style={{ marginTop: 36 }} size="large" color={Brand.terracotta} />
@@ -596,11 +617,14 @@ export default function ExploreScreen() {
           )
         }
         ListFooterComponent={
-          propertiesLoading && sortedResults.length > 0
-            ? <ActivityIndicator style={{ marginVertical: 20 }} color={Brand.terracotta} />
-            : hasMoreProperties
-              ? <View style={{ height: 20 }} />
-              : undefined
+          <>
+            {propertiesLoading && sortedResults.length > 0 ? (
+              <ActivityIndicator style={{ marginVertical: 20 }} color={Brand.terracotta} />
+            ) : hasMoreProperties ? (
+              <View style={{ height: 20 }} />
+            ) : null}
+            {!isMobile && <WebFooter />}
+          </>
         }
       />
       )}
@@ -697,5 +721,28 @@ const styles = StyleSheet.create({
 
   headerIconBtnActive: {
     backgroundColor: Brand.terracotta,
+  },
+  headerDesktop: {
+    maxWidth: 1240,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  desktopColumnWrapper: {
+    gap: 16,
+    marginBottom: 16,
+  },
+  gridItemWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listContentDesktop: {
+    maxWidth: 1240,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
 });

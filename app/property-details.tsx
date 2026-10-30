@@ -34,6 +34,9 @@ import { ListingTrustCheckCard } from '../components/property/ListingTrustCheckC
 import { ReviewSection } from '../components/property/ReviewSection';
 import { PropertyUtilitiesCard } from '../components/property/PropertyUtilitiesCard';
 import { PropertyContactBar } from '../components/property/PropertyContactBar';
+import { useResponsive } from '../hooks/useResponsive';
+import { WebHeader } from '../components/navigation/WebHeader';
+import { WebFooter } from '../components/navigation/WebFooter';
 
 const { width: W } = Dimensions.get('window');
 
@@ -73,6 +76,9 @@ export default function PropertyDetailsScreen() {
   const { user, isSupabaseEnabled } = useAuth();
   const requireAuth = useRequireAuth();
   const [chatStarting, setChatStarting] = useState(false);
+  const { width, isMobile } = useResponsive();
+  const imageWidth = !isMobile ? Math.min(width - 48, 1180) : width;
+  const imageHeight = !isMobile ? 480 : Math.min(width * 0.75, 420);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
@@ -342,30 +348,41 @@ export default function PropertyDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-        {/* Top Image Hero */}
-        <View style={styles.imageContainer}>
-          <FlatList
-            data={property.images}
-            keyExtractor={(_, i) => String(i)}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) =>
-              setImgIndex(Math.round(e.nativeEvent.contentOffset.x / W))
-            }
-            renderItem={({ item }) => (
-              <View style={styles.carouselSlide}>
-                <Image
-                  source={{ uri: item }}
-                  style={styles.carouselImage}
-                  contentFit="cover"
-                  transition={250}
-                  cachePolicy="memory-disk"
-                />
-              </View>
-            )}
-          />
+      {!isMobile && <WebHeader />}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, !isMobile && styles.scrollContentDesktop]}
+      >
+        <View style={[styles.mainWrapper, !isMobile && styles.mainWrapperDesktop]}>
+          {/* Top Image Hero */}
+          <View
+            style={[
+              styles.imageContainer,
+              { width: imageWidth, height: imageHeight },
+              !isMobile && styles.imageContainerDesktop,
+            ]}
+          >
+            <FlatList
+              data={property.images}
+              keyExtractor={(_, i) => String(i)}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) =>
+                setImgIndex(Math.round(e.nativeEvent.contentOffset.x / imageWidth))
+              }
+              renderItem={({ item }) => (
+                <View style={[styles.carouselSlide, { width: imageWidth, height: imageHeight }]}>
+                  <Image
+                    source={{ uri: item }}
+                    style={[styles.carouselImage, { width: imageWidth, height: imageHeight }]}
+                    contentFit="cover"
+                    transition={250}
+                    cachePolicy="memory-disk"
+                  />
+                </View>
+              )}
+            />
 
           {/* Top Navigation Overlay */}
           <View style={styles.topNavOverlay}>
@@ -619,6 +636,8 @@ export default function PropertyDetailsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        </View>
+        {!isMobile && <WebFooter />}
       </ScrollView>
 
       {/* Sticky Bottom Action Bar */}
@@ -645,11 +664,30 @@ export default function PropertyDetailsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Brand.cream },
+  scrollContent: { paddingBottom: 110 },
+  scrollContentDesktop: { paddingBottom: 100 },
+  mainWrapper: { width: '100%' },
+  mainWrapperDesktop: {
+    maxWidth: 1180,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
   imageContainer: {
     width: W,
     height: W * 0.75,
     position: 'relative',
     backgroundColor: Brand.navy,
+  },
+  imageContainerDesktop: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   carouselSlide: {
     width: W,
