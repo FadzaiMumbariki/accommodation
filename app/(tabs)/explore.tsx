@@ -16,13 +16,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useApp } from '../../context/AppContext';
-import { useAuth } from '../../context/AuthContext';
 import { Brand } from '../../constants/Colors';
 import type { Property, PropertyFilters, PropertyType, SearchFilters } from '../../types';
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { filterMockProperties } from '../../lib/propertyFilters';
+import { MOCK_PROPERTIES } from '../../constants/mockData';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
 import { PropertyExploreCard } from '../../components/property/PropertyExploreCard';
 import { PropertyCard } from '../../components/property/PropertyCard';
@@ -34,7 +34,6 @@ import {
   formatLocationLabel,
 } from '../../lib/locationService';
 const SORT_OPTIONS = ['Nearby', 'Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
-
 
 export default function ExploreScreen() {
   const {
@@ -50,7 +49,6 @@ export default function ExploreScreen() {
     loadMoreProperties,
     properties,
   } = useApp();
-  const { isSupabaseEnabled } = useAuth();
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [q, setQ] = useState('');
@@ -66,34 +64,42 @@ export default function ExploreScreen() {
     router.push(`/property-details?id=${id}`);
   }, []);
 
-  const handleWhatsAppFromExplore = useCallback((p: Property) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const rawPhone = p.landlord?.phone;
-    if (!rawPhone) {
-      openProperty(p.id);
-      return;
-    }
-    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
-      cleanPhone = '263' + cleanPhone.slice(1);
-    }
-    const defaultMsg = encodeURIComponent(
-      `Hi, I saw your listing for "${p.title}" in ${p.suburb}, ${p.city} ($${p.price}/month) on ImbaFind. Is it still available?`
-    );
-    const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${defaultMsg}`;
-    const webUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
-    Linking.canOpenURL(appUrl)
-      .then(can => Linking.openURL(can ? appUrl : webUrl))
-      .catch(() => Linking.openURL(webUrl));
-  }, [openProperty]);
-  const allCities = useMemo(
-    () => [...new Set(properties.map(property => property.city))].sort(),
+  const handleWhatsAppFromExplore = useCallback(
+    (p: Property) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const rawPhone = p.landlord?.phone;
+      if (!rawPhone) {
+        openProperty(p.id);
+        return;
+      }
+      let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+        cleanPhone = '263' + cleanPhone.slice(1);
+      }
+      const defaultMsg = encodeURIComponent(
+        `Hi, I saw your listing for "${p.title}" in ${p.suburb}, ${p.city} ($${p.price}/month) on ImbaFind. Is it still available?`,
+      );
+      const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${defaultMsg}`;
+      const webUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
+      Linking.canOpenURL(appUrl)
+        .then((can) => Linking.openURL(can ? appUrl : webUrl))
+        .catch(() => Linking.openURL(webUrl));
+    },
+    [openProperty],
+  );
+  const effectiveProperties = useMemo(
+    () => (properties.length > 0 ? properties : MOCK_PROPERTIES),
     [properties],
+  );
+
+  const allCities = useMemo(
+    () => [...new Set(effectiveProperties.map((property) => property.city))].sort(),
+    [effectiveProperties],
   );
 
   const citySuggestions = useMemo(() => {
     if (!q.trim()) return [];
-    return allCities.filter(c => c.toLowerCase().includes(q.toLowerCase()));
+    return allCities.filter((c) => c.toLowerCase().includes(q.toLowerCase()));
   }, [allCities, q]);
 
   useEffect(() => {
@@ -136,22 +142,23 @@ export default function ExploreScreen() {
 
   const availableCountByCity = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredProperties.forEach(p => {
+    const list = filteredProperties.length > 0 ? filteredProperties : effectiveProperties;
+    list.forEach((p) => {
       if (p.available) map[p.city] = (map[p.city] || 0) + 1;
     });
     return map;
-  }, [filteredProperties]);
+  }, [filteredProperties, effectiveProperties]);
 
   const activeCity = filters.city;
 
   const results = useMemo(() => {
-    const baseList = isSupabaseEnabled && filteredProperties.length > 0 ? filteredProperties : properties;
+    const baseList = filteredProperties.length > 0 ? filteredProperties : effectiveProperties;
     return filterMockProperties(baseList, {
       ...filters,
       search: q.trim() || filters.search,
       nearby: sortOption === 'Nearby' || filters.nearby,
     });
-  }, [filteredProperties, isSupabaseEnabled, properties, filters, q, sortOption]);
+  }, [filteredProperties, effectiveProperties, filters, q, sortOption]);
 
   const sortedResults = useMemo(() => {
     const isNearbyQuery = Boolean(filters.nearby || /\b(?:near|nearby|close|around)\b/i.test(q));
@@ -173,10 +180,9 @@ export default function ExploreScreen() {
     });
   }, [filters.nearby, q, results, sortOption]);
 
-
   const handleSort = () => {
     Alert.alert('Sort Properties', 'Choose how you want to sort listings', [
-      ...SORT_OPTIONS.map(opt => ({ text: opt, onPress: () => setSortOption(opt) })),
+      ...SORT_OPTIONS.map((opt) => ({ text: opt, onPress: () => setSortOption(opt) })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   };
@@ -217,20 +223,20 @@ export default function ExploreScreen() {
         Alert.alert(
           'Location Permission Needed',
           'Please grant location access in your device settings to discover properties near your current position, or search by city name.',
-          [{ text: 'OK' }]
+          [{ text: 'OK' }],
         );
       } else {
         Alert.alert(
           'Location Unavailable',
-          result.errorMessage || 'Could not determine your GPS location. Please try searching for your city or suburb.',
-          [{ text: 'OK' }]
+          result.errorMessage ||
+            'Could not determine your GPS location. Please try searching for your city or suburb.',
+          [{ text: 'OK' }],
         );
       }
     } finally {
       setIsLocating(false);
     }
   }, [filters, setFilters]);
-
 
   const selectCity = (city: string) => {
     setQ(city);
@@ -265,7 +271,7 @@ export default function ExploreScreen() {
             placeholder="Search nearby houses, apartments, cities…"
             placeholderTextColor={Brand.gray400}
             value={q}
-            onChangeText={text => {
+            onChangeText={(text) => {
               setQ(text);
               setShowSuggestions(text.trim().length > 0);
               if (/\b(?:near|nearby|close|around)\b/i.test(text) && sortOption !== 'Nearby') {
@@ -312,7 +318,10 @@ export default function ExploreScreen() {
             {citySuggestions.map((city, idx) => (
               <TouchableOpacity
                 key={city}
-                style={[styles.dropdownItem, idx < citySuggestions.length - 1 && styles.dropdownItemBorder]}
+                style={[
+                  styles.dropdownItem,
+                  idx < citySuggestions.length - 1 && styles.dropdownItemBorder,
+                ]}
                 onPress={() => selectCity(city)}
                 activeOpacity={0.7}
               >
@@ -326,7 +335,9 @@ export default function ExploreScreen() {
                   </View>
                 </View>
                 <View style={styles.dropdownBadge}>
-                  <Text style={styles.dropdownBadgeText}>{availableCountByCity[city] ?? 0} available</Text>
+                  <Text style={styles.dropdownBadgeText}>
+                    {availableCountByCity[city] ?? 0} available
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -366,8 +377,8 @@ export default function ExploreScreen() {
         <View style={styles.cityBanner}>
           <Ionicons name="navigate-circle" size={16} color={Brand.terracotta} />
           <Text style={styles.cityBannerText}>
-            Showing <Text style={styles.cityBannerBold}>{sortedResults.length}</Text> nearby listings{' '}
-            {userLocationLabel ? `(${userLocationLabel})` : '(sorted by distance)'}
+            Showing <Text style={styles.cityBannerBold}>{sortedResults.length}</Text> nearby
+            listings {userLocationLabel ? `(${userLocationLabel})` : '(sorted by distance)'}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -383,7 +394,6 @@ export default function ExploreScreen() {
           </TouchableOpacity>
         </View>
       )}
-
 
       <View style={{ height: 44, marginBottom: 10 }}>
         <ScrollView
@@ -438,30 +448,47 @@ export default function ExploreScreen() {
           style={{ flexGrow: 0 }}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 6, alignItems: 'center' }}
         >
-          {(['any', 'house', 'apartment', 'flat', 'room', 'cottage', 'bedsitter'] as const).map((t) => {
-            const isActive = t === 'any'
-              ? !filters.propertyType || filters.propertyType === 'any'
-              : filters.propertyType === t;
-            return (
-              <TouchableOpacity
-                key={t}
-                style={[styles.chip, isActive && styles.chipActive]}
-                onPress={() => setFilters({ ...filters, propertyType: t })}
-              >
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {t === 'any' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {(['any', 'house', 'apartment', 'flat', 'room', 'cottage', 'bedsitter'] as const).map(
+            (t) => {
+              const isActive =
+                t === 'any'
+                  ? !filters.propertyType || filters.propertyType === 'any'
+                  : filters.propertyType === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.chip, isActive && styles.chipActive]}
+                  onPress={() =>
+                    setFilters({
+                      ...filters,
+                      propertyType: t === 'any' ? undefined : t,
+                      propertyTypes: undefined,
+                    })
+                  }
+                >
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                    {t === 'any' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            },
+          )}
           {filters.budgetMax && (
-            <TouchableOpacity style={[styles.chip, styles.chipActive]} onPress={() => setFilters({ ...filters, budgetMax: undefined })}>
-              <Text style={[styles.chipText, styles.chipTextActive]}>Up to ${filters.budgetMax}</Text>
+            <TouchableOpacity
+              style={[styles.chip, styles.chipActive]}
+              onPress={() => setFilters({ ...filters, budgetMax: undefined })}
+            >
+              <Text style={[styles.chipText, styles.chipTextActive]}>
+                Up to ${filters.budgetMax}
+              </Text>
               <Ionicons name="close" size={11} color={Brand.white} />
             </TouchableOpacity>
           )}
           {filters.bedrooms && filters.bedrooms !== 'any' && (
-            <TouchableOpacity style={[styles.chip, styles.chipActive]} onPress={() => setFilters({ ...filters, bedrooms: 'any' })}>
+            <TouchableOpacity
+              style={[styles.chip, styles.chipActive]}
+              onPress={() => setFilters({ ...filters, bedrooms: 'any' })}
+            >
               <Text style={[styles.chipText, styles.chipTextActive]}>{filters.bedrooms} bed</Text>
               <Ionicons name="close" size={11} color={Brand.white} />
             </TouchableOpacity>
@@ -479,14 +506,11 @@ export default function ExploreScreen() {
   );
 
   const renderPropertyCard = useCallback(
-    ({ item }: { item: typeof sortedResults[0] }) => {
+    ({ item }: { item: (typeof sortedResults)[0] }) => {
       if (numColumns > 1) {
         return (
           <View style={styles.gridItemWrapper}>
-            <PropertyCard
-              property={item}
-              onPress={() => openProperty(item.id)}
-            />
+            <PropertyCard property={item} onPress={() => openProperty(item.id)} />
           </View>
         );
       }
@@ -498,12 +522,11 @@ export default function ExploreScreen() {
         />
       );
     },
-    [numColumns, openProperty, handleWhatsAppFromExplore]
+    [numColumns, openProperty, handleWhatsAppFromExplore],
   );
 
   return (
     <SafeAreaView style={styles.safe}>
-
       {/* Header — stays fixed above the scrollable list */}
       <View style={[styles.header, !isMobile && styles.headerDesktop]}>
         {isMobile && (
@@ -578,11 +601,13 @@ export default function ExploreScreen() {
         <FlatList
           key={`explore-grid-${numColumns}`}
           data={sortedResults}
-          keyExtractor={p => p.id}
+          keyExtractor={(p) => p.id}
           numColumns={numColumns}
           columnWrapperStyle={numColumns > 1 ? styles.desktopColumnWrapper : undefined}
           contentContainerStyle={[styles.listContent, !isMobile && styles.listContentDesktop]}
-          ItemSeparatorComponent={numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined}
+          ItemSeparatorComponent={
+            numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined
+          }
           onEndReached={() => {
             if (hasMoreProperties) void loadMoreProperties();
           }}
@@ -590,43 +615,47 @@ export default function ExploreScreen() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={listHeader}
           renderItem={renderPropertyCard}
-        ListEmptyComponent={
-          propertiesLoading ? (
-            <ActivityIndicator style={{ marginTop: 36 }} size="large" color={Brand.terracotta} />
-          ) : propertiesError && !hasCachedProperties ? (
-            <EmptyState
-              title="Could not load properties"
-              message={
-                propertiesError.includes('Could not find the table') ||
-                propertiesError.includes('schema cache')
-                  ? 'The listings database is not available in this Supabase project. Apply the Supabase schema migrations, then retry.'
-                  : 'Please check your connection and try again.'
-              }
-              icon="cloud-offline-outline"
-              actionTitle="Retry"
-              onAction={() => void refreshProperties()}
-            />
-          ) : (
-            <EmptyState
-              title={q ? `No results in "${q}"` : 'No properties found'}
-              message={q ? `There are no available properties in "${q}". Try a nearby city or clear your search.` : 'Try adjusting your filters to find available accommodation.'}
-              icon="home-outline"
-              actionTitle="Clear Search & Filters"
-              onAction={handleResetFilters}
-            />
-          )
-        }
-        ListFooterComponent={
-          <>
-            {propertiesLoading && sortedResults.length > 0 ? (
-              <ActivityIndicator style={{ marginVertical: 20 }} color={Brand.terracotta} />
-            ) : hasMoreProperties ? (
-              <View style={{ height: 20 }} />
-            ) : null}
-            {!isMobile && <WebFooter />}
-          </>
-        }
-      />
+          ListEmptyComponent={
+            propertiesLoading ? (
+              <ActivityIndicator style={{ marginTop: 36 }} size="large" color={Brand.terracotta} />
+            ) : propertiesError && !hasCachedProperties ? (
+              <EmptyState
+                title="Could not load properties"
+                message={
+                  propertiesError.includes('Could not find the table') ||
+                  propertiesError.includes('schema cache')
+                    ? 'The listings database is not available in this Supabase project. Apply the Supabase schema migrations, then retry.'
+                    : 'Please check your connection and try again.'
+                }
+                icon="cloud-offline-outline"
+                actionTitle="Retry"
+                onAction={() => void refreshProperties()}
+              />
+            ) : (
+              <EmptyState
+                title={q ? `No results in "${q}"` : 'No properties found'}
+                message={
+                  q
+                    ? `There are no available properties in "${q}". Try a nearby city or clear your search.`
+                    : 'Try adjusting your filters to find available accommodation.'
+                }
+                icon="home-outline"
+                actionTitle="Clear Search & Filters"
+                onAction={handleResetFilters}
+              />
+            )
+          }
+          ListFooterComponent={
+            <>
+              {propertiesLoading && sortedResults.length > 0 ? (
+                <ActivityIndicator style={{ marginVertical: 20 }} color={Brand.terracotta} />
+              ) : hasMoreProperties ? (
+                <View style={{ height: 20 }} />
+              ) : null}
+              {!isMobile && <WebFooter />}
+            </>
+          }
+        />
       )}
 
       <FilterModal
@@ -644,21 +673,41 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Brand.cream },
 
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 10,
   },
   backBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: Brand.white,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: Brand.navy, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Brand.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Brand.navy },
   headerSub: { fontSize: 12, color: Brand.terracotta, fontWeight: '600', marginTop: 1 },
   headerIconBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: Brand.white,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: Brand.navy, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Brand.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerIconBtnAI: {
     backgroundColor: Brand.terracotta,
@@ -666,49 +715,92 @@ const styles = StyleSheet.create({
 
   searchWrapper: { paddingHorizontal: 16, marginBottom: 10, zIndex: 100 },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Brand.white,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10,
-    borderWidth: 1.5, borderColor: Brand.gray200,
-    shadowColor: Brand.navy, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Brand.white,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: Brand.gray200,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   searchBarFocused: { borderColor: Brand.terracotta },
   searchInput: { flex: 1, fontSize: 14, color: Brand.navy },
 
   dropdown: {
-    backgroundColor: Brand.white, borderRadius: 14, borderWidth: 1, borderColor: Brand.gray200,
-    marginTop: 4, shadowColor: Brand.navy, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12, shadowRadius: 14, elevation: 8, overflow: 'hidden',
+    backgroundColor: Brand.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Brand.gray200,
+    marginTop: 4,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
   },
   dropdownItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: 14, gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 10,
   },
   dropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: Brand.gray100 },
   dropdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   dropdownIcon: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Brand.terracotta + '15', alignItems: 'center', justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Brand.terracotta + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dropdownCity: { fontSize: 14, fontWeight: '700', color: Brand.navy },
   dropdownCountry: { fontSize: 11, color: Brand.gray400, marginTop: 1 },
-  dropdownBadge: { backgroundColor: Brand.success + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  dropdownBadge: {
+    backgroundColor: Brand.success + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   dropdownBadgeText: { fontSize: 11, fontWeight: '700', color: Brand.success },
   noMatchText: { fontSize: 13, color: Brand.gray500, marginLeft: 8 },
 
   cityBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 16, marginBottom: 10,
-    backgroundColor: Brand.terracotta + '12', borderRadius: 12,
-    paddingVertical: 10, paddingHorizontal: 12,
-    borderWidth: 1, borderColor: Brand.terracotta + '25',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: Brand.terracotta + '12',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Brand.terracotta + '25',
   },
   cityBannerText: { flex: 1, fontSize: 13, color: Brand.navy, fontWeight: '500' },
   cityBannerBold: { fontWeight: '800', color: Brand.terracotta },
 
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Brand.white, paddingHorizontal: 10, height: 32,
-    borderRadius: 8, borderWidth: 1, borderColor: Brand.gray200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Brand.white,
+    paddingHorizontal: 10,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Brand.gray200,
   },
   chipActive: { backgroundColor: Brand.terracotta, borderColor: Brand.terracotta },
   chipText: { fontSize: 11, fontWeight: '600', color: Brand.navy },
