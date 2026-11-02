@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { router, usePathname } from 'expo-router';
+import { router, usePathname, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Brand } from '../../constants/Colors';
@@ -43,7 +43,7 @@ export const WebHeader: React.FC<WebHeaderProps> = () => {
 
   const handleNav = (route: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(route as any);
+    router.push(route as Href);
   };
 
   return (
@@ -87,7 +87,7 @@ export const WebHeader: React.FC<WebHeaderProps> = () => {
                 accessibilityLabel={item.label}
               >
                 <Ionicons
-                  name={active ? item.activeIcon : (item.icon as any)}
+                  name={active ? item.activeIcon : (item.icon as keyof typeof Ionicons.glyphMap)}
                   size={17}
                   color={
                     item.highlight

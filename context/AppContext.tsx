@@ -53,15 +53,6 @@ export function useRole(): RoleContextValue {
 
 const ROLE_KEY = 'imbafind_user_role';
 
-function isDemoUser(user: any): boolean {
-  return Boolean(
-    user &&
-    (user.app_metadata?.provider === 'demo' ||
-     user.id === '00000000-0000-0000-0000-000000000001' ||
-     user.id === '00000000-0000-0000-0000-000000000002')
-  );
-}
-
 function RoleProvider({ children }: { children: ReactNode }) {
   const { user, changeRole, isSupabaseEnabled } = useAuth();
   const userId = user?.id;
@@ -73,17 +64,6 @@ function RoleProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     async function resolveRole() {
-      // Demo users: keep demo mode local-only without querying Supabase RLS
-      if (user && isDemoUser(user)) {
-        const demoRole = (user.user_metadata?.role as UserRole) || 'tenant';
-        if (active) {
-          setUserRoleState(demoRole);
-          setIsAdmin(false);
-          setRoleLoading(false);
-        }
-        return;
-      }
-
       if (userId) {
         setRoleLoading(true);
         try {
@@ -146,7 +126,7 @@ function RoleProvider({ children }: { children: ReactNode }) {
   }, [isSupabaseEnabled, userId, user]);
 
   const setUserRole = useCallback(async (role: UserRole, options?: { localOnly?: boolean }): Promise<boolean> => {
-    if (user && isSupabaseEnabled && !options?.localOnly && !isDemoUser(user)) {
+    if (user && isSupabaseEnabled && !options?.localOnly) {
       const updated = await changeRole(user.id, role);
       if (!updated) return false;
     }

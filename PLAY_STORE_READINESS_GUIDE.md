@@ -15,7 +15,8 @@ Ensure your `app.json` has complete Android production parameters:
   - Background: `assets/android-icon-background.png` (or solid `#E6F4FE`)
 - **Permissions**:
   - `INTERNET` (standard network access)
-  - No location permission is requested; property search uses user-selected locations.
+  - `CAMERA` and `READ_MEDIA_IMAGES` (listing photos and profile avatars)
+  - `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` (optional "Near Me" search via `expo-location`; the user may deny this and still search by city and suburb)
 
 ---
 
@@ -46,8 +47,8 @@ EAS will generate Google Play upload keystores securely in the cloud and output 
    - App or Game: `App`
    - Free or Paid: `Free`
 
-2. **Data Safety Declarations**:
-   - **Location**: Not collected by device location APIs.
+2. **Data Safety Declarations** (see `PLAY_STORE_DATA_SAFETY.md` for the full questionnaire):
+   - **Location**: Approximate and precise location are collected **only** when the user opts into "Near Me"; coordinates are used in memory to sort listings by distance and are not stored in the profile. Location permission is optional.
    - **Personal Info**: Account name, email address, and phone number.
    - **Messages**: In-app messages between tenants and landlords.
    - **Photos/Media**: Property photos uploaded by landlords; profile photos if provided.
@@ -145,9 +146,9 @@ The Phase 1 proposal's "admin-controlled verified badge" is implemented via [sup
 
 - Adds a `profiles.is_admin` flag (separate from the tenant/landlord role).
 - Adds security-definer RPCs `admin_set_property_verified` / `admin_set_user_verified` and read policies so admins see every listing/profile.
-- The migration promotes the owner account (`fadzaimumbariki@gmail.com`) to admin. To add more staff, run:
+- The migration does **not** hardcode an admin email. After applying it, grant the capability to your own account:
   ```sql
-  update public.profiles set is_admin = true where lower(email) = 'staff@example.com';
+  update public.profiles set is_admin = true where lower(email) = 'you@example.com';
   ```
 - Admins get a **Verify Listings & Landlords** entry on the Profile tab → `app/admin-verifications.tsx`.
 
