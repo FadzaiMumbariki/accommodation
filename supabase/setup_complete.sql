@@ -27,6 +27,7 @@ create table if not exists public.profiles (
   avatar_url    text,
   role          text not null default 'tenant' check (role in ('tenant', 'landlord')),
   verified      boolean not null default false,
+  is_admin      boolean not null default false,
   push_token    text,
   created_at    timestamptz not null default now()
 );
@@ -38,10 +39,66 @@ alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists role text not null default 'tenant';
 alter table public.profiles add column if not exists verified boolean not null default false;
+alter table public.profiles add column if not exists is_admin boolean not null default false;
 alter table public.profiles add column if not exists push_token text;
 alter table public.profiles add column if not exists created_at timestamptz not null default now();
 
 alter table public.profiles enable row level security;
+
+-- Helper: check if caller is an administrator
+create or replace function public.is_imba_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.is_admin = true
+  );
+$$;
+
+-- Revoke direct column updates on privileged columns from unprivileged roles
+revoke update (is_admin, verified) on public.profiles from authenticated;
+revoke update (is_admin, verified) on public.profiles from anon;
+
+-- Protect privileged profile columns via trigger
+create or replace function public.protect_privileged_profile_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if auth.uid() is not null and not public.is_imba_admin() then
+      new.is_admin := false;
+      new.verified := false;
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if auth.uid() is not null and not public.is_imba_admin() then
+      if new.is_admin is distinct from old.is_admin then
+        raise exception 'Only administrators can modify is_admin status.';
+      end if;
+      if new.verified is distinct from old.verified then
+        raise exception 'Only administrators can modify verified status.';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_privileged_profile_columns on public.profiles;
+create trigger trg_protect_privileged_profile_columns
+  before insert or update on public.profiles
+  for each row execute function public.protect_privileged_profile_columns();
 
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
 create policy "Public profiles are viewable by everyone"
@@ -53,7 +110,19 @@ create policy "Users can insert own profile"
 
 drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
-  on public.profiles for update using (auth.uid() = id);
+  on public.profiles for update
+  to authenticated
+  using (auth.uid() = id)
+  with check (
+    auth.uid() = id
+    and (
+      public.is_imba_admin()
+      or (
+        coalesce(is_admin, false) = false
+        and verified = (select p.verified from public.profiles p where p.id = auth.uid())
+      )
+    )
+  );
 
 -- Auto-create profile on signup
 create or replace function public.handle_new_user()
@@ -114,6 +183,45 @@ alter table public.properties enable row level security;
 drop policy if exists "Anyone can read available properties" on public.properties;
 create policy "Anyone can read available properties"
   on public.properties for select using (available = true or landlord_id = auth.uid());
+
+-- Revoke direct column updates on verified from unprivileged roles
+revoke update (verified) on public.properties from authenticated;
+revoke update (verified) on public.properties from anon;
+
+-- Protect privileged property columns via trigger
+create or replace function public.protect_privileged_property_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if auth.uid() is not null and not public.is_imba_admin() then
+      new.verified := false;
+    else
+      new.verified := coalesce(new.verified, false);
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if auth.uid() is not null and not public.is_imba_admin() then
+      if new.verified is distinct from old.verified then
+        raise exception 'Only administrators can modify property verification status.';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_privileged_property_columns on public.properties;
+create trigger trg_protect_privileged_property_columns
+  before insert or update on public.properties
+  for each row execute function public.protect_privileged_property_columns();
 
 drop policy if exists "Landlords can insert properties" on public.properties;
 create policy "Landlords can insert properties"

@@ -25,8 +25,8 @@ export function PropertyPhotoPicker({
 }: PropertyPhotoPickerProps) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Property Photos</Text>
-      <Text style={styles.photoHint}>Add up to {maxPhotos} photos from your gallery</Text>
+      <Text style={styles.sectionTitle}>Property Photos *</Text>
+      <Text style={styles.photoHint}>Add at least 3 photos (living room, bedroom, bathroom/exterior) up to {maxPhotos}</Text>
       <View style={styles.photoGrid}>
         {pickedImages.map((img, i) => (
           <View key={img + i} style={styles.photoTile}>

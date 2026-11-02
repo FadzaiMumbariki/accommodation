@@ -117,10 +117,7 @@ export async function handleAuthRedirectUrl(url: string): Promise<boolean> {
   }
   try {
     return await completeFromRedirectUrl(url);
-  } catch (err) {
-    if (__DEV__) {
-      console.warn('[googleAuth] Failed to process auth redirect URL:', err);
-    }
+  } catch {
     return false;
   }
 }
@@ -136,10 +133,6 @@ export async function signInWithGoogle(): Promise<{ success: boolean; cancelled?
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}/auth/callback`
       : Linking.createURL('auth/callback');
-
-  if (__DEV__) {
-    console.log('[GoogleAuth] Platform:', Platform.OS, 'redirectTo:', redirectTo);
-  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
