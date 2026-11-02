@@ -25,10 +25,35 @@ jobs:
       # and `tsc` passes without a typed-routes generation step. If you ever
       # commit generated route types, add an `npx expo export` before this.
       - name: Lint
-        run: npx expo lint
+        run: npm run lint
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      # `test:coverage` runs Jest with the coverage gate declared in
+      # package.json (jest.coverageThreshold), so the job fails if coverage
+      # drops below the agreed thresholds.
+      - name: Test with coverage
+        run: npm run test:coverage
+
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Applies every migration in supabase/migrations against an empty local
+      # database, so schema drift or a migration that only works after a manual
+      # step is caught here instead of in production.
+      - name: Apply migrations from scratch
+        run: |
+          supabase db start
+          supabase migration up --local
+
+      - name: Lint database
+        run: supabase db lint --level warning

@@ -1,18 +1,49 @@
 -- =============================================================================
--- ImbaFind — Sample Seed Properties
--- Run this in the Supabase SQL Editor AFTER running setup_complete.sql
+-- ImbaFind — Sample Seed Properties (optional)
+-- Run this in the Supabase SQL Editor AFTER the migrations have been applied
+-- (supabase db push / supabase db reset). It is opt-in and never runs
+-- automatically. Only use it on a project that is safe to populate with
+-- sample data.
+--
+-- It creates a placeholder "demo host" account for the sample listings. That
+-- account has no password, so nobody can sign in as it. Chat messages sent to
+-- a demo-host listing are answered by the clearly-labelled automated reply
+-- installed by migrations/014_landlord_auto_reply.sql.
 -- =============================================================================
 
 do $$
 declare
   demo_landlord_id uuid := '00000000-0000-0000-0000-000000000001'::uuid;
 begin
-  -- Insert a mock landlord profile if not exists
-  insert into public.profiles (id, full_name, role, verified, phone)
-  values (demo_landlord_id, 'Tendai Makoni (Verified Host)', 'landlord', true, '+263 77 456 7890')
-  on conflict (id) do nothing;
+  -- 1. The demo host must exist as a real auth user first: public.profiles.id
+  --    references auth.users(id), so a profile alone would violate the foreign
+  --    key. Inserting the auth user triggers public.handle_new_user(), which
+  --    creates the matching profile row.
+  insert into auth.users (
+    instance_id, id, aud, role, email, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  ) values (
+    '00000000-0000-0000-0000-000000000000',
+    demo_landlord_id,
+    'authenticated',
+    'authenticated',
+    'demo.host@imbafind.test',
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('full_name', 'Tendai Makoni (Demo Host)', 'role', 'landlord'),
+    now(), now(), '', '', '', ''
+  )
+  on conflict do nothing;
 
-  -- Insert sample properties
+  -- 2. Mark the demo host as verified and give it a contact number. Running
+  --    from the SQL editor (no auth.uid()) is allowed to set verified.
+  update public.profiles
+  set verified = true,
+      phone = '+263 77 456 7890'
+  where id = demo_landlord_id;
+
+  -- 3. Sample properties owned by the demo host.
   insert into public.properties (
     id, landlord_id, title, description, property_type, price, deposit,
     city, suburb, province, bedrooms, bathrooms, max_occupants,
