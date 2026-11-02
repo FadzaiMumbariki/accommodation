@@ -1,0 +1,11 @@
+-- ImbaFind seed placeholder.
+--
+-- `supabase db reset` runs this file after the migrations (see [db.seed] in
+-- supabase/config.toml). It is intentionally empty: the sample data in
+-- seed_properties.sql references a landlord profile whose id must already exist
+-- in auth.users, so it cannot be inserted by a plain SQL seed on a fresh database.
+--
+-- To load sample listings: apply supabase/migrations/* first, sign up a landlord
+-- account, then run supabase/seed_properties.sql from the Supabase SQL Editor
+-- (pointing the landlord uuid at the top of that file to your account).
+select 1;

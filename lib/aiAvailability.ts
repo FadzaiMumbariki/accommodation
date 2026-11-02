@@ -2,8 +2,8 @@ import { hasRealSession } from './session';
 
 /**
  * The AI Edge Functions enforce a per-user rate limit that requires a signed-in
- * account (`auth.uid()`), so anonymous browsing and the in-app demo account
- * cannot use AI. This is the same real-session requirement as messaging.
+ * account (`auth.uid()`), so anonymous browsing cannot use AI. This is the same
+ * real-session requirement as messaging.
  */
 export async function hasRealAiSession(): Promise<boolean> {
   return hasRealSession();

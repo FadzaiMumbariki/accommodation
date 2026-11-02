@@ -1,8 +1,7 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
-export const isExpoGo =
-  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+export const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export type NotificationsModule = typeof import('expo-notifications');
 

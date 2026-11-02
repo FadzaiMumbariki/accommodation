@@ -57,9 +57,9 @@ cd accommodation
 npm ci
 ```
 
-### 2. Run in demo (mock data) mode
+### 2. Run without a backend (sample data)
 
-No credentials are needed. Without Supabase values the app runs on built-in sample listings, AI search uses a basic local keyword parser, and the listing helper drafts from the entered facts instead of calling Gemini.
+No credentials are needed to browse. Without Supabase values the app shows built-in sample listings in read-only mode; sign-in and sign-up are unavailable, AI search falls back to a local keyword parser, and the listing helper drafts from the entered facts instead of calling Gemini. To sign in and use the live features, complete step 3.
 
 ```sh
 npm start        # then press a (Android), i (iOS) or w (web), or scan the QR code with Expo Go
@@ -68,10 +68,10 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 ### 3. Run with the live backend
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
-2. In the Supabase SQL Editor, run `supabase/setup_complete.sql`, then every file in `supabase/migrations/` from `003_reports.sql` up to the highest number, in order (`011_google_oauth_profile.sql` and `012_signup_phone.sql` install the sign-up trigger that creates profiles for email and Google accounts), then optionally `supabase/seed_properties.sql` for sample data. The migrations are idempotent and can also be applied to an existing setup. Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
+2. Apply the database schema from `supabase/migrations/`. Either run `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push` from the project root, or paste each file into the **SQL Editor** in numeric order (`001_initial_schema.sql` first, and so on up to the highest number). `011_google_oauth_profile.sql` and `012_signup_phone.sql` install the sign-up trigger that creates profiles for email and Google accounts. The migrations are idempotent and can also be applied to an existing schema. Optionally run `supabase/seed_properties.sql` afterwards for sample listings (see Database setup files below). Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
 3. In the Supabase dashboard, open **Authentication → URL Configuration**. Set the Site URL to `imbafind://` and add `imbafind://**`, `exp://**` and `http://localhost:8081/**` as redirect URLs, so that confirmation, password-reset and Google links open the app.
 4. Under **Authentication → Providers → Email**, either turn off "Confirm email", or set up custom SMTP under **Project Settings → Authentication**. Supabase's built-in email service only sends a few emails per hour, so sign-ups that need a confirmation email start failing with a rate-limit error after a couple of attempts.
-5. Start the app with `npm start`. Without `.env.local` the app runs in mock mode: email sign-in and sign-up are unavailable, and only the "Try as Tenant / Landlord" demo buttons work.
+5. Start the app with `npm start`. Without `.env.local` the app browses sample listings only: email sign-in and sign-up are unavailable until you add your Supabase credentials.
 
 ### 4. Enable the AI features
 
@@ -91,12 +91,14 @@ All AI functions require a signed-in user. The database limits each account to 3
 ### Tests and checks
 
 ```sh
-npm test            # Jest unit tests
-npx expo lint       # ESLint
-npx tsc --noEmit    # TypeScript
+npm test               # Jest unit tests
+npm run test:coverage  # Jest with coverage (fails below the thresholds in package.json)
+npm run lint           # ESLint
+npm run typecheck      # TypeScript
+npm run format:check   # Prettier
 ```
 
-The same three checks run in GitHub Actions on every push and pull request.
+GitHub Actions runs lint, typecheck and `test:coverage` on every push and pull request, plus a job that applies `supabase/migrations/` from scratch against an empty local database and lints it. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Project structure
 
@@ -122,11 +124,28 @@ Screenshots live in [docs/screenshots](docs/screenshots). Live link / demo video
 
 ## Documentation
 
+- [Architecture](docs/ARCHITECTURE.md)
+- [ADR 0001: AI via Supabase Edge Functions](docs/adr/0001-ai-via-supabase-edge-functions.md)
 - [AI integration](docs/AI_INTEGRATION.md)
 - [Ethical and responsible AI statement](docs/ETHICAL_AI_STATEMENT.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 - [Play Store readiness guide](PLAY_STORE_READINESS_GUIDE.md)
 
 ## Operations and release notes
+
+### Database setup files
+
+`supabase/migrations/` is the single source of truth for the database. Apply it with `supabase db push` (or by pasting the files into the SQL Editor in numeric order).
+
+| Path | Purpose |
+| --- | --- |
+| `supabase/migrations/001`–`017` | **Canonical.** Incremental, idempotent schema changes. Apply in numeric order. |
+| `supabase/seed_properties.sql` | **Optional.** Sample listings for demos; run manually after the migrations. It creates the demo host account it needs. |
+| `supabase/seed.sql` | Empty placeholder run automatically by `supabase db reset` (referenced from `config.toml`). Do not put sample data here. |
+| `supabase/legacy/` | Superseded one-shot scripts (`setup_complete.sql`, `create_and_seed.sql`, `reload_schema_and_permissions.sql`). Reference only — never run. See `supabase/legacy/README.md`. |
+
+Note: there is no `002_*.sql` migration; the set jumps from `001_initial_schema.sql` to `003_reports.sql`.
 
 ### Verifying landlords
 
@@ -166,7 +185,6 @@ The following environment variables are used by ImbaFind across local developmen
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Live / Production | Supabase anonymous public key | Public (client-bundled) |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Optional / Recommended | Google Maps API key for Android/iOS native map tiles | Public (client-bundled) |
 | `EXPO_PUBLIC_EAS_PROJECT_ID` | Production / Preview | EAS project UUID for push notifications | Public (client-bundled) |
-| `EXPO_PUBLIC_ENABLE_DEMO` | Optional (`false` in prod) | Force enables "Try as Tenant / Landlord" demo logins | Public (client-bundled) |
 | `EXPO_PUBLIC_SENTRY_ENABLED` | Production (`true`/`false`) | Enables/disables Sentry native & error reporting | Public (client-bundled) |
 | `EXPO_PUBLIC_SENTRY_DSN` | If Sentry enabled | Sentry Project DSN | Public (client-bundled) |
 | `SENTRY_ORG` | Build time (if Sentry) | Sentry Organization slug | EAS Environment / CI |
@@ -183,7 +201,6 @@ npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABA
 npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value YOUR_SUPABASE_ANON_KEY --visibility plaintext
 npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value YOUR_GOOGLE_MAPS_KEY --visibility plaintext
 npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_EAS_PROJECT_ID --value YOUR_EAS_PROJECT_ID --visibility plaintext
-npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_ENABLE_DEMO --value false --visibility plaintext
 
 # Sentry release tracking (Optional)
 npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SENTRY_ENABLED --value true --visibility plaintext

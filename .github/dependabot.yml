@@ -1,0 +1,42 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Expo SDK packages must move together, and SDK bumps are done manually
+    # with `npx expo install --fix`. Group routine updates, ignore majors for
+    # the SDK-coupled packages so a stray major cannot break the app.
+    groups:
+      expo:
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "eslint-config-expo"
+      react-native:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-native"
+          - "react-native-*"
+          - "@types/react"
+          - "@react-native-async-storage/*"
+          - "@react-native-community/*"
+    ignore:
+      - dependency-name: expo
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-native
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sentry/react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: expo-*
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
