@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Component and UI tests with React Native Testing Library (`components/**/*.test.tsx`, `hooks/*.test.ts`), plus a shared `jest.setup.js` that stubs the icon font so `@expo/vector-icons` renders headlessly.
+- Maestro E2E flows in `.maestro/` and a Detox E2E harness (`.detoxrc.js`, `e2e/`) with `e2e:*` npm scripts.
+- pgTAP policy tests in `supabase/tests/rls.sql`, run in CI through `supabase test db`.
+
+### Changed
+
+- `ErrorBoundary` now uses `SafeAreaView` from `react-native-safe-area-context`, as the `react-native` one is deprecated.
+- The Jest suite uses a 20s per-test timeout so the first React Native render in a suite is not cut off on a cold start.
+
 ## [1.0.0] - 2026-11-02
 
 Initial phase-1 release of ImbaFind, a mobile app that helps people in Zimbabwe find rental accommodation and helps landlords list it.

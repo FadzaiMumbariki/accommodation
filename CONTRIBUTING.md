@@ -15,29 +15,43 @@ Follow [Setup and run](README.md#setup-and-run) in the README. In short: `npm ci
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `npm start` | Start the Expo dev server (press a / i / w, or scan the QR code with Expo Go) |
-| `npm run lint` | Run ESLint via `expo lint` |
-| `npm run typecheck` | Typecheck with TypeScript strict mode (`tsc --noEmit`) |
-| `npm test` | Run the Jest unit tests |
-| `npm run test:coverage` | Run the Jest unit tests with a coverage report |
-| `npm run format` | Format the codebase with Prettier |
-| `npm run format:check` | Check formatting without writing changes |
-| `npm run expo-doctor` | Diagnose Expo dependency and config issues |
+| Command                                                  | Purpose                                                                       |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `npm start`                                              | Start the Expo dev server (press a / i / w, or scan the QR code with Expo Go) |
+| `npm run lint`                                           | Run ESLint via `expo lint`                                                    |
+| `npm run typecheck`                                      | Typecheck with TypeScript strict mode (`tsc --noEmit`)                        |
+| `npm test`                                               | Run the Jest unit and component tests                                         |
+| `npm run test:coverage`                                  | Run the Jest tests with a coverage report                                     |
+| `npm run e2e:build:android` / `npm run e2e:test:android` | Build and run the Detox suite on an Android emulator                          |
+| `npm run e2e:build:ios` / `npm run e2e:test:ios`         | Build and run the Detox suite on an iOS simulator (macOS with Xcode only)     |
+| `maestro test .maestro`                                  | Run the Maestro flows against an installed build                              |
+| `supabase test db`                                       | Run the pgTAP policy tests in `supabase/tests/` (Supabase CLI + Docker)       |
+| `npm run format`                                         | Format the codebase with Prettier                                             |
+| `npm run format:check`                                   | Check formatting without writing changes                                      |
+| `npm run expo-doctor`                                    | Diagnose Expo dependency and config issues                                    |
 
 ## Formatting
 
 Formatting is handled by [Prettier](https://prettier.io). A **pre-commit hook** (Husky + lint-staged) runs ESLint `--fix` and Prettier on the files you stage, so committed code stays consistent. Run `npm run format` to format the whole tree on demand.
 
+## Dependencies
+
+`package-lock.json` is authoritative: install with `npm ci` and never edit the lockfile by hand. Version ranges follow a single policy:
+
+- **Expo- and React Native-managed packages** (`expo`, `expo-*`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native*`, `@expo/*`, `jest-expo`, `eslint-config-expo`) use exactly the range that `npx expo install` writes. Never hand-edit them: add or update them with `npx expo install` (or `npx expo install --fix`) so they stay SDK-compatible.
+- **Every other package** uses a caret range (`^`), or a tilde range (`~`) where a tool needs a tighter pin, such as TypeScript.
+- Add runtime dependencies with `npx expo install`, not `npm install`.
+
+Dependabot opens grouped weekly updates for the Expo and React Native families, so patch and minor bumps arrive as pull requests rather than silently.
+
 ## Before you open a pull request
 
-Lint, typecheck and tests must all pass. The same three checks run in GitHub Actions on every push and pull request, so a green local run avoids a failing build:
+Lint, typecheck and tests must all pass. GitHub Actions runs the same checks on every push and pull request, plus a job that applies the migrations from scratch and runs the RLS tests, so a green local run avoids a failing build:
 
 ```sh
 npm run lint
 npm run typecheck
-npm test
+npm run test:coverage
 ```
 
 ## Branches, commits and pull requests

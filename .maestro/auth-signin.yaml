@@ -1,0 +1,34 @@
+# Authenticated smoke test: signs in with a REAL Supabase account and asserts the
+# tabbed app renders. There is no demo or guest path — the credentials must come
+# from the environment.
+#
+# Run it with a throwaway account provisioned for CI:
+#
+#   maestro test .maestro/auth-signin.yaml \
+#     -e E2E_EMAIL=you@example.com -e E2E_PASSWORD='********'
+#
+appId: com.imbafind.app
+name: Auth — sign in with a real account
+tags:
+  - auth
+  - e2e
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome back'
+- tapOn: 'name@example.com'
+- inputText: ${E2E_EMAIL}
+- tapOn: 'Enter your password'
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn: 'Sign In to ImbaFind'
+
+# Landed on the Home tab of the tabbed app.
+- assertVisible: 'Find your next home'
+- assertVisible: 'Available Accommodation'
+
+# The bottom tab bar is present.
+- assertVisible: 'Explore'
+- assertVisible: 'Saved'
+- assertVisible: 'Messages'
+- assertVisible: 'Profile'

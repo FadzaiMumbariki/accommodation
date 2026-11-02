@@ -36,6 +36,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ]);
   }
 
+  // Detox adds native test hooks, instrumentation and ProGuard keeps to the
+  // generated projects. Only include it for the E2E prebuild (`detox build`
+  // sets DETOX_ENABLED=true) so release builds stay free of test-only config.
+  if (process.env.DETOX_ENABLED === 'true') {
+    plugins.push('expo-detox-config-plugin');
+  }
+
   let hasGoogleServices = false;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -57,8 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(process.env.EXPO_PUBLIC_EAS_PROJECT_ID || config.extra?.eas?.projectId
         ? {
             eas: {
-              projectId:
-                process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? config.extra?.eas?.projectId,
+              projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? config.extra?.eas?.projectId,
             },
           }
         : {}),

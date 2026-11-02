@@ -39,6 +39,9 @@ yarn-error.*
 # test coverage output
 coverage/
 
+# Detox E2E artifacts (screenshots, videos, logs)
+artifacts/
+
 # ad-hoc scripts
 *.py
 

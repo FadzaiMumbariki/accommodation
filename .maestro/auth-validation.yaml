@@ -1,0 +1,36 @@
+# Client-side validation on the auth screen. Runs entirely offline: every
+# assertion is triggered locally before any network call, so no test account is
+# required.
+appId: com.imbafind.app
+name: Auth — client-side validation
+tags:
+  - auth
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome back'
+
+# 1) Sign-in with both fields empty is rejected with the required-fields message.
+- tapOn: 'Sign In to ImbaFind'
+- assertVisible: 'Please enter both your email address and password.'
+- tapOn: 'OK'
+
+# 2) The sign-up tab reveals the tenant / landlord role picker.
+- tapOn: 'Create Account'
+- assertVisible: 'Create an account'
+- assertVisible: 'Find a Home'
+- assertVisible: 'List Properties'
+- assertVisible: 'Min. 8 characters'
+
+# 3) Sign-up without a name is rejected before any network call.
+- tapOn: 'Create My Account'
+- assertVisible: 'Please enter your full name.'
+- tapOn: 'OK'
+
+# 4) A name with no email is rejected next.
+- tapOn: 'e.g. Tendai Moyo'
+- inputText: 'E2E Test User'
+- hideKeyboard
+- tapOn: 'Create My Account'
+- assertVisible: 'Please enter your email address.'
+- tapOn: 'OK'

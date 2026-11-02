@@ -17,6 +17,7 @@ interface PrimaryButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: React.ReactNode;
+  testID?: string;
 }
 
 export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
@@ -27,9 +28,11 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
   style,
   textStyle,
   icon,
+  testID,
 }) => {
   return (
     <TouchableOpacity
+      testID={testID}
       activeOpacity={0.85}
       onPress={onPress}
       disabled={disabled || loading}
