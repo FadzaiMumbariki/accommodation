@@ -6,11 +6,22 @@ const cities = ['Harare', 'Bulawayo', 'Masvingo'];
 describe('sanitizeAiFilters', () => {
   it('keeps valid fields and normalises city casing', () => {
     const { filters } = sanitizeAiFilters(
-      { city: 'bulawayo', propertyType: 'flat', bedrooms: 2, budgetMax: 300, furnished: true, summary: 'ok' },
+      {
+        city: 'bulawayo',
+        propertyType: 'flat',
+        bedrooms: 2,
+        budgetMax: 300,
+        furnished: true,
+        summary: 'ok',
+      },
       cities,
     );
     expect(filters).toEqual({
-      city: 'Bulawayo', propertyType: 'flat', bedrooms: 2, budgetMax: 300, furnished: true,
+      city: 'Bulawayo',
+      propertyType: 'flat',
+      bedrooms: 2,
+      budgetMax: 300,
+      furnished: true,
     });
   });
 
@@ -35,11 +46,18 @@ describe('sanitizeAiFilters', () => {
 describe('parseQueryLocally', () => {
   it('extracts city, type, bedrooms and budget', () => {
     const { filters } = parseQueryLocally('2 bedroom flat in Bulawayo under $300', cities);
-    expect(filters).toMatchObject({ city: 'Bulawayo', propertyType: 'flat', bedrooms: 2, budgetMax: 300 });
+    expect(filters).toMatchObject({
+      city: 'Bulawayo',
+      propertyType: 'flat',
+      bedrooms: 2,
+      budgetMax: 300,
+    });
   });
 
   it('does not treat "unfurnished" as furnished', () => {
-    expect(parseQueryLocally('unfurnished house in Harare', cities).filters.furnished).toBeUndefined();
+    expect(
+      parseQueryLocally('unfurnished house in Harare', cities).filters.furnished,
+    ).toBeUndefined();
   });
 
   it('reports when nothing was recognised', () => {
@@ -53,10 +71,37 @@ describe('parseQueryLocally', () => {
     expect(summary.toLowerCase()).toContain('nearby');
   });
 
-  it('resolves known Zimbabwean suburb and infers city', () => {
+  it('recognises known Zimbabwean suburb and infers city', () => {
     const { filters } = parseQueryLocally('furnished apartment in Avondale', cities);
     expect(filters.suburb).toBe('Avondale');
     expect(filters.city).toBe('Harare');
     expect(filters.furnished).toBe(true);
+  });
+
+  it('recognises "find nearby houses" as nearby house search', () => {
+    const { filters, summary } = parseQueryLocally('find nearby houses', cities);
+    expect(filters.nearby).toBe(true);
+    expect(filters.propertyType).toBe('house');
+    expect(summary.toLowerCase()).toContain('nearby');
+  });
+
+  it('recognises "nearby homes" and maps home to house', () => {
+    const { filters, summary } = parseQueryLocally('nearby homes', cities);
+    expect(filters.nearby).toBe(true);
+    expect(filters.propertyType).toBe('house');
+    expect(summary.toLowerCase()).toContain('nearby');
+  });
+
+  it('recognises "houses near me"', () => {
+    const { filters } = parseQueryLocally('houses near me', cities);
+    expect(filters.nearby).toBe(true);
+    expect(filters.propertyType).toBe('house');
+  });
+
+  it('recognises "places close to Borrowdale"', () => {
+    const { filters } = parseQueryLocally('places close to Borrowdale', cities);
+    expect(filters.nearby).toBe(true);
+    expect(filters.suburb).toBe('Borrowdale');
+    expect(filters.city).toBe('Harare');
   });
 });

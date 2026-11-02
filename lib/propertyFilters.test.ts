@@ -11,9 +11,11 @@ describe('filterMockProperties', () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every(property =>
-      property.city === 'Harare' && property.bedrooms >= 2 && property.price <= 400,
-    )).toBe(true);
+    expect(
+      results.every(
+        (property) => property.city === 'Harare' && property.bedrooms >= 2 && property.price <= 400,
+      ),
+    ).toBe(true);
   });
 
   it('does not treat a kitchen amenity as evidence that a property is furnished', () => {
@@ -33,9 +35,11 @@ describe('filterMockProperties', () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    expect(results.some(p => p.propertyType === 'house')).toBe(true);
-    expect(results.some(p => p.propertyType === 'apartment')).toBe(true);
-    expect(results.every(p => p.propertyType === 'house' || p.propertyType === 'apartment')).toBe(true);
+    expect(results.some((p) => p.propertyType === 'house')).toBe(true);
+    expect(results.some((p) => p.propertyType === 'apartment')).toBe(true);
+    expect(results.every((p) => p.propertyType === 'house' || p.propertyType === 'apartment')).toBe(
+      true,
+    );
   });
 
   it('handles natural search queries like "nearby houses or apartments"', () => {
@@ -44,8 +48,8 @@ describe('filterMockProperties', () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    expect(results.some(p => p.propertyType === 'house')).toBe(true);
-    expect(results.some(p => p.propertyType === 'apartment')).toBe(true);
+    expect(results.some((p) => p.propertyType === 'house')).toBe(true);
+    expect(results.some((p) => p.propertyType === 'apartment')).toBe(true);
   });
 
   it('attaches distanceKm and sorts by proximity when nearby is requested', () => {
@@ -57,8 +61,28 @@ describe('filterMockProperties', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(typeof results[0].distanceKm).toBe('number');
     for (let i = 1; i < results.length; i++) {
-      expect((results[i].distanceKm ?? 0)).toBeGreaterThanOrEqual(results[i - 1].distanceKm ?? 0);
+      expect(results[i].distanceKm ?? 0).toBeGreaterThanOrEqual(results[i - 1].distanceKm ?? 0);
     }
   });
-});
 
+  it('matches "find nearby houses" filtering by house type and proximity', () => {
+    const results = filterMockProperties(MOCK_PROPERTIES, {
+      search: 'find nearby houses',
+      nearby: true,
+      propertyType: 'house',
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.propertyType === 'house')).toBe(true);
+    expect(typeof results[0].distanceKm).toBe('number');
+  });
+
+  it('handles "nearby homes" with home mapped to house', () => {
+    const results = filterMockProperties(MOCK_PROPERTIES, {
+      search: 'nearby homes',
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.propertyType === 'house')).toBe(true);
+  });
+});

@@ -3,7 +3,14 @@ import type { AiUnavailableReason } from './aiAvailability';
 
 import { SUBURB_COORDINATES, SUBURB_TO_CITY, resolveLocationCoordinates } from './coordinates';
 
-export const PROPERTY_TYPES: PropertyType[] = ['house', 'apartment', 'room', 'cottage', 'flat', 'bedsitter'];
+export const PROPERTY_TYPES: PropertyType[] = [
+  'house',
+  'apartment',
+  'room',
+  'cottage',
+  'flat',
+  'bedsitter',
+];
 
 export interface AiSearchResult {
   filters: PropertyFilters;
@@ -21,12 +28,17 @@ const asNumber = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? 
  * Never trust model output. Keeps only known fields, enforces types and sane ranges, and drops any
  * city that is not a real city in the app's data (so the AI cannot send the user to a made-up place).
  */
-export function sanitizeAiFilters(raw: unknown, knownCities: string[]): Omit<AiSearchResult, 'source'> {
+export function sanitizeAiFilters(
+  raw: unknown,
+  knownCities: string[],
+): Omit<AiSearchResult, 'source'> {
   const input = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const filters: PropertyFilters = {};
 
   if (typeof input.city === 'string') {
-    const match = knownCities.find(c => c.toLowerCase() === input.city!.toString().trim().toLowerCase());
+    const match = knownCities.find(
+      (c) => c.toLowerCase() === input.city!.toString().trim().toLowerCase(),
+    );
     if (match) filters.city = match;
   }
   if (typeof input.suburb === 'string' && input.suburb.trim() && input.suburb.length <= 40) {
@@ -35,7 +47,7 @@ export function sanitizeAiFilters(raw: unknown, knownCities: string[]): Omit<AiS
     // Auto-fill city if suburb is known and city was omitted
     if (!filters.city) {
       const parentCity = SUBURB_TO_CITY[trimmed.toLowerCase()];
-      if (parentCity && knownCities.some(c => c.toLowerCase() === parentCity.toLowerCase())) {
+      if (parentCity && knownCities.some((c) => c.toLowerCase() === parentCity.toLowerCase())) {
         filters.city = parentCity;
       }
     }
@@ -50,7 +62,10 @@ export function sanitizeAiFilters(raw: unknown, knownCities: string[]): Omit<AiS
       filters.propertyTypes = valid;
       filters.propertyType = valid[0];
     }
-  } else if (typeof input.propertyType === 'string' && PROPERTY_TYPES.includes(input.propertyType as PropertyType)) {
+  } else if (
+    typeof input.propertyType === 'string' &&
+    PROPERTY_TYPES.includes(input.propertyType as PropertyType)
+  ) {
     filters.propertyType = input.propertyType as PropertyType;
   }
 
@@ -93,7 +108,7 @@ export function describeFilters(f: PropertyFilters): string {
   if (f.nearby) parts.push('nearby');
   if (typeof f.bedrooms === 'number') parts.push(`${f.bedrooms}+ bedrooms`);
   if (f.propertyTypes && f.propertyTypes.length > 1) {
-    const names = f.propertyTypes.map(t => `${t}s`);
+    const names = f.propertyTypes.map((t) => `${t}s`);
     parts.push(names.join(' or '));
   } else if (f.propertyType && f.propertyType !== 'any' && f.propertyType !== 'all') {
     parts.push(f.propertyType);
@@ -108,17 +123,24 @@ export function describeFilters(f: PropertyFilters): string {
 }
 
 /** Simple keyword fallback used when the AI service is unavailable or the app is in mock mode. */
-export function parseQueryLocally(query: string, knownCities: string[]): Omit<AiSearchResult, 'source'> {
+export function parseQueryLocally(
+  query: string,
+  knownCities: string[],
+): Omit<AiSearchResult, 'source'> {
   const text = query.toLowerCase();
   const raw: Record<string, unknown> = {};
 
   // Check for nearby/proximity intent
-  if (/\b(?:near|nearby|near\s*me|around\s*me|close\s*to|in\s*the\s*area|proximity)\b/.test(text)) {
+  if (
+    /\b(?:near|nearby|near\s*me|around\s*me|close|closest|close\s*by|close\s*to|in\s*the\s*area|proximity|around)\b/i.test(
+      text,
+    )
+  ) {
     raw.nearby = true;
   }
 
   // Detect city
-  const city = knownCities.find(c => text.includes(c.toLowerCase()));
+  const city = knownCities.find((c) => text.includes(c.toLowerCase()));
   if (city) raw.city = city;
 
   // Detect Zimbabwean suburb from coordinates database
@@ -133,12 +155,15 @@ export function parseQueryLocally(query: string, knownCities: string[]): Omit<Ai
     }
   }
 
-  // Detect all mentioned property types (e.g. "houses or apartments")
+  // Detect all mentioned property types (e.g. "houses or apartments", "homes")
   const detectedTypes: PropertyType[] = [];
   for (const t of PROPERTY_TYPES) {
-    if (new RegExp(`\\b${t}s?\\b`).test(text)) {
+    if (new RegExp(`\\b${t}s?\\b`, 'i').test(text)) {
       detectedTypes.push(t);
     }
+  }
+  if (/\bhomes?\b/i.test(text) && !detectedTypes.includes('house')) {
+    detectedTypes.push('house');
   }
 
   // Treat 'apartment' and 'flat' as related if apartments are requested
@@ -159,7 +184,9 @@ export function parseQueryLocally(query: string, knownCities: string[]): Omit<Ai
   const beds = text.match(/(\d+)\s*(?:-|\s)?\s*(?:bed|bedroom|br)\b/);
   if (beds) raw.bedrooms = Number(beds[1]);
 
-  const max = text.match(/(?:under|below|less than|up to|max(?:imum)?|budget(?: of)?)\s*\$?\s*(\d+)/);
+  const max = text.match(
+    /(?:under|below|less than|up to|max(?:imum)?|budget(?: of)?)\s*\$?\s*(\d+)/,
+  );
   if (max) raw.budgetMax = Number(max[1]);
   const min = text.match(/(?:over|above|more than|from|min(?:imum)?)\s*\$\s*(\d+)/);
   if (min) raw.budgetMin = Number(min[1]);

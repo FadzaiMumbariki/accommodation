@@ -22,8 +22,9 @@ import { aiSearch } from '../lib/ai';
 import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
-import { formatDistance } from '../lib/coordinates';
-import { getCurrentUserLocation, findNearestLocation } from '../lib/locationService';
+import { MOCK_PROPERTIES } from '../constants/mockData';
+import { formatDistance, resolveLocationCoordinates, DEFAULT_MAP_CENTER } from '../lib/coordinates';
+import { getCurrentUserLocation } from '../lib/locationService';
 import type { Property } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ interface ResultsMessage {
   id: string;
   role: 'assistant';
   kind: 'results';
-  text: string;          // Intro sentence above the cards
+  text: string; // Intro sentence above the cards
   properties: Property[];
   query: string;
   source: 'ai' | 'basic';
@@ -86,84 +87,98 @@ function formatPrice(price: number): string {
 
 // ─── Property Result Card ────────────────────────────────────────────────────
 
-const ResultCard = React.memo(({ property, onPress }: { property: Property; onPress: () => void }) => (
-  <Pressable style={styles.card} onPress={onPress} android_ripple={{ color: Brand.creamDark }}>
-    <Image source={{ uri: property.images[0] }} style={styles.cardImage} resizeMode="cover" />
-    <View style={styles.cardBody}>
-      {/* Badges row */}
-      <View style={styles.cardBadgeRow}>
-        <View style={styles.badge}>
-          <Ionicons name="bed-outline" size={11} color={Brand.terracotta} />
-          <Text style={styles.badgeText}>{bedroomLabel(property.bedrooms)}</Text>
-        </View>
-        <View style={styles.badge}>
-          <Ionicons name="home-outline" size={11} color={Brand.navy} />
-          <Text style={[styles.badgeText, { color: Brand.navy }]}>
-            {property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)}
-          </Text>
-        </View>
-        {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
-          <View style={[styles.badge, styles.badgeNearby]}>
-            <Ionicons name="navigate-outline" size={11} color={Brand.terracotta} />
-            <Text style={[styles.badgeText, { color: Brand.terracotta }]}>
-              {formatDistance(property.distanceKm)}
+const ResultCard = React.memo(
+  ({ property, onPress }: { property: Property; onPress: () => void }) => (
+    <Pressable style={styles.card} onPress={onPress} android_ripple={{ color: Brand.creamDark }}>
+      <Image
+        source={{
+          uri:
+            property.images?.[0] ||
+            'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80',
+        }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+      <View style={styles.cardBody}>
+        {/* Badges row */}
+        <View style={styles.cardBadgeRow}>
+          <View style={styles.badge}>
+            <Ionicons name="bed-outline" size={11} color={Brand.terracotta} />
+            <Text style={styles.badgeText}>{bedroomLabel(property.bedrooms)}</Text>
+          </View>
+          <View style={styles.badge}>
+            <Ionicons name="home-outline" size={11} color={Brand.navy} />
+            <Text style={[styles.badgeText, { color: Brand.navy }]}>
+              {property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)}
             </Text>
           </View>
-        )}
-        {property.verified && (
-          <View style={[styles.badge, styles.badgeVerified]}>
-            <Ionicons name="checkmark-circle" size={11} color={Brand.success} />
-            <Text style={[styles.badgeText, { color: Brand.success }]}>Verified</Text>
-          </View>
-        )}
-      </View>
+          {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
+            <View style={[styles.badge, styles.badgeNearby]}>
+              <Ionicons name="navigate-outline" size={11} color={Brand.terracotta} />
+              <Text style={[styles.badgeText, { color: Brand.terracotta }]}>
+                {formatDistance(property.distanceKm)}
+              </Text>
+            </View>
+          )}
+          {property.verified && (
+            <View style={[styles.badge, styles.badgeVerified]}>
+              <Ionicons name="checkmark-circle" size={11} color={Brand.success} />
+              <Text style={[styles.badgeText, { color: Brand.success }]}>Verified</Text>
+            </View>
+          )}
+        </View>
 
-      {/* Title */}
-      <Text style={styles.cardTitle} numberOfLines={1}>{property.title}</Text>
-
-      {/* Location */}
-      <View style={styles.cardLocationRow}>
-        <Ionicons name="location-outline" size={12} color={Brand.gray500} />
-        <Text style={styles.cardLocation} numberOfLines={1}>
-          {property.suburb}, {property.city}
+        {/* Title */}
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {property.title}
         </Text>
-      </View>
 
-      {/* Room details */}
-      <View style={styles.cardRoomRow}>
-        <View style={styles.roomStat}>
-          <Ionicons name="bed-outline" size={14} color={Brand.terracotta} />
-          <Text style={styles.roomStatText}>
-            {property.bedrooms === 0 ? 'Studio' : `${property.bedrooms} bedroom${property.bedrooms !== 1 ? 's' : ''}`}
+        {/* Location */}
+        <View style={styles.cardLocationRow}>
+          <Ionicons name="location-outline" size={12} color={Brand.gray500} />
+          <Text style={styles.cardLocation} numberOfLines={1}>
+            {property.suburb}, {property.city}
           </Text>
         </View>
-        <View style={styles.roomDivider} />
-        <View style={styles.roomStat}>
-          <Ionicons name="water-outline" size={14} color={Brand.navy} />
-          <Text style={styles.roomStatText}>
-            {property.bathrooms} bathroom{property.bathrooms !== 1 ? 's' : ''}
-          </Text>
-        </View>
-        <View style={styles.roomDivider} />
-        <View style={styles.roomStat}>
-          <Ionicons name="people-outline" size={14} color={Brand.gray500} />
-          <Text style={styles.roomStatText}>Max {property.maxOccupants}</Text>
-        </View>
-      </View>
 
-      {/* Price row */}
-      <View style={styles.cardPriceRow}>
-        <Text style={styles.cardPrice}>{formatPrice(property.price)}</Text>
-        {property.rating != null && (
-          <View style={styles.ratingPill}>
-            <Ionicons name="star" size={11} color={Brand.warning} />
-            <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
+        {/* Room details */}
+        <View style={styles.cardRoomRow}>
+          <View style={styles.roomStat}>
+            <Ionicons name="bed-outline" size={14} color={Brand.terracotta} />
+            <Text style={styles.roomStatText}>
+              {property.bedrooms === 0
+                ? 'Studio'
+                : `${property.bedrooms} bedroom${property.bedrooms !== 1 ? 's' : ''}`}
+            </Text>
           </View>
-        )}
+          <View style={styles.roomDivider} />
+          <View style={styles.roomStat}>
+            <Ionicons name="water-outline" size={14} color={Brand.navy} />
+            <Text style={styles.roomStatText}>
+              {property.bathrooms} bathroom{property.bathrooms !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={styles.roomDivider} />
+          <View style={styles.roomStat}>
+            <Ionicons name="people-outline" size={14} color={Brand.gray500} />
+            <Text style={styles.roomStatText}>Max {property.maxOccupants}</Text>
+          </View>
+        </View>
+
+        {/* Price row */}
+        <View style={styles.cardPriceRow}>
+          <Text style={styles.cardPrice}>{formatPrice(property.price)}</Text>
+          {property.rating != null && (
+            <View style={styles.ratingPill}>
+              <Ionicons name="star" size={11} color={Brand.warning} />
+              <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
-  </Pressable>
-));
+    </Pressable>
+  ),
+);
 
 ResultCard.displayName = 'ResultCard';
 
@@ -210,7 +225,7 @@ const ResultsBubble = ({ msg, onOpen }: { msg: ResultsMessage; onOpen: (id: stri
       {msg.source === 'basic' && (
         <Text style={styles.sourceNote}>Using local search · sign in for AI results</Text>
       )}
-      {msg.properties.map(p => (
+      {msg.properties.map((p) => (
         <ResultCard key={p.id} property={p} onPress={() => onOpen(p.id)} />
       ))}
     </View>
@@ -234,117 +249,145 @@ export default function AiChatScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  const allCities = useMemo(
-    () => [...new Set(properties.map(p => p.city))].sort(),
-    [properties],
-  );
+  const allCities = useMemo(() => [...new Set(properties.map((p) => p.city))].sort(), [properties]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
   }, []);
 
-  const push = useCallback((msg: ChatMessage) => {
-    setMessages(prev => [...prev, msg]);
-    scrollToBottom();
-  }, [scrollToBottom]);
+  const push = useCallback(
+    (msg: ChatMessage) => {
+      setMessages((prev) => [...prev, msg]);
+      scrollToBottom();
+    },
+    [scrollToBottom],
+  );
 
-  const sendQuery = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed || isLoading) return;
+  const sendQuery = useCallback(
+    async (query: string) => {
+      const trimmed = query.trim();
+      if (!trimmed || isLoading) return;
 
-    Keyboard.dismiss();
-    setInput('');
+      Keyboard.dismiss();
+      setInput('');
 
-    // 1. Show user bubble
-    push({ id: uid(), role: 'user', kind: 'text', text: trimmed, timestamp: new Date() });
+      // 1. Show user bubble
+      push({ id: uid(), role: 'user', kind: 'text', text: trimmed, timestamp: new Date() });
 
-    // 2. Show thinking indicator
-    const thinkingId = uid();
-    setMessages(prev => [
-      ...prev,
-      { id: thinkingId, role: 'assistant', kind: 'thinking', timestamp: new Date() },
-    ]);
-    scrollToBottom();
-    setIsLoading(true);
+      // 2. Show thinking indicator
+      const thinkingId = uid();
+      setMessages((prev) => [
+        ...prev,
+        { id: thinkingId, role: 'assistant', kind: 'thinking', timestamp: new Date() },
+      ]);
+      scrollToBottom();
+      setIsLoading(true);
 
-    try {
-      // 3. Run AI search (calls Gemini Edge Function if signed in, falls back to local parser)
-      const hasAuth = await hasRealAiSession();
-      const result = await aiSearch(trimmed, allCities);
+      try {
+        // 3. Run AI search (calls Gemini Edge Function if signed in, falls back to local parser)
+        const hasAuth = await hasRealAiSession();
+        const result = await aiSearch(trimmed, allCities);
 
-      // 3b. If searching near current location and no reference coordinates returned, use device GPS
-      if (
-        /\b(?:near (?:my |current )?location|near me|closest to me)\b/i.test(trimmed) &&
-        !result.filters.referenceCoordinates
-      ) {
-        const userLoc = await getCurrentUserLocation();
-        if (userLoc.status === 'granted') {
-          result.filters.referenceCoordinates = userLoc.coords;
+        // 3b. Handle nearby and proximity intent
+        const isNearbyRequested = Boolean(
+          result.filters.nearby ||
+          /\b(?:near|nearby|close|closest|close\s*by|around|proximity)\b/i.test(trimmed),
+        );
+
+        if (isNearbyRequested) {
           result.filters.nearby = true;
-          const match = findNearestLocation(userLoc.coords);
-          if (match && !result.filters.city) {
-            result.filters.city = match.city;
+          if (!result.filters.referenceCoordinates) {
+            // Check if user specified a named location / suburb / city
+            const locCoords = resolveLocationCoordinates(
+              result.filters.search || trimmed,
+              result.filters.city,
+              result.filters.suburb,
+            );
+
+            if (locCoords) {
+              result.filters.referenceCoordinates = locCoords;
+            } else {
+              // Check device GPS
+              const userLoc = await getCurrentUserLocation();
+              if (userLoc.status === 'granted') {
+                result.filters.referenceCoordinates = userLoc.coords;
+              } else {
+                // Fallback to default reference coordinates (e.g. Harare CBD)
+                result.filters.referenceCoordinates = DEFAULT_MAP_CENTER;
+              }
+            }
           }
         }
+
+        // 4. Filter properties (fallback to mock if Supabase table is empty)
+        const effectiveProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
+        const matched = filterMockProperties(effectiveProperties, result.filters);
+        const top = matched.slice(0, 6);
+
+        // 5. Replace thinking with results
+        const signinHint = !hasAuth
+          ? '\n\n💡 Sign in to your ImbaFind account for full Gemini AI search.'
+          : '';
+        const notice =
+          result.source === 'basic' && result.unavailable && hasAuth
+            ? `\n\n${aiUnavailableMessage(result.unavailable)}`
+            : signinHint;
+
+        const intro =
+          (top.length > 0
+            ? `Found ${top.length} ${isNearbyRequested ? 'nearby ' : ''}propert${top.length === 1 ? 'y' : 'ies'} matching "${result.summary || trimmed}":${
+                top.length > 3 ? '\n\nHere are the best matches 👇' : ''
+              }`
+            : `I couldn't find any ${isNearbyRequested ? 'nearby ' : ''}properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`) +
+          notice;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === thinkingId
+              ? ({
+                  id: thinkingId,
+                  role: 'assistant',
+                  kind: top.length > 0 ? 'results' : 'text',
+                  text: intro,
+                  properties: top,
+                  query: trimmed,
+                  source: result.source,
+                  timestamp: new Date(),
+                } as ChatMessage)
+              : m,
+          ),
+        );
+      } catch {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === thinkingId
+              ? ({
+                  id: thinkingId,
+                  role: 'assistant',
+                  kind: 'text',
+                  text: 'Something went wrong. Please try again.',
+                  timestamp: new Date(),
+                } as TextMessage)
+              : m,
+          ),
+        );
+      } finally {
+        setIsLoading(false);
+        scrollToBottom();
       }
-
-      // 4. Filter properties
-      const matched = filterMockProperties(properties, result.filters);
-      const top = matched.slice(0, 6);
-
-      // 5. Replace thinking with results
-      const signinHint = !hasAuth
-        ? '\n\n💡 Sign in to your ImbaFind account for full Gemini AI search.'
-        : '';
-      const notice =
-        result.source === 'basic' && result.unavailable && hasAuth
-          ? `\n\n${aiUnavailableMessage(result.unavailable)}`
-          : signinHint;
-
-      const intro =
-        (top.length > 0
-          ? `Found ${top.length} propert${top.length === 1 ? 'y' : 'ies'} matching "${result.summary || trimmed}":${
-              top.length > 3 ? '\n\nHere are the best matches 👇' : ''
-            }`
-          : `I couldn't find any properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`) +
-        notice;
-
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === thinkingId
-            ? ({
-                id: thinkingId,
-                role: 'assistant',
-                kind: top.length > 0 ? 'results' : 'text',
-                text: intro,
-                properties: top,
-                query: trimmed,
-                source: result.source,
-                timestamp: new Date(),
-              } as ChatMessage)
-            : m,
-        ),
-      );
-    } catch {
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === thinkingId
-            ? ({ id: thinkingId, role: 'assistant', kind: 'text', text: 'Something went wrong. Please try again.', timestamp: new Date() } as TextMessage)
-            : m,
-        ),
-      );
-    } finally {
-      setIsLoading(false);
-      scrollToBottom();
-    }
-  }, [allCities, isLoading, properties, push, scrollToBottom]);
+    },
+    [allCities, isLoading, properties, push, scrollToBottom],
+  );
 
   const handleSend = useCallback(() => sendQuery(input), [input, sendQuery]);
 
-  const handleSuggestion = useCallback((s: string) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    sendQuery(s);
-  }, [sendQuery]);
+  const handleSuggestion = useCallback(
+    (s: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      sendQuery(s);
+    },
+    [sendQuery],
+  );
 
   const openProperty = useCallback((id: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -353,19 +396,26 @@ export default function AiChatScreen() {
 
   const showSuggestions = messages.length <= 1;
 
-  const renderItem = useCallback(({ item }: { item: ChatMessage }) => {
-    if (item.kind === 'text' && item.role === 'user') return <UserBubble text={item.text} />;
-    if (item.kind === 'text') return <AssistantBubble text={item.text} />;
-    if (item.kind === 'thinking') return <ThinkingBubble />;
-    if (item.kind === 'results') return <ResultsBubble msg={item} onOpen={openProperty} />;
-    return null;
-  }, [openProperty]);
+  const renderItem = useCallback(
+    ({ item }: { item: ChatMessage }) => {
+      if (item.kind === 'text' && item.role === 'user') return <UserBubble text={item.text} />;
+      if (item.kind === 'text') return <AssistantBubble text={item.text} />;
+      if (item.kind === 'thinking') return <ThinkingBubble />;
+      if (item.kind === 'results') return <ResultsBubble msg={item} onOpen={openProperty} />;
+      return null;
+    },
+    [openProperty],
+  );
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Ionicons name="arrow-back" size={22} color={Brand.navy} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -388,7 +438,7 @@ export default function AiChatScreen() {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -397,14 +447,19 @@ export default function AiChatScreen() {
             showSuggestions ? (
               <View style={styles.suggestionsWrapper}>
                 <Text style={styles.suggestionsLabel}>Try asking…</Text>
-                {SUGGESTIONS.map(s => (
+                {SUGGESTIONS.map((s) => (
                   <TouchableOpacity
                     key={s}
                     style={styles.suggestionChip}
                     onPress={() => handleSuggestion(s)}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="search-outline" size={13} color={Brand.terracotta} style={{ marginRight: 6 }} />
+                    <Ionicons
+                      name="search-outline"
+                      size={13}
+                      color={Brand.terracotta}
+                      style={{ marginRight: 6 }}
+                    />
                     <Text style={styles.suggestionText}>{s}</Text>
                   </TouchableOpacity>
                 ))}
@@ -570,7 +625,12 @@ const styles = StyleSheet.create({
   roomStatText: { fontSize: 11, color: Brand.navy, fontWeight: '600' },
   roomDivider: { width: 1, height: 14, backgroundColor: Brand.gray200, marginHorizontal: 4 },
 
-  cardPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  cardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
   cardPrice: { fontSize: 15, fontWeight: '800', color: Brand.terracotta },
   ratingPill: {
     flexDirection: 'row',
