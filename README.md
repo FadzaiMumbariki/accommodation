@@ -79,7 +79,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY
-# optional: supabase secrets set GEMINI_MODEL=gemini-2.5-flash
+# optional: supabase secrets set GEMINI_MODEL=gemini-2.0-flash
 supabase functions deploy ai-search
 supabase functions deploy ai-trust
 supabase functions deploy ai-match
@@ -151,7 +151,10 @@ Push notifications in ImbaFind are powered by Expo Push Notifications and delive
   1. Messages never notify their sender.
   2. Notifications are silenced if either the sender or recipient has blocked the other in `public.blocked_users`.
   3. Notifications fail gracefully if the recipient does not have a registered device token.
-- **Edge Function:** Alternatively, `supabase/functions/push-notify` can be called from external services or cron jobs with `{ recipientId, title, body, data }`.
+- **Security Note:** The unauthenticated `push-notify` Edge Function has been decommissioned to prevent open-relay abuse. Push notifications are triggered internally through vetted database hooks or authenticated admin endpoints only. If `push-notify` was previously deployed to your Supabase project, delete it via:
+  ```bash
+  npx supabase functions delete push-notify
+  ```
 
 ### Environment variables & EAS build configuration
 

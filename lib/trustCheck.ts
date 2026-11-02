@@ -155,11 +155,17 @@ export function evaluateListingRules(
 
   // 1. Advance Payment / Deposit before Viewing (Highest Risk)
   const advancePaymentPatterns = [
-    /pay\s*(a\s*)?(deposit|fee|money)\s*before\s*(viewing|seeing|inspection)/i,
-    /deposit\s*to\s*(reserve|hold|book)\s*(a\s*)?viewing/i,
-    /send\s*(ecocash|innbucks|money|funds)\s*(first|prior|before)/i,
+    /pay\s*(a\s*)?(deposit|fee|money|rent)\s*before\s*(viewing|seeing|inspection|visiting)/i,
+    /deposit\s*to\s*(reserve|hold|book|secure)\s*(a\s*)?(viewing|property|room|keys|place)/i,
+    /send\s*(ecocash|innbucks|mukuru|money|funds|deposit)\s*(first|prior|before|advance|upfront)/i,
+    /transfer\s*(the\s*)?(deposit|fee|funds|money)\s*to\s*(reserve|hold|secure)/i,
+    /(deposit|fee|money)\s*(required|needed|must be paid)\s*(in advance|before viewing|prior to viewing|upfront)/i,
     /viewing\s*fee/i,
     /commit(ment)?\s*fee/i,
+    /holding\s*(fee|deposit)/i,
+    /reservation\s*(fee|deposit)/i,
+    /pay\s*(upfront|in advance)\s*to\s*(secure|reserve|hold)/i,
+    /(out of (the )?country|relocated abroad|currently outside)\s*.*(send|transfer|deposit)/i,
   ];
 
   let hasAdvancePaymentFlag = false;
@@ -323,6 +329,24 @@ export async function performListingTrustCheck(
         },
       });
       const warningDetails: Record<string, Omit<TrustFlag, 'source'>> = {
+        advance_payment_request: {
+          severity: 'high',
+          title: 'Advance Payment Request Detected',
+          description:
+            'The AI detected requests for upfront payment, deposits, or reservation fees before physical inspection. Never send money before viewing the property.',
+        },
+        pressure_tactics: {
+          severity: 'high',
+          title: 'Pressure Tactics Detected',
+          description:
+            'The AI flagged urgency or pressure tactics pushing you to commit or pay immediately. Reputable landlords do not rush tenants.',
+        },
+        cannot_meet_in_person: {
+          severity: 'high',
+          title: 'Landlord Unavailable In-Person',
+          description:
+            'The listing indicates the landlord cannot meet or show the property in person. Verify landlord credentials directly to avoid fraud.',
+        },
         vague_description: {
           severity: 'medium',
           title: 'Vague Description',

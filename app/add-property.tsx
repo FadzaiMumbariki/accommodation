@@ -109,6 +109,7 @@ export default function AddPropertyScreen() {
   const [pickingImage, setPickingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [writingDescription, setWritingDescription] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     'Water',
     'Electricity',
@@ -252,21 +253,7 @@ export default function AddPropertyScreen() {
     }
   };
 
-  const handlePublish = async () => {
-    if (!requireAuth('/add-property')) return;
-    if (!title.trim() || !suburb.trim()) {
-      Alert.alert('Required Fields', 'Please enter a property title and suburb.');
-      return;
-    }
-    if (pickedImages.length < 1) {
-      Alert.alert('Photo required', 'Please add at least one property photo.');
-      return;
-    }
-    if (pickedImages.length > 8) {
-      Alert.alert('Photo limit reached', 'A listing can have up to 8 photos.');
-      return;
-    }
-
+  const executeSave = async () => {
     setSaving(true);
     try {
       const imageUrls: string[] = [];
@@ -283,11 +270,14 @@ export default function AddPropertyScreen() {
         imageUrls.push(publicUrl);
       }
 
+      const parsedPrice = parseFloat(price);
+      const parsedDeposit = deposit ? parseFloat(deposit) : parsedPrice;
+
       const payload = {
         title: title.trim(),
-        description: description || 'Beautiful, secure property available in ' + suburb + ', ' + city + '.',
-        price: parseFloat(price) || 300,
-        deposit: parseFloat(deposit) || 300,
+        description: description || 'Beautiful, secure property available in ' + suburb.trim() + ', ' + city.trim() + '.',
+        price: parsedPrice,
+        deposit: parsedDeposit,
         propertyType,
         province: getProvinceForCity(city),
         city: city.trim(),
@@ -327,6 +317,57 @@ export default function AddPropertyScreen() {
     }
   };
 
+  const handlePublish = async () => {
+    if (!requireAuth('/add-property')) return;
+
+    const newErrors: Record<string, string> = {};
+    if (!title.trim()) newErrors.title = 'Please enter a property title.';
+    if (!city.trim()) newErrors.city = 'Please enter a city.';
+    if (!suburb.trim()) newErrors.suburb = 'Please enter a suburb.';
+
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      newErrors.price = 'Please enter a valid monthly rent greater than $0.';
+    }
+
+    if (pickedImages.length < 3) {
+      newErrors.images = 'Please add at least 3 photos (living room, bedroom, bathroom/exterior).';
+    } else if (pickedImages.length > 8) {
+      newErrors.images = 'A listing can have up to 8 photos.';
+    }
+
+    setFormErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      Alert.alert('Incomplete Listing', firstError);
+      return;
+    }
+
+    // Duplicate listing check: warn if landlord already has an active listing with identical title and suburb
+    const isDuplicate = properties.some(
+      p =>
+        p.landlordId === user?.id &&
+        p.id !== editingProperty?.id &&
+        p.title.trim().toLowerCase() === title.trim().toLowerCase() &&
+        p.suburb.trim().toLowerCase() === suburb.trim().toLowerCase()
+    );
+
+    if (isDuplicate) {
+      Alert.alert(
+        'Duplicate Listing Notice',
+        `You already have an active listing titled "${title.trim()}" in ${suburb.trim()}. Do you want to publish a second listing with identical details?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Publish Anyway', onPress: () => void executeSave() },
+        ]
+      );
+      return;
+    }
+
+    await executeSave();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -354,33 +395,45 @@ export default function AddPropertyScreen() {
 
           <Text style={styles.inputLabel}>Property Title *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, Boolean(formErrors.title) && styles.inputError]}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(t) => {
+              setTitle(t);
+              if (formErrors.title) setFormErrors(prev => ({ ...prev, title: '' }));
+            }}
             placeholder="e.g. Modern 2-Bedroom Cottage with Solar"
             placeholderTextColor={Brand.gray400}
           />
+          {Boolean(formErrors.title) && <Text style={styles.inlineError}>{formErrors.title}</Text>}
 
           <View style={styles.rowInputs}>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>City *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, Boolean(formErrors.city) && styles.inputError]}
                 value={city}
-                onChangeText={setCity}
+                onChangeText={(c) => {
+                  setCity(c);
+                  if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
+                }}
                 placeholder="e.g. Bulawayo"
                 placeholderTextColor={Brand.gray400}
               />
+              {Boolean(formErrors.city) && <Text style={styles.inlineError}>{formErrors.city}</Text>}
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Suburb *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, Boolean(formErrors.suburb) && styles.inputError]}
                 value={suburb}
-                onChangeText={setSuburb}
+                onChangeText={(s) => {
+                  setSuburb(s);
+                  if (formErrors.suburb) setFormErrors(prev => ({ ...prev, suburb: '' }));
+                }}
                 placeholder="e.g. Nkulumane"
                 placeholderTextColor={Brand.gray400}
               />
+              {Boolean(formErrors.suburb) && <Text style={styles.inlineError}>{formErrors.suburb}</Text>}
             </View>
           </View>
 
@@ -408,13 +461,17 @@ export default function AddPropertyScreen() {
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Monthly Rent (USD $) *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, Boolean(formErrors.price) && styles.inputError]}
                 value={price}
-                onChangeText={setPrice}
+                onChangeText={(p) => {
+                  setPrice(p);
+                  if (formErrors.price) setFormErrors(prev => ({ ...prev, price: '' }));
+                }}
                 keyboardType="numeric"
                 placeholder="300"
                 placeholderTextColor={Brand.gray400}
               />
+              {Boolean(formErrors.price) && <Text style={styles.inlineError}>{formErrors.price}</Text>}
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Security Deposit ($)</Text>
@@ -554,6 +611,12 @@ export default function AddPropertyScreen() {
           onRetryUpload={(uri) => void uploadImage(uri)}
           maxPhotos={8}
         />
+        {Boolean(formErrors.images) && (
+          <View style={styles.photoErrorWrap}>
+            <Ionicons name="alert-circle" size={15} color="#D32F2F" />
+            <Text style={styles.inlineError}>{formErrors.images}</Text>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Available Amenities</Text>
@@ -696,6 +759,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Brand.navy,
     marginBottom: 12,
+  },
+  inputError: {
+    borderColor: '#D32F2F',
+    backgroundColor: '#FFEBEE',
+  },
+  inlineError: {
+    color: '#D32F2F',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: -8,
+    marginBottom: 10,
+  },
+  photoErrorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginTop: -8,
+    marginBottom: 14,
   },
   textArea: {
     height: 100,

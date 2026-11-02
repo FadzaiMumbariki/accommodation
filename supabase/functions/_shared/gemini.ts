@@ -62,6 +62,23 @@ export async function enforceAiRateLimit(req: Request, feature: string): Promise
   }
 }
 
+/**
+ * Strips phone numbers, email addresses, and numerical identifiers from text
+ * before sending to Gemini, strictly honoring privacy guarantees.
+ */
+export function stripPii(text: string): string {
+  if (!text) return '';
+  return text
+    // Redact email addresses
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
+    // Redact Zimbabwean phone numbers (+263 7x, 07x, etc.)
+    .replace(/(?:\+263|263|0)[\s.-]?(?:7[1378]|86)[\s.-]?\d{3}[\s.-]?\d{4}/g, '[REDACTED_PHONE]')
+    // Redact general international phone formats
+    .replace(/(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g, '[REDACTED_PHONE]')
+    // Redact standalone sequences of 9 to 13 digits
+    .replace(/\b\d{9,13}\b/g, '[REDACTED_NUMBER]');
+}
+
 interface GeminiJsonOptions {
   system: string;
   user: string;
@@ -73,7 +90,10 @@ interface GeminiJsonOptions {
 export async function callGeminiJson({ system, user, schema, temperature = 0 }: GeminiJsonOptions) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
-  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+  // Default to gemini-2.0-flash; can be overridden via GEMINI_MODEL secret
+  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+
+  const sanitizedUser = stripPii(user);
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -82,7 +102,7 @@ export async function callGeminiJson({ system, user, schema, temperature = 0 }: 
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: user }] }],
+        contents: [{ role: 'user', parts: [{ text: sanitizedUser }] }],
         generationConfig: {
           temperature,
           maxOutputTokens: 600,
@@ -99,3 +119,4 @@ export async function callGeminiJson({ system, user, schema, temperature = 0 }: 
   if (!text) throw new Error('Gemini returned no content');
   return JSON.parse(text);
 }
+

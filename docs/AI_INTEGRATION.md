@@ -12,7 +12,7 @@ App (Expo)  ->  supabase.functions.invoke()  ->  Edge Function (Deno)  ->  Gemin
 
 - Edge Functions: `supabase/functions/ai-search`, `ai-trust`, `ai-match`, `ai-describe`, shared helper in `supabase/functions/_shared/gemini.ts`
 - Client code: `lib/ai.ts`, `lib/aiFilters.ts`, `lib/trustCheck.ts`, and `lib/smartMatching.ts`
-- Model: configurable with the `GEMINI_MODEL` secret, default `gemini-2.5-flash`. Check Google's current model list and set `GEMINI_MODEL` if that name has been retired.
+- Model: configurable with the `GEMINI_MODEL` secret, default `gemini-2.0-flash`. Privacy: phone numbers and emails are automatically stripped before text reaches Gemini.
 - Secrets: `GEMINI_API_KEY` is set with `supabase secrets set`. It is never committed.
 - Functions use structured JSON output and validate the returned fields before applying them.
 - `supabase/migrations/006_ai_request_limits.sql` limits each signed-in account to 30 requests per rolling hour across all AI features.

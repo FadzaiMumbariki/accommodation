@@ -105,7 +105,11 @@ export default function BookViewingScreen() {
   };
 
   const openWhatsAppConfirmation = (dateStr: string, timeStr: string) => {
-    const rawPhone = property.landlord?.phone ?? '+263771234567';
+    const rawPhone = property.landlord?.phone;
+    if (!rawPhone) {
+      Alert.alert('Notice', 'Direct WhatsApp contact is not available for this landlord. You can reach them via in-app chat.');
+      return;
+    }
     let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
       cleanPhone = '263' + cleanPhone.slice(1);

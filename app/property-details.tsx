@@ -34,6 +34,7 @@ import { ListingTrustCheckCard } from '../components/property/ListingTrustCheckC
 import { ReviewSection } from '../components/property/ReviewSection';
 import { PropertyUtilitiesCard } from '../components/property/PropertyUtilitiesCard';
 import { PropertyContactBar } from '../components/property/PropertyContactBar';
+import { VerifiedInfoModal } from '../components/property/VerifiedInfoModal';
 import { useResponsive } from '../hooks/useResponsive';
 import { WebHeader } from '../components/navigation/WebHeader';
 import { WebFooter } from '../components/navigation/WebFooter';
@@ -85,6 +86,7 @@ export default function PropertyDetailsScreen() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reportVisible, setReportVisible] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [verifiedModalVisible, setVerifiedModalVisible] = useState(false);
 
   const property = properties.find((p) => p.id === id) ?? (id ? undefined : properties[0]);
   const [imgIndex, setImgIndex] = useState(0);
@@ -439,8 +441,23 @@ export default function PropertyDetailsScreen() {
         {/* Content Details */}
         <View style={styles.detailsContent}>
           <View style={styles.availTagRow}>
-            <View style={styles.availDotSmall} />
-            <Text style={styles.availTagText}>Available now</Text>
+            <View style={styles.availPill}>
+              <View style={styles.availDotSmall} />
+              <Text style={styles.availTagText}>Available now</Text>
+            </View>
+            {(property.verified || property.landlord?.verified) && (
+              <TouchableOpacity
+                style={styles.verifiedDetailBadge}
+                onPress={() => setVerifiedModalVisible(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Verified property - tap to learn what this means"
+              >
+                <Ionicons name="checkmark-circle" size={15} color="#0F4C81" />
+                <Text style={styles.verifiedDetailBadgeText}>Verified Listing</Text>
+                <Ionicons name="information-circle-outline" size={13} color="#0F4C81" />
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text style={styles.propertyTitle}>{property.title}</Text>
@@ -658,6 +675,10 @@ export default function PropertyDetailsScreen() {
         onCancel={() => setReportVisible(false)}
         onSubmit={submitListingReport}
       />
+      <VerifiedInfoModal
+        visible={verifiedModalVisible}
+        onClose={() => setVerifiedModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -766,8 +787,14 @@ const styles = StyleSheet.create({
   availTagRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  availPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
   },
   availDotSmall: {
     width: 6,
@@ -779,6 +806,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Brand.success,
+  },
+  verifiedDetailBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 76, 129, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 76, 129, 0.25)',
+  },
+  verifiedDetailBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F4C81',
   },
   propertyTitle: {
     fontSize: 22,

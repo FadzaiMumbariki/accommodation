@@ -51,3 +51,7 @@ docs/testing/
 
 # supabase temporary CLI state
 supabase/.temp/
+
+# editor / spec scratch state
+.trae/
+

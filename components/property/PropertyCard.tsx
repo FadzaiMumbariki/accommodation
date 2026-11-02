@@ -15,6 +15,7 @@ import { Brand } from '../../constants/Colors';
 import { AvailabilityBadge } from '../common/AvailabilityBadge';
 import { useApp } from '../../context/AppContext';
 import { formatDistance } from '../../lib/coordinates';
+import { VerifiedInfoModal } from './VerifiedInfoModal';
 
 interface PropertyCardProps {
   property: Property;
@@ -31,36 +32,54 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 }) => {
   const { isSaved, toggleSaved } = useApp();
   const saved = isSaved(property.id);
+  const [showVerifiedModal, setShowVerifiedModal] = React.useState(false);
 
   const mainImage = property.images[0] || 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80';
   const rating = property.rating ?? 0;
+  const isVerified = Boolean(property.verified || property.landlord?.verified);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      style={[
-        styles.card,
-        horizontal ? styles.cardHorizontal : styles.cardVertical,
-        style,
-      ]}
-    >
-      <View style={[styles.imageContainer, horizontal && styles.imageContainerHorizontal]}>
-        <Image
-          source={{ uri: mainImage }}
-          style={styles.image}
-          contentFit="cover"
-          transition={250}
-          cachePolicy="memory-disk"
-        />
-
-        <View style={styles.topBadgeContainer}>
-          <AvailabilityBadge
-            status={property.availabilityStatus ?? (property.available ? 'available_now' : 'occupied')}
-            availableFromDate={property.availableFromDate}
-            size="small"
+    <>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        style={[
+          styles.card,
+          horizontal ? styles.cardHorizontal : styles.cardVertical,
+          style,
+        ]}
+      >
+        <View style={[styles.imageContainer, horizontal && styles.imageContainerHorizontal]}>
+          <Image
+            source={{ uri: mainImage }}
+            style={styles.image}
+            contentFit="cover"
+            transition={250}
+            cachePolicy="memory-disk"
           />
-        </View>
+
+          <View style={styles.topBadgeContainer}>
+            <AvailabilityBadge
+              status={property.availabilityStatus ?? (property.available ? 'available_now' : 'occupied')}
+              availableFromDate={property.availableFromDate}
+              size="small"
+            />
+            {isVerified && (
+              <TouchableOpacity
+                style={styles.verifiedBadge}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setShowVerifiedModal(true);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Verified listing - tap to learn what this means"
+              >
+                <Ionicons name="checkmark-circle" size={13} color="#0F4C81" />
+                <Text style={styles.verifiedBadgeText}>Verified</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
         <TouchableOpacity
           style={styles.saveButton}
@@ -265,6 +284,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         )}
       </View>
     </TouchableOpacity>
+    <VerifiedInfoModal visible={showVerifiedModal} onClose={() => setShowVerifiedModal(false)} />
+  </>
   );
 };
 
@@ -311,6 +332,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 76, 129, 0.25)',
+  },
+  verifiedBadgeText: {
+    color: '#0F4C81',
+    fontSize: 10,
+    fontWeight: '700',
   },
   saveButton: {
     position: 'absolute',
