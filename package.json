@@ -70,6 +70,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "expo-doctor": "npx expo-doctor",
+    "build:apk": "eas build -p android --profile preview",
+    "deploy:functions": "supabase functions deploy ai-search && supabase functions deploy ai-describe && supabase functions deploy ai-match && supabase functions deploy ai-trust",
     "prepare": "husky"
   },
   "lint-staged": {
