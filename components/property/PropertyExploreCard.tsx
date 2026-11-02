@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../../constants/Colors';
 import { formatDistance } from '../../lib/coordinates';
 import type { Property } from '../../types';
+import { VerifiedInfoModal } from './VerifiedInfoModal';
 
 interface PropertyExploreCardProps {
   property: Property;
@@ -41,131 +42,151 @@ export const PropertyExploreCard = React.memo(function PropertyExploreCard({
   onPress,
   onWhatsAppPress,
 }: PropertyExploreCardProps) {
+  const [showVerifiedModal, setShowVerifiedModal] = useState(false);
+  const isVerified = Boolean(property.verified || property.landlord?.verified);
   const amenities = (property.amenities || []).map((a) => a.toLowerCase());
   const hasBorehole = amenities.some((a) => a.includes('borehole') || a.includes('tank'));
-  const hasSolar = amenities.some((a) => a.includes('solar') || a.includes('inverter') || a.includes('generator'));
-  const hasDurawall = amenities.some((a) => a.includes('durawall') || a.includes('gate') || a.includes('security'));
-  const hasWifi = amenities.some((a) => a.includes('wifi') || a.includes('fibre') || a.includes('internet'));
+  const hasSolar = amenities.some(
+    (a) => a.includes('solar') || a.includes('inverter') || a.includes('generator'),
+  );
+  const hasDurawall = amenities.some(
+    (a) => a.includes('durawall') || a.includes('gate') || a.includes('security'),
+  );
+  const hasWifi = amenities.some(
+    (a) => a.includes('wifi') || a.includes('fibre') || a.includes('internet'),
+  );
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onPress(property.id)}
-      activeOpacity={0.88}
-    >
-      <PropertyThumbnail uri={property.images[0]} />
-      <View style={styles.cardBody}>
-        <View style={styles.priceRow}>
-          <Text style={styles.cardPrice}>
-            ${property.price}
-            <Text style={styles.perMonth}>/mo</Text>
+    <>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => onPress(property.id)}
+        activeOpacity={0.88}
+      >
+        <PropertyThumbnail uri={property.images?.[0]} />
+        <View style={styles.cardBody}>
+          <View style={styles.priceRow}>
+            <Text style={styles.cardPrice}>
+              ${property.price}
+              <Text style={styles.perMonth}>/mo</Text>
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
+                <View style={styles.distanceBadge}>
+                  <Ionicons name="navigate-outline" size={10} color={Brand.terracotta} />
+                  <Text style={styles.distanceText}>{formatDistance(property.distanceKm)}</Text>
+                </View>
+              )}
+              {property.rating ? (
+                <View style={styles.ratingBadge}>
+                  <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {property.title}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {property.distanceKm != null && Number.isFinite(property.distanceKm) && (
-              <View style={styles.distanceBadge}>
-                <Ionicons name="navigate-outline" size={10} color={Brand.terracotta} />
-                <Text style={styles.distanceText}>{formatDistance(property.distanceKm)}</Text>
+
+          <View style={styles.locationRow}>
+            <Ionicons name="location-sharp" size={13} color={Brand.terracotta} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationMain} numberOfLines={1}>
+                {property.suburb}, {property.city}
+              </Text>
+              <Text style={styles.locationProvince}>{property.province}</Text>
+            </View>
+          </View>
+
+          <View style={styles.specsRow}>
+            <View style={styles.spec}>
+              <Ionicons name="bed-outline" size={12} color={Brand.gray500} />
+              <Text style={styles.specText}>{property.bedrooms} bed</Text>
+            </View>
+            <View style={styles.specDot} />
+            <View style={styles.spec}>
+              <Ionicons name="water-outline" size={12} color={Brand.gray500} />
+              <Text style={styles.specText}>{property.bathrooms} bath</Text>
+            </View>
+            <View style={styles.specDot} />
+            <View style={styles.spec}>
+              <Ionicons name="people-outline" size={12} color={Brand.gray500} />
+              <Text style={styles.specText}>{property.maxOccupants} max</Text>
+            </View>
+          </View>
+
+          {/* Zimbabwean Utility Badges */}
+          {(hasBorehole || hasSolar || hasDurawall || hasWifi) && (
+            <View style={styles.cardUtilityRow}>
+              {hasBorehole && (
+                <View style={[styles.cardUtilityPill, styles.cardUtilityWater]}>
+                  <Ionicons name="water" size={10} color="#0284C7" />
+                  <Text style={[styles.cardUtilityText, { color: '#0369A1' }]}>Borehole</Text>
+                </View>
+              )}
+              {hasSolar && (
+                <View style={[styles.cardUtilityPill, styles.cardUtilitySolar]}>
+                  <Ionicons name="sunny" size={10} color="#D97706" />
+                  <Text style={[styles.cardUtilityText, { color: '#B45309' }]}>Solar</Text>
+                </View>
+              )}
+              {hasDurawall && (
+                <View style={[styles.cardUtilityPill, styles.cardUtilitySecurity]}>
+                  <Ionicons name="shield-checkmark" size={10} color="#059669" />
+                  <Text style={[styles.cardUtilityText, { color: '#047857' }]}>Durawall</Text>
+                </View>
+              )}
+              {hasWifi && (
+                <View style={[styles.cardUtilityPill, styles.cardUtilityWifi]}>
+                  <Ionicons name="wifi" size={10} color="#4F46E5" />
+                  <Text style={[styles.cardUtilityText, { color: '#4338CA' }]}>Wi-Fi</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Action Row */}
+          <View style={styles.cardActionRow}>
+            <View style={styles.badgesRow}>
+              <View style={styles.availBadge}>
+                <Text style={styles.availBadgeText}>Available now</Text>
               </View>
-            )}
-            {property.rating ? (
-              <View style={styles.ratingBadge}>
-                <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
-              </View>
+              {isVerified && (
+                <TouchableOpacity
+                  style={styles.verifiedBadge}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setShowVerifiedModal(true);
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verified listing - tap to learn what this means"
+                >
+                  <Ionicons name="shield-checkmark" size={10} color="#2563EB" />
+                  <Text style={styles.verifiedBadgeText}>Verified</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {property.landlord?.phone && onWhatsAppPress ? (
+              <TouchableOpacity
+                style={styles.cardWhatsAppButton}
+                onPress={() => onWhatsAppPress(property)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Chat on WhatsApp"
+              >
+                <Ionicons name="logo-whatsapp" size={13} color={Brand.white} />
+                <Text style={styles.cardWhatsAppButtonText}>WhatsApp</Text>
+              </TouchableOpacity>
             ) : null}
           </View>
         </View>
-
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {property.title}
-        </Text>
-
-        <View style={styles.locationRow}>
-          <Ionicons name="location-sharp" size={13} color={Brand.terracotta} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.locationMain} numberOfLines={1}>
-              {property.suburb}, {property.city}
-            </Text>
-            <Text style={styles.locationProvince}>{property.province}</Text>
-          </View>
-        </View>
-
-        <View style={styles.specsRow}>
-          <View style={styles.spec}>
-            <Ionicons name="bed-outline" size={12} color={Brand.gray500} />
-            <Text style={styles.specText}>{property.bedrooms} bed</Text>
-          </View>
-          <View style={styles.specDot} />
-          <View style={styles.spec}>
-            <Ionicons name="water-outline" size={12} color={Brand.gray500} />
-            <Text style={styles.specText}>{property.bathrooms} bath</Text>
-          </View>
-          <View style={styles.specDot} />
-          <View style={styles.spec}>
-            <Ionicons name="people-outline" size={12} color={Brand.gray500} />
-            <Text style={styles.specText}>{property.maxOccupants} max</Text>
-          </View>
-        </View>
-
-        {/* Zimbabwean Utility Badges */}
-        {(hasBorehole || hasSolar || hasDurawall || hasWifi) && (
-          <View style={styles.cardUtilityRow}>
-            {hasBorehole && (
-              <View style={[styles.cardUtilityPill, styles.cardUtilityWater]}>
-                <Ionicons name="water" size={10} color="#0284C7" />
-                <Text style={[styles.cardUtilityText, { color: '#0369A1' }]}>Borehole</Text>
-              </View>
-            )}
-            {hasSolar && (
-              <View style={[styles.cardUtilityPill, styles.cardUtilitySolar]}>
-                <Ionicons name="sunny" size={10} color="#D97706" />
-                <Text style={[styles.cardUtilityText, { color: '#B45309' }]}>Solar</Text>
-              </View>
-            )}
-            {hasDurawall && (
-              <View style={[styles.cardUtilityPill, styles.cardUtilitySecurity]}>
-                <Ionicons name="shield-checkmark" size={10} color="#059669" />
-                <Text style={[styles.cardUtilityText, { color: '#047857' }]}>Durawall</Text>
-              </View>
-            )}
-            {hasWifi && (
-              <View style={[styles.cardUtilityPill, styles.cardUtilityWifi]}>
-                <Ionicons name="wifi" size={10} color="#4F46E5" />
-                <Text style={[styles.cardUtilityText, { color: '#4338CA' }]}>Wi-Fi</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Action Row */}
-        <View style={styles.cardActionRow}>
-          <View style={styles.badgesRow}>
-            <View style={styles.availBadge}>
-              <Text style={styles.availBadgeText}>Available now</Text>
-            </View>
-            {property.verified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="shield-checkmark" size={10} color="#2563EB" />
-                <Text style={styles.verifiedBadgeText}>Verified</Text>
-              </View>
-            )}
-          </View>
-
-          {property.landlord?.phone && onWhatsAppPress ? (
-            <TouchableOpacity
-              style={styles.cardWhatsAppButton}
-              onPress={() => onWhatsAppPress(property)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              accessibilityRole="button"
-              accessibilityLabel="Chat on WhatsApp"
-            >
-              <Ionicons name="logo-whatsapp" size={13} color={Brand.white} />
-              <Text style={styles.cardWhatsAppButtonText}>WhatsApp</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      <VerifiedInfoModal visible={showVerifiedModal} onClose={() => setShowVerifiedModal(false)} />
+    </>
   );
 });
 
