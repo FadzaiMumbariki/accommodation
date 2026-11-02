@@ -41,8 +41,6 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<string | null>;
   /** Sign in with Google via Supabase OAuth. Returns true on success, false on cancellation. */
   signInWithGoogle: () => Promise<boolean>;
-  /** Instant demo sign in with mock profile — works without Supabase credentials. */
-  signInAsDemo: (role?: UserRole) => Promise<void>;
   /** Whether the app is running with real Supabase credentials. */
   isSupabaseEnabled: boolean;
 }
@@ -148,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (!supabase) {
       // No backend — fail clearly instead of "succeeding" without ever setting a user
-      return 'Signing in requires a backend connection. Use "Try as Tenant" or "Try as Landlord" to explore the app.';
+      return 'Signing in requires a backend connection. Add your Supabase credentials to .env.local and try again.';
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return error.message?.trim() || `Sign-in failed (code ${error.status ?? 500}).`;
@@ -166,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!supabase) {
         // No backend — return a clear error so the UI doesn't silently pretend to succeed
         return {
-          error: 'Account creation requires a backend connection. Use "Try Demo" to explore the app.',
+          error: 'Account creation requires a backend connection. Add your Supabase credentials to .env.local and try again.',
           requiresEmailConfirmation: false,
         };
       }
@@ -226,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = useCallback(async (email: string): Promise<string | null> => {
     if (!supabase) return null;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'imbafind://reset-password',
+      redirectTo: Linking.createURL('/reset-password'),
     });
     if (error) return error.message;
     return null;
@@ -235,31 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async (): Promise<boolean> => {
     const res = await runGoogleSignIn();
     return Boolean(res.success);
-  }, []);
-
-  const signInAsDemo = useCallback(async (role: UserRole = 'tenant') => {
-    const demoUser: User = {
-      id: role === 'landlord' ? '00000000-0000-0000-0000-000000000001' : '00000000-0000-0000-0000-000000000002',
-      email: role === 'landlord' ? 'landlord@imbafind.co.zw' : 'tenant@imbafind.co.zw',
-      app_metadata: { provider: 'demo' },
-      user_metadata: {
-        full_name: role === 'landlord' ? 'Tendai Makoni' : 'Farai Moyo',
-        role,
-      },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    };
-    const demoSession = {
-      access_token: 'demo-token',
-      refresh_token: 'demo-refresh',
-      expires_in: 3600,
-      token_type: 'bearer',
-      user: demoUser,
-    } as Session;
-
-    setUser(demoUser);
-    setSession(demoSession);
-    await AsyncStorage.setItem('imbafind_user_role', role);
   }, []);
 
   return (
@@ -274,7 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         changeRole,
         resetPassword,
         signInWithGoogle,
-        signInAsDemo,
         isSupabaseEnabled,
       }}
     >

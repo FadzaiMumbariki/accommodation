@@ -88,8 +88,12 @@ revoke all on function public.admin_set_user_verified(uuid, boolean) from public
 grant execute on function public.admin_set_property_verified(uuid, boolean) to authenticated;
 grant execute on function public.admin_set_user_verified(uuid, boolean) to authenticated;
 
--- 5. Promote the marketplace owner to admin. Change the email or run a similar
---    statement to grant the role to other verification staff.
-update public.profiles
-  set is_admin = true
-  where lower(email) = 'fadzaimumbariki@gmail.com';
+-- 5. Promote your administrator. This migration deliberately does NOT hardcode a
+--    personal email. After applying it, grant the capability to your own account
+--    from the Supabase SQL Editor (or an authenticated admin session), for example:
+--
+--      update public.profiles
+--        set is_admin = true
+--        where lower(email) = 'you@example.com';
+--
+--    The client has no action that can set is_admin.

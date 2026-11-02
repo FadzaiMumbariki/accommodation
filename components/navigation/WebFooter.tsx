@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -13,7 +13,7 @@ export const WebFooter: React.FC = () => {
   }
 
   const handleNav = (route: string) => {
-    router.push(route as any);
+    router.push(route as Href);
   };
 
   return (

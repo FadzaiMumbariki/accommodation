@@ -26,7 +26,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     returnTo?: string;
     role?: string;
   }>();
-  const { signIn, signUp, resetPassword, signInWithGoogle, signInAsDemo, isSupabaseEnabled } = useAuth();
+  const { signIn, signUp, resetPassword, signInWithGoogle, isSupabaseEnabled } = useAuth();
   const { setUserRole, userRole } = useApp();
 
   const [tab, setTab] = useState<'login' | 'signup'>(
@@ -38,7 +38,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -144,18 +143,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
       Alert.alert(friendly.title, friendly.message);
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async (demoRole: UserRole) => {
-    setDemoLoading(true);
-    try {
-      await signInAsDemo(demoRole);
-      router.replace(dest);
-    } catch {
-      Alert.alert('Error', 'Could not start demo session. Please try again.');
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -284,7 +271,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
             )}
           </View>
 
-          {/* Footer — social + demo */}
+          {/* Footer — social */}
           <View style={styles.footerWrap}>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -293,7 +280,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
             </View>
 
             {isSupabaseEnabled && (
-              <TouchableOpacity style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]} onPress={handleGoogleLogin} disabled={googleLoading || loading || demoLoading} activeOpacity={0.85}>
+              <TouchableOpacity style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]} onPress={handleGoogleLogin} disabled={googleLoading || loading} activeOpacity={0.85}>
                 {googleLoading ? <ActivityIndicator color={Brand.navy} /> : (
                   <>
                     <Ionicons name="logo-google" size={18} color="#DB4437" />
@@ -301,31 +288,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
                   </>
                 )}
               </TouchableOpacity>
-            )}
-
-            {/* Demo buttons — shown in dev or when explicitly enabled */}
-            {(__DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEMO === 'true') && (
-              <>
-                <View style={styles.demoRow}>
-                  <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('tenant')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
-                    {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
-                      <>
-                        <Ionicons name="home-outline" size={15} color={Brand.terracotta} />
-                        <Text style={styles.demoBtnText}>Try as Tenant</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.demoBtn, demoLoading && { opacity: 0.7 }]} onPress={() => handleDemoLogin('landlord')} disabled={loading || googleLoading || demoLoading} activeOpacity={0.85}>
-                    {demoLoading ? <ActivityIndicator size="small" color={Brand.terracotta} /> : (
-                      <>
-                        <Ionicons name="key-outline" size={15} color={Brand.terracotta} />
-                        <Text style={styles.demoBtnText}>Try as Landlord</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.demoNote}>No account needed — explore with demo data</Text>
-              </>
             )}
           </View>
 
@@ -391,8 +353,4 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 12, fontWeight: '500', color: Brand.gray400 },
   googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Brand.white, borderWidth: 1.5, borderColor: Brand.gray300, paddingVertical: 14, borderRadius: 14, marginBottom: 12 },
   googleBtnText: { fontSize: 15, fontWeight: '700', color: Brand.navy },
-  demoRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  demoBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Brand.terracotta, backgroundColor: Brand.white },
-  demoBtnText: { fontSize: 13, fontWeight: '700', color: Brand.terracotta },
-  demoNote: { fontSize: 11, color: Brand.gray400, textAlign: 'center', marginTop: 4 },
 });

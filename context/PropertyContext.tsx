@@ -104,7 +104,7 @@ export function PropertyProvider({
   userId?: string | null;
   userRole: 'tenant' | 'landlord';
 }) {
-  const [properties, setProperties] = useState<Property[]>(() => MOCK_PROPERTIES);
+  const [properties, setProperties] = useState<Property[]>(() => (supabase ? [] : MOCK_PROPERTIES));
   const [loading, setLoading] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [hasCachedProperties, setHasCachedProperties] = useState(false);
@@ -161,7 +161,9 @@ export function PropertyProvider({
       setProperties(previous => {
         if (!append) {
           if (result.properties.length === 0 && Object.keys(requestedFilters).length === 0 && requestedPage === 0) {
-            return cachedProperties?.length ? cachedProperties : MOCK_PROPERTIES;
+            // Live mode: never surface mock listings to real users. Show the last good
+            // cache if we have one, otherwise an empty state.
+            return cachedProperties?.length ? cachedProperties : [];
           }
           return result.properties;
         }
@@ -180,11 +182,13 @@ export function PropertyProvider({
       if (sequence !== requestSequence.current) return;
       setIsOffline(true);
       setError(getErrorMessage(e));
+      // Live mode: fall back to the last good cache only. Listing mock data here
+      // would show fabricated properties to a signed-in user.
       if (cachedProperties?.length) {
         setProperties(cachedProperties);
         setHasCachedProperties(true);
       } else {
-        setProperties(MOCK_PROPERTIES);
+        setProperties([]);
       }
     } finally {
       if (sequence === requestSequence.current) setLoading(false);

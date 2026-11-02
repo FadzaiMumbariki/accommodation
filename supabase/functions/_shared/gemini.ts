@@ -1,6 +1,10 @@
 // Shared helpers for ImbaFind AI Edge Functions (Deno runtime).
 // The Gemini API key lives only in Supabase secrets (GEMINI_API_KEY) and is never sent to the app.
 
+import { stripPii } from './pii.ts';
+
+export { stripPii };
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -60,23 +64,6 @@ export async function enforceAiRateLimit(req: Request, feature: string): Promise
     );
     return json({ error: 'AI is temporarily unavailable.' }, 503);
   }
-}
-
-/**
- * Strips phone numbers, email addresses, and numerical identifiers from text
- * before sending to Gemini, strictly honoring privacy guarantees.
- */
-export function stripPii(text: string): string {
-  if (!text) return '';
-  return text
-    // Redact email addresses
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
-    // Redact Zimbabwean phone numbers (+263 7x, 07x, etc.)
-    .replace(/(?:\+263|263|0)[\s.-]?(?:7[1378]|86)[\s.-]?\d{3}[\s.-]?\d{4}/g, '[REDACTED_PHONE]')
-    // Redact general international phone formats
-    .replace(/(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/g, '[REDACTED_PHONE]')
-    // Redact standalone sequences of 9 to 13 digits
-    .replace(/\b\d{9,13}\b/g, '[REDACTED_NUMBER]');
 }
 
 interface GeminiJsonOptions {
