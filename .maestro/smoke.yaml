@@ -1,0 +1,16 @@
+# Cold-start smoke test.
+#
+# A brand-new install has no session, so the splash screen (app/index.tsx)
+# redirects to /login. This flow asserts the app boots far enough to render the
+# sign-in screen and does not hit the error boundary.
+appId: com.imbafind.app
+name: Smoke — app launches to the sign-in screen
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome back'
+- assertVisible: 'Sign In to ImbaFind'
+- assertVisible: 'Continue with Google'
+- assertNotVisible: 'Something went wrong'

@@ -24,12 +24,12 @@ Finding rental housing in Zimbabwe often relies on word of mouth, scattered soci
 
 ## AI integration (summary)
 
-| Feature | What it does | Model / API |
-| --- | --- | --- |
-| AI search | Converts a plain-English search into structured filters | Google Gemini API, called through the `ai-search` Supabase Edge Function |
-| Listing trust check | Adds description-quality warning signals to rule-based checks; it does not verify ownership or remove listings | Google Gemini API, called through the `ai-trust` Supabase Edge Function |
-| Request matching | Ranks current listings by request criteria and move-in date; AI can phrase the top match reason but never changes the ranking | Google Gemini API, called through the `ai-match` Supabase Edge Function |
-| AI listing helper | Drafts a short description from the landlord's own listing details | Google Gemini API, called through the `ai-describe` Supabase Edge Function |
+| Feature             | What it does                                                                                                                  | Model / API                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| AI search           | Converts a plain-English search into structured filters                                                                       | Google Gemini API, called through the `ai-search` Supabase Edge Function   |
+| Listing trust check | Adds description-quality warning signals to rule-based checks; it does not verify ownership or remove listings                | Google Gemini API, called through the `ai-trust` Supabase Edge Function    |
+| Request matching    | Ranks current listings by request criteria and move-in date; AI can phrase the top match reason but never changes the ranking | Google Gemini API, called through the `ai-match` Supabase Edge Function    |
+| AI listing helper   | Drafts a short description from the landlord's own listing details                                                            | Google Gemini API, called through the `ai-describe` Supabase Edge Function |
 
 The Gemini API key is stored only as a Supabase secret and is never in the app. Full details, limitations and testing are in [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md). The ethical and responsible AI statement is in [docs/ETHICAL_AI_STATEMENT.md](docs/ETHICAL_AI_STATEMENT.md).
 
@@ -91,14 +91,23 @@ All AI functions require a signed-in user. The database limits each account to 3
 ### Tests and checks
 
 ```sh
-npm test               # Jest unit tests
+npm test               # Jest unit and component tests
 npm run test:coverage  # Jest with coverage (fails below the thresholds in package.json)
 npm run lint           # ESLint
 npm run typecheck      # TypeScript
 npm run format:check   # Prettier
 ```
 
-GitHub Actions runs lint, typecheck and `test:coverage` on every push and pull request, plus a job that applies `supabase/migrations/` from scratch against an empty local database and lints it. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
+Unit and component tests sit next to the code they cover (`lib/*.test.ts`, `components/**/*.test.tsx`, `hooks/*.test.ts`) and run in the `jest-expo` environment. `jest.setup.js` stubs the icon font so components using `@expo/vector-icons` render headlessly. The coverage gate in `package.json` is measured over `lib/`; the component and hook tests are enforced by running in CI, not by the coverage percentage.
+
+End-to-end tests run against a real build on a device or emulator:
+
+- **Maestro** flows in `.maestro/` — install [Maestro](https://maestro.mobile.dev), then run `maestro test .maestro`. `smoke.yaml` and `auth-validation.yaml` need no account; `auth-signin.yaml` requires `-e E2E_EMAIL=... -e E2E_PASSWORD=...`.
+- **Detox** (`.detoxrc.js` plus `e2e/`) drives a native debug build: `npm run e2e:build:android` then `npm run e2e:test:android`. The iOS equivalents (`e2e:build:ios`, `e2e:test:ios`) need macOS with Xcode.
+
+Database policy tests live in `supabase/tests/` (pgTAP) and run with `supabase test db`, which needs the Supabase CLI and Docker.
+
+GitHub Actions runs lint, typecheck and `test:coverage` on every push and pull request, plus a job that applies `supabase/migrations/` from scratch against an empty local database, lints it and runs the RLS tests. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Project structure
 
@@ -106,8 +115,11 @@ GitHub Actions runs lint, typecheck and `test:coverage` on every push and pull r
 app/            Screens (Expo Router)
 components/     Reusable UI components
 context/        App state (auth, properties, chat, saved, activity)
+hooks/          Shared React hooks
 lib/            Data access, filters, notifications, AI helpers (ai.ts, aiFilters.ts)
-supabase/       SQL migrations and Edge Functions (ai-search, ai-trust, ai-match, ai-describe)
+e2e/            Detox end-to-end tests
+.maestro/       Maestro end-to-end flows
+supabase/       SQL migrations, RLS tests and Edge Functions (ai-search, ai-trust, ai-match, ai-describe)
 docs/           AI integration notes, ethical AI statement, screenshots
 ```
 
@@ -130,7 +142,8 @@ Screenshots live in [docs/screenshots](docs/screenshots). Live link / demo video
 - [Ethical and responsible AI statement](docs/ETHICAL_AI_STATEMENT.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
-- [Play Store readiness guide](PLAY_STORE_READINESS_GUIDE.md)
+- [Play Store readiness guide](docs/PLAY_STORE_READINESS_GUIDE.md)
+- [Play Store data safety answers](docs/PLAY_STORE_DATA_SAFETY.md)
 
 ## Operations and release notes
 
@@ -138,12 +151,12 @@ Screenshots live in [docs/screenshots](docs/screenshots). Live link / demo video
 
 `supabase/migrations/` is the single source of truth for the database. Apply it with `supabase db push` (or by pasting the files into the SQL Editor in numeric order).
 
-| Path | Purpose |
-| --- | --- |
-| `supabase/migrations/001`–`017` | **Canonical.** Incremental, idempotent schema changes. Apply in numeric order. |
-| `supabase/seed_properties.sql` | **Optional.** Sample listings for demos; run manually after the migrations. It creates the demo host account it needs. |
-| `supabase/seed.sql` | Empty placeholder run automatically by `supabase db reset` (referenced from `config.toml`). Do not put sample data here. |
-| `supabase/legacy/` | Superseded one-shot scripts (`setup_complete.sql`, `create_and_seed.sql`, `reload_schema_and_permissions.sql`). Reference only — never run. See `supabase/legacy/README.md`. |
+| Path                            | Purpose                                                                                                                                                                      |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/001`–`017` | **Canonical.** Incremental, idempotent schema changes. Apply in numeric order.                                                                                               |
+| `supabase/seed_properties.sql`  | **Optional.** Sample listings for demos; run manually after the migrations. It creates the demo host account it needs.                                                       |
+| `supabase/seed.sql`             | Empty placeholder run automatically by `supabase db reset` (referenced from `config.toml`). Do not put sample data here.                                                     |
+| `supabase/legacy/`              | Superseded one-shot scripts (`setup_complete.sql`, `create_and_seed.sql`, `reload_schema_and_permissions.sql`). Reference only — never run. See `supabase/legacy/README.md`. |
 
 Note: there is no `002_*.sql` migration; the set jumps from `001_initial_schema.sql` to `003_reports.sql`.
 
@@ -164,6 +177,7 @@ Apply `supabase/migrations/003_reports.sql` after the existing schema and securi
 ### Push notifications setup
 
 Push notifications in ImbaFind are powered by Expo Push Notifications and delivered via Supabase database triggers:
+
 - **EAS Project ID:** Push tokens require an EAS Project ID. Configure your project with `npx eas-cli@latest init`, or ensure `EXPO_PUBLIC_EAS_PROJECT_ID` / `extra.eas.projectId` in `app.json` is set to your project's UUID.
 - **Android Google Services:** Production Android builds require Firebase Cloud Messaging (FCM v1). Download your `google-services.json` from the Firebase Console, place it in the project root, ensure `android.googleServicesFile` is referenced in `app.json`, and upload your FCM v1 Service Account Key to Expo using `npx eas-cli@latest credentials`.
 - **Database Triggers:** Applying `supabase/migrations/008_push_notifications.sql` and `supabase/migrations/016_push_notifications_hardening.sql` configures automatic push dispatch for chat messages and viewing requests. Triggers strictly ensure:
@@ -179,17 +193,21 @@ Push notifications in ImbaFind are powered by Expo Push Notifications and delive
 
 The following environment variables are used by ImbaFind across local development, preview builds, and production:
 
-| Variable | Required In | Purpose | Exposure / Scope |
-| --- | --- | --- | --- |
-| `EXPO_PUBLIC_SUPABASE_URL` | Live / Production | Supabase project URL (`https://xyz.supabase.co`) | Public (client-bundled) |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Live / Production | Supabase anonymous public key | Public (client-bundled) |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Optional / Recommended | Google Maps API key for Android/iOS native map tiles | Public (client-bundled) |
-| `EXPO_PUBLIC_EAS_PROJECT_ID` | Production / Preview | EAS project UUID for push notifications | Public (client-bundled) |
-| `EXPO_PUBLIC_SENTRY_ENABLED` | Production (`true`/`false`) | Enables/disables Sentry native & error reporting | Public (client-bundled) |
-| `EXPO_PUBLIC_SENTRY_DSN` | If Sentry enabled | Sentry Project DSN | Public (client-bundled) |
-| `SENTRY_ORG` | Build time (if Sentry) | Sentry Organization slug | EAS Environment / CI |
-| `SENTRY_PROJECT` | Build time (if Sentry) | Sentry Project slug | EAS Environment / CI |
-| `SENTRY_AUTH_TOKEN` | Build time (if Sentry) | Sentry authentication token for source maps | Secret (Never public!) |
+| Variable                          | Required In                 | Purpose                                              | Exposure / Scope        |
+| --------------------------------- | --------------------------- | ---------------------------------------------------- | ----------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`        | Live / Production           | Supabase project URL (`https://xyz.supabase.co`)     | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY`   | Live / Production           | Supabase anonymous public key                        | Public (client-bundled) |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Optional / Recommended      | Google Maps API key for Android/iOS native map tiles | Public (client-bundled) |
+| `EXPO_PUBLIC_EAS_PROJECT_ID`      | Production / Preview        | EAS project UUID for push notifications              | Public (client-bundled) |
+| `EXPO_PUBLIC_SENTRY_ENABLED`      | Production (`true`/`false`) | Enables/disables Sentry native & error reporting     | Public (client-bundled) |
+| `EXPO_PUBLIC_SENTRY_DSN`          | If Sentry enabled           | Sentry Project DSN                                   | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPPORT_PHONE`       | Production                  | Phone number shown on the Help screen                | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPPORT_WHATSAPP`    | Production                  | WhatsApp number shown on the Help screen             | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPPORT_EMAIL`       | Production                  | Support email shown on the Help screen               | Public (client-bundled) |
+| `EXPO_PUBLIC_SUPPORT_HOURS`       | Optional                    | Support hours label (defaults to `8am - 6pm CAT`)    | Public (client-bundled) |
+| `SENTRY_ORG`                      | Build time (if Sentry)      | Sentry Organization slug                             | EAS Environment / CI    |
+| `SENTRY_PROJECT`                  | Build time (if Sentry)      | Sentry Project slug                                  | EAS Environment / CI    |
+| `SENTRY_AUTH_TOKEN`               | Build time (if Sentry)      | Sentry authentication token for source maps          | Secret (Never public!)  |
 
 #### Configuring with EAS CLI (`eas env:create` / `eas env:set`)
 

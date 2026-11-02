@@ -12,20 +12,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
-import { SUPPORT_CONTACT } from '../constants/support';
+import { SUPPORT_CONTACT, hasSupportContact } from '../constants/support';
 
 export default function HelpSupportScreen() {
   const handleCall = () => {
+    if (!SUPPORT_CONTACT.hasPhone) return;
     Linking.openURL(`tel:${SUPPORT_CONTACT.phone}`);
   };
 
   const handleWhatsApp = () => {
+    if (!SUPPORT_CONTACT.hasWhatsapp) return;
     const phone = SUPPORT_CONTACT.whatsapp.replace(/\D/g, '');
     const message = encodeURIComponent('Hello ImbaFind Support');
     Linking.openURL(`https://wa.me/${phone}?text=${message}`);
   };
 
   const handleEmail = () => {
+    if (!SUPPORT_CONTACT.hasEmail) return;
     const subject = encodeURIComponent('ImbaFind Assistance');
     Linking.openURL(`mailto:${SUPPORT_CONTACT.email}?subject=${subject}`);
   };
@@ -63,55 +66,68 @@ export default function HelpSupportScreen() {
         {/* Quick Contact Options */}
         <Text style={styles.sectionTitle}>Get in Touch</Text>
 
-        <TouchableOpacity
-          style={styles.contactRow}
-          onPress={handleWhatsApp}
-          accessibilityRole="button"
-          accessibilityLabel="Contact support on WhatsApp"
-        >
-          <View style={[styles.iconWrap, { backgroundColor: '#DCFCE7' }]}>
-            <Ionicons name="logo-whatsapp" size={22} color="#16A34A" />
-          </View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.contactLabel}>WhatsApp Support</Text>
-            <Text style={styles.contactSub}>Instant help from our local team</Text>
-          </View>
-          <Ionicons name="open-outline" size={18} color={Brand.gray400} />
-        </TouchableOpacity>
+        {!hasSupportContact && (
+          <Text style={styles.contactFallback}>
+            Support contact details are being finalised. In the meantime, please use the FAQ and
+            About pages below.
+          </Text>
+        )}
 
-        <TouchableOpacity
-          style={styles.contactRow}
-          onPress={handleCall}
-          accessibilityRole="button"
-          accessibilityLabel="Call support"
-        >
-          <View style={[styles.iconWrap, { backgroundColor: '#DBEAFE' }]}>
-            <Ionicons name="call-outline" size={22} color={Brand.info} />
-          </View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.contactLabel}>Phone Helpline</Text>
-            <Text style={styles.contactSub}>
-              {SUPPORT_CONTACT.phone} ({SUPPORT_CONTACT.businessHours})
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
-        </TouchableOpacity>
+        {SUPPORT_CONTACT.hasWhatsapp && (
+          <TouchableOpacity
+            style={styles.contactRow}
+            onPress={handleWhatsApp}
+            accessibilityRole="button"
+            accessibilityLabel="Contact support on WhatsApp"
+          >
+            <View style={[styles.iconWrap, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="logo-whatsapp" size={22} color="#16A34A" />
+            </View>
+            <View style={styles.rowInfo}>
+              <Text style={styles.contactLabel}>WhatsApp Support</Text>
+              <Text style={styles.contactSub}>Instant help from our local team</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color={Brand.gray400} />
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={styles.contactRow}
-          onPress={handleEmail}
-          accessibilityRole="button"
-          accessibilityLabel="Email support"
-        >
-          <View style={[styles.iconWrap, { backgroundColor: '#FEF3C7' }]}>
-            <Ionicons name="mail-outline" size={22} color={Brand.warning} />
-          </View>
-          <View style={styles.rowInfo}>
-            <Text style={styles.contactLabel}>Email Support</Text>
-            <Text style={styles.contactSub}>{SUPPORT_CONTACT.email}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
-        </TouchableOpacity>
+        {SUPPORT_CONTACT.hasPhone && (
+          <TouchableOpacity
+            style={styles.contactRow}
+            onPress={handleCall}
+            accessibilityRole="button"
+            accessibilityLabel="Call support"
+          >
+            <View style={[styles.iconWrap, { backgroundColor: '#DBEAFE' }]}>
+              <Ionicons name="call-outline" size={22} color={Brand.info} />
+            </View>
+            <View style={styles.rowInfo}>
+              <Text style={styles.contactLabel}>Phone Helpline</Text>
+              <Text style={styles.contactSub}>
+                {SUPPORT_CONTACT.phone} ({SUPPORT_CONTACT.businessHours})
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
+          </TouchableOpacity>
+        )}
+
+        {SUPPORT_CONTACT.hasEmail && (
+          <TouchableOpacity
+            style={styles.contactRow}
+            onPress={handleEmail}
+            accessibilityRole="button"
+            accessibilityLabel="Email support"
+          >
+            <View style={[styles.iconWrap, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="mail-outline" size={22} color={Brand.warning} />
+            </View>
+            <View style={styles.rowInfo}>
+              <Text style={styles.contactLabel}>Email Support</Text>
+              <Text style={styles.contactSub}>{SUPPORT_CONTACT.email}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
+          </TouchableOpacity>
+        )}
 
         {/* Frequently Asked Questions */}
         <Text style={styles.sectionTitle}>Self Service</Text>
@@ -237,6 +253,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Brand.gray500,
     marginTop: 2,
+  },
+  contactFallback: {
+    fontSize: 13,
+    color: Brand.gray500,
+    lineHeight: 19,
+    marginBottom: 10,
   },
   navCard: {
     flexDirection: 'row',

@@ -37,17 +37,21 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
-    "@types/jest": "30.0.0",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.3.0",
-    "agent-browser": "^0.27.0",
+    "cross-env": "^10.1.0",
+    "detox": "^20.51.4",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
     "eslint-config-prettier": "^10.1.8",
+    "expo-detox-config-plugin": "^13.1.0",
     "husky": "^9.1.7",
-    "jest": "~30.5.2",
+    "jest": "^30.5.2",
     "jest-expo": "~58.0.12",
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.10",
+    "test-renderer": "^1.3.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -59,6 +63,10 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "e2e:build:android": "detox build -c android.emu.debug",
+    "e2e:test:android": "detox test -c android.emu.debug",
+    "e2e:build:ios": "detox build -c ios.sim.debug",
+    "e2e:test:ios": "detox test -c ios.sim.debug",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "expo-doctor": "npx expo-doctor",
@@ -75,10 +83,14 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "moduleNameMapper": {
-      "^expo-modules-core$": "<rootDir>/node_modules/expo-modules-core/src/index.ts",
-      "^expo-modules-core/(.*)$": "<rootDir>/node_modules/expo-modules-core/$1"
-    },
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ],
+    "testTimeout": 20000,
     "collectCoverageFrom": [
       "lib/**/*.{ts,tsx}",
       "!lib/**/*.test.{ts,tsx}"

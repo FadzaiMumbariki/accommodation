@@ -57,3 +57,8 @@ jobs:
 
       - name: Lint database
         run: supabase db lint --level warning
+
+      # pgTAP assertions in supabase/tests/ cover RLS row isolation and the
+      # privileged-column protections (profiles.is_admin, *.verified).
+      - name: Run database tests
+        run: supabase test db
