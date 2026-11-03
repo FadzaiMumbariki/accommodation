@@ -22,7 +22,9 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Brand } from '../constants/Colors';
 import { useAuth } from './AuthContext';
 import { PropertyProvider, useProperties } from './PropertyContext';
 import { SavedProvider, useSaved } from './SavedContext';
@@ -125,24 +127,24 @@ function RoleProvider({ children }: { children: ReactNode }) {
     };
   }, [isSupabaseEnabled, userId, user]);
 
-  const setUserRole = useCallback(async (role: UserRole, options?: { localOnly?: boolean }): Promise<boolean> => {
-    if (user && isSupabaseEnabled && !options?.localOnly) {
-      const updated = await changeRole(user.id, role);
-      if (!updated) return false;
-    }
-    setUserRoleState(role);
-    try {
-      await AsyncStorage.setItem(ROLE_KEY, role);
-    } catch (error) {
-      console.error('[RoleProvider] Failed to cache role:', error);
-    }
-    return true;
-  }, [changeRole, isSupabaseEnabled, user]);
+  const setUserRole = useCallback(
+    async (role: UserRole, options?: { localOnly?: boolean }): Promise<boolean> => {
+      if (user && isSupabaseEnabled && !options?.localOnly) {
+        const updated = await changeRole(user.id, role);
+        if (!updated) return false;
+      }
+      setUserRoleState(role);
+      try {
+        await AsyncStorage.setItem(ROLE_KEY, role);
+      } catch (error) {
+        console.error('[RoleProvider] Failed to cache role:', error);
+      }
+      return true;
+    },
+    [changeRole, isSupabaseEnabled, user],
+  );
 
-  const userName =
-    user?.user_metadata?.full_name ??
-    user?.email?.split('@')[0] ??
-    'User';
+  const userName = user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? 'User';
 
   return (
     <RoleContext.Provider value={{ userRole, userName, isAdmin, roleLoading, setUserRole }}>
@@ -156,25 +158,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <RoleProvider>
-      <RoleConsumerWrapper userId={user?.id}>
-        {children}
-      </RoleConsumerWrapper>
+      <RoleConsumerWrapper userId={user?.id}>{children}</RoleConsumerWrapper>
     </RoleProvider>
   );
 }
 
 /** Reads role from RoleContext so sub-providers can receive it */
-function RoleConsumerWrapper({
-  children,
-  userId,
-}: {
-  children: ReactNode;
-  userId?: string;
-}) {
+function RoleConsumerWrapper({ children, userId }: { children: ReactNode; userId?: string }) {
   const { userRole, userName, roleLoading } = useContext(RoleContext)!;
 
   if (roleLoading) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Brand.terracotta} />
+      </View>
+    );
   }
 
   return (
@@ -274,3 +272,12 @@ export function useApp() {
     };
   }, [roleCtx, properties, saved, chat, activity]);
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Brand.white,
+  },
+});
