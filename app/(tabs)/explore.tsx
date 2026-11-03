@@ -9,14 +9,15 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useApp } from '../../context/AppContext';
+import { useProperties } from '../../context/PropertyContext';
 import { Brand } from '../../constants/Colors';
+import { openWhatsAppTarget, buildListingInquiryMessage } from '../../lib/formatContact';
+import { RouteHelpers } from '../../constants/routes';
 import type { Property, PropertyFilters, PropertyType, SearchFilters } from '../../types';
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -42,13 +43,13 @@ export default function ExploreScreen() {
     filters,
     isOffline,
     hasCachedProperties,
-    propertiesLoading,
-    refreshProperties,
-    propertiesError,
+    loading: propertiesLoading,
+    refresh: refreshProperties,
+    error: propertiesError,
     hasMoreProperties,
     loadMoreProperties,
     properties,
-  } = useApp();
+  } = useProperties();
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [q, setQ] = useState('');
@@ -61,29 +62,17 @@ export default function ExploreScreen() {
   const { isMobile, numColumns } = useResponsive();
 
   const openProperty = useCallback((id: string) => {
-    router.push(`/property-details?id=${id}`);
+    router.push(RouteHelpers.propertyDetails(id));
   }, []);
 
   const handleWhatsAppFromExplore = useCallback(
     (p: Property) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const rawPhone = p.landlord?.phone;
-      if (!rawPhone) {
-        openProperty(p.id);
-        return;
-      }
-      let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-      if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
-        cleanPhone = '263' + cleanPhone.slice(1);
-      }
-      const defaultMsg = encodeURIComponent(
-        `Hi, I saw your listing for "${p.title}" in ${p.suburb}, ${p.city} ($${p.price}/month) on ImbaFind. Is it still available?`,
-      );
-      const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${defaultMsg}`;
-      const webUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
-      Linking.canOpenURL(appUrl)
-        .then((can) => Linking.openURL(can ? appUrl : webUrl))
-        .catch(() => Linking.openURL(webUrl));
+      void openWhatsAppTarget({
+        phone: p.landlord?.phone,
+        text: buildListingInquiryMessage(p),
+        onUnavailable: () => openProperty(p.id),
+      });
     },
     [openProperty],
   );

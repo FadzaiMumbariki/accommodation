@@ -1,11 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Dimensions,
-  Text,
-  FlatList,
-} from 'react-native';
+import { View, StyleSheet, Dimensions, Text, FlatList } from 'react-native';
 import { Image } from 'expo-image';
 import { Brand } from '../../constants/Colors';
 
@@ -15,6 +9,8 @@ interface PropertyGalleryProps {
   images: string[];
 }
 
+const VIEWABILITY_CONFIG = { viewAreaCoveragePercentThreshold: 50 };
+
 export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -22,18 +18,15 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
   const displayImages =
     images.length > 0
       ? images
-      : ['https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80'];
+      : [
+          'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80',
+        ];
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: any) => {
-      if (viewableItems && viewableItems.length > 0) {
-        setActiveIndex(viewableItems[0].index ?? 0);
-      }
-    },
-    [],
-  );
-
-  const viewabilityConfig = { viewAreaCoveragePercentThreshold: 50 };
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActiveIndex(viewableItems[0].index ?? 0);
+    }
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: string }) => (
@@ -62,7 +55,7 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
+        viewabilityConfig={VIEWABILITY_CONFIG}
         renderItem={renderItem}
         getItemLayout={(_, index) => ({
           length: width,
@@ -86,10 +79,7 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
           {displayImages.map((_, index) => (
             <View
               key={index}
-              style={[
-                styles.dot,
-                index === activeIndex ? styles.dotActive : styles.dotInactive,
-              ]}
+              style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
             />
           ))}
         </View>

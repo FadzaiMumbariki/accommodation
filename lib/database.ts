@@ -28,7 +28,7 @@ function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -194,9 +194,10 @@ export function rowToProperty(row: PropertyRow): Property {
     verified: row.verified,
     rating: row.rating ? Number(row.rating) : undefined,
     reviewsCount: row.reviews_count ?? 0,
-    coordinates: row.lat != null && row.lng != null
-      ? { lat: Number(row.lat), lng: Number(row.lng) }
-      : undefined,
+    coordinates:
+      row.lat != null && row.lng != null
+        ? { lat: Number(row.lat), lng: Number(row.lng) }
+        : undefined,
     postedAt: row.created_at,
   };
 }
@@ -212,10 +213,7 @@ export interface PropertyPage {
   hasMore: boolean;
 }
 
-export async function fetchProperties(
-  filters?: PropertyFilters,
-  page = 0,
-): Promise<PropertyPage> {
+export async function fetchProperties(filters?: PropertyFilters, page = 0): Promise<PropertyPage> {
   if (!supabase) return { properties: [], hasMore: false };
 
   let query = supabase
@@ -266,7 +264,9 @@ export async function fetchProperties(
 
   const ref =
     filters?.referenceCoordinates ||
-    (filters?.nearby ? resolveLocationCoordinates(filters?.search, filters?.city, filters?.suburb) : undefined);
+    (filters?.nearby
+      ? resolveLocationCoordinates(filters?.search, filters?.city, filters?.suburb)
+      : undefined);
   if (ref) {
     propertyList = sortByProximity(propertyList, ref, filters?.searchRadius);
   }
@@ -278,19 +278,24 @@ export async function fetchProperties(
 }
 
 export async function fetchPropertyById(id: string): Promise<Property | null> {
-  if (!supabase) return null;
+  if (!supabase || !id) return null;
 
-  const { data, error } = await supabase
-    .from('properties')
-    .select('*, profiles(full_name, avatar_url, phone, verified)')
-    .eq('id', id)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*, profiles(full_name, avatar_url, phone, verified)')
+      .eq('id', id)
+      .maybeSingle();
 
-  if (error) {
-    console.error('[fetchPropertyById]', error.message);
+    if (error) {
+      console.error('[fetchPropertyById]', error.message);
+      return null;
+    }
+    return data ? rowToProperty(data) : null;
+  } catch (error) {
+    console.error('[database] fetchPropertyById error:', error);
     return null;
   }
-  return data ? rowToProperty(data) : null;
 }
 
 export async function fetchLandlordProperties(landlordId: string): Promise<Property[]> {
@@ -314,7 +319,7 @@ export async function insertProperty(
   property: Omit<Property, 'id' | 'postedAt' | 'landlord'>,
 ): Promise<Property> {
   if (!supabase) throw new Error('Property listings require a Supabase connection.');
-  if (property.images.some(uri => uri.startsWith('file://') || uri.startsWith('content://'))) {
+  if (property.images.some((uri) => uri.startsWith('file://') || uri.startsWith('content://'))) {
     throw new Error('Property photos must finish uploading before the listing can be saved.');
   }
 
@@ -388,14 +393,20 @@ export async function deleteAccountAndPropertyImages(userId: string): Promise<vo
   while (true) {
     const { data, error: listError } = await bucket.list(userId, { limit: 100, offset: 0 });
     if (listError) {
-      console.error('[deleteAccountAndPropertyImages] Could not list account photos:', listError.message);
+      console.error(
+        '[deleteAccountAndPropertyImages] Could not list account photos:',
+        listError.message,
+      );
       throw listError;
     }
-    const paths = (data ?? []).map(file => `${userId}/${file.name}`);
+    const paths = (data ?? []).map((file) => `${userId}/${file.name}`);
     if (paths.length === 0) break;
     const { error: removeError } = await bucket.remove(paths);
     if (removeError) {
-      console.error('[deleteAccountAndPropertyImages] Could not remove account photos:', removeError.message);
+      console.error(
+        '[deleteAccountAndPropertyImages] Could not remove account photos:',
+        removeError.message,
+      );
       throw removeError;
     }
     if (paths.length < 100) break;
@@ -413,7 +424,7 @@ export async function updateProperty(
   property: Partial<Omit<Property, 'id' | 'postedAt' | 'landlord'>>,
 ): Promise<Property> {
   if (!supabase) throw new Error('Property listings require a Supabase connection.');
-  if (property.images?.some(uri => uri.startsWith('file://') || uri.startsWith('content://'))) {
+  if (property.images?.some((uri) => uri.startsWith('file://') || uri.startsWith('content://'))) {
     throw new Error('Property photos must finish uploading before the listing can be saved.');
   }
 
@@ -433,8 +444,10 @@ export async function updateProperty(
   if (property.amenities !== undefined) payload.amenities = property.amenities;
   if (property.description !== undefined) payload.description = property.description;
   if (property.available !== undefined) payload.available = property.available;
-  if (property.availabilityStatus !== undefined) payload.availability_status = property.availabilityStatus;
-  if (property.availableFromDate !== undefined) payload.available_from_date = property.availableFromDate;
+  if (property.availabilityStatus !== undefined)
+    payload.availability_status = property.availabilityStatus;
+  if (property.availableFromDate !== undefined)
+    payload.available_from_date = property.availableFromDate;
   if (property.coordinates !== undefined) {
     payload.lat = property.coordinates?.lat ?? null;
     payload.lng = property.coordinates?.lng ?? null;
@@ -463,147 +476,142 @@ export async function deleteProperty(propertyId: string): Promise<void> {
 }
 
 function toSqlTime(value: string): string {
-    const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-    if (!match) throw new Error('Choose a valid viewing time.');
-    let hours = Number(match[1]);
-    const minutes = Number(match[2]);
-    if (match[4]) {
-      if (hours < 1 || hours > 12) throw new Error('Choose a valid viewing time.');
-      if (match[4].toUpperCase() === 'AM' && hours === 12) hours = 0;
-      if (match[4].toUpperCase() === 'PM' && hours !== 12) hours += 12;
-    }
-    if (hours > 23 || minutes > 59) throw new Error('Choose a valid viewing time.');
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) throw new Error('Choose a valid viewing time.');
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (match[4]) {
+    if (hours < 1 || hours > 12) throw new Error('Choose a valid viewing time.');
+    if (match[4].toUpperCase() === 'AM' && hours === 12) hours = 0;
+    if (match[4].toUpperCase() === 'PM' && hours !== 12) hours += 12;
   }
+  if (hours > 23 || minutes > 59) throw new Error('Choose a valid viewing time.');
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+}
 
 function rowToViewing(row: ViewingRow): ViewingRequest {
-    const property = row.properties;
-    const tenant = row.tenant;
-    const date = String(row.viewing_date);
-    const [hours = '0', minutes = '0'] = String(row.viewing_time).split(':');
-    const time = new Date(2000, 0, 1, Number(hours), Number(minutes)).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    return {
-      id: row.id,
-      propertyId: row.property_id,
-      propertyTitle: property?.title ?? 'Property',
-      propertyImage: property?.images?.[0] ?? '',
-      propertyLocation: [property?.suburb, property?.city].filter(Boolean).join(', '),
-      propertyPrice: property?.price == null ? undefined : Number(property.price),
-      tenantId: row.tenant_id,
-      tenantName: tenant?.full_name ?? 'Tenant',
-      tenantPhone: tenant?.phone ?? undefined,
-      landlordId: row.landlord_id,
-      date,
-      time,
-      numberOfPeople: row.attendees,
-      attendees: row.attendees,
-      message: row.message ?? undefined,
-      status: row.status as ViewingStatus,
-      createdAt: row.created_at,
-    };
-  }
+  const property = row.properties;
+  const tenant = row.tenant;
+  const date = String(row.viewing_date);
+  const [hours = '0', minutes = '0'] = String(row.viewing_time).split(':');
+  const time = new Date(2000, 0, 1, Number(hours), Number(minutes)).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return {
+    id: row.id,
+    propertyId: row.property_id,
+    propertyTitle: property?.title ?? 'Property',
+    propertyImage: property?.images?.[0] ?? '',
+    propertyLocation: [property?.suburb, property?.city].filter(Boolean).join(', '),
+    propertyPrice: property?.price == null ? undefined : Number(property.price),
+    tenantId: row.tenant_id,
+    tenantName: tenant?.full_name ?? 'Tenant',
+    tenantPhone: tenant?.phone ?? undefined,
+    landlordId: row.landlord_id,
+    date,
+    time,
+    numberOfPeople: row.attendees,
+    attendees: row.attendees,
+    message: row.message ?? undefined,
+    status: row.status as ViewingStatus,
+    createdAt: row.created_at,
+  };
+}
 
 const VIEWING_SELECT =
   '*, properties(title, images, city, suburb, price), tenant:profiles!viewing_requests_tenant_id_fkey(full_name, phone)';
 
 export async function insertViewing(
-    tenantId: string,
-    viewing: Omit<ViewingRequest, 'id' | 'createdAt' | 'landlordId' | 'tenantId' | 'tenantName'>,
-  ): Promise<ViewingRequest> {
-    if (!supabase) throw new Error('Viewing requests require a Supabase connection.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(viewing.date)) {
-      throw new Error('Choose a valid viewing date.');
-    }
-    const sqlTime = toSqlTime(viewing.time);
-    const scheduledAt = new Date(`${viewing.date}T${sqlTime}`);
-    if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
-      throw new Error('Choose a viewing date and time in the future.');
-    }
-
-    const { data: conflict, error: conflictError } = await supabase
-      .from('viewing_requests')
-      .select('id')
-      .eq('property_id', viewing.propertyId)
-      .eq('viewing_date', viewing.date)
-      .eq('viewing_time', sqlTime)
-      .in('status', ['pending', 'confirmed'])
-      .limit(1)
-      .maybeSingle();
-    if (conflictError) {
-      console.error('[insertViewing] Conflict check failed:', conflictError.message);
-      throw conflictError;
-    }
-    if (conflict) throw new Error('That viewing time is already requested. Please choose another time.');
-
-    const { data, error } = await supabase
-      .from('viewing_requests')
-      .insert({
-        property_id: viewing.propertyId,
-        tenant_id: tenantId,
-        viewing_date: viewing.date,
-        viewing_time: sqlTime,
-        attendees: viewing.attendees ?? viewing.numberOfPeople,
-        message: viewing.message ?? viewing.notes ?? null,
-      })
-      .select(VIEWING_SELECT)
-      .single();
-    if (error) {
-      console.error('[insertViewing]', error.message);
-      if (error.code === '23505') {
-        throw new Error('That viewing time is already requested. Please choose another time.');
-      }
-      throw error;
-    }
-    return rowToViewing(data);
+  tenantId: string,
+  viewing: Omit<ViewingRequest, 'id' | 'createdAt' | 'landlordId' | 'tenantId' | 'tenantName'>,
+): Promise<ViewingRequest> {
+  if (!supabase) throw new Error('Viewing requests require a Supabase connection.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(viewing.date)) {
+    throw new Error('Choose a valid viewing date.');
   }
+  const sqlTime = toSqlTime(viewing.time);
+  const scheduledAt = new Date(`${viewing.date}T${sqlTime}`);
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    throw new Error('Choose a viewing date and time in the future.');
+  }
+
+  const { data: conflict, error: conflictError } = await supabase
+    .from('viewing_requests')
+    .select('id')
+    .eq('property_id', viewing.propertyId)
+    .eq('viewing_date', viewing.date)
+    .eq('viewing_time', sqlTime)
+    .in('status', ['pending', 'confirmed'])
+    .limit(1)
+    .maybeSingle();
+  if (conflictError) {
+    console.error('[insertViewing] Conflict check failed:', conflictError.message);
+    throw conflictError;
+  }
+  if (conflict)
+    throw new Error('That viewing time is already requested. Please choose another time.');
+
+  const { data, error } = await supabase
+    .from('viewing_requests')
+    .insert({
+      property_id: viewing.propertyId,
+      tenant_id: tenantId,
+      viewing_date: viewing.date,
+      viewing_time: sqlTime,
+      attendees: viewing.attendees ?? viewing.numberOfPeople,
+      message: viewing.message ?? viewing.notes ?? null,
+    })
+    .select(VIEWING_SELECT)
+    .single();
+  if (error) {
+    console.error('[insertViewing]', error.message);
+    if (error.code === '23505') {
+      throw new Error('That viewing time is already requested. Please choose another time.');
+    }
+    throw error;
+  }
+  return rowToViewing(data);
+}
 
 export async function fetchMyViewings(tenantId: string): Promise<ViewingRequest[]> {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-      .from('viewing_requests')
-      .select(VIEWING_SELECT)
-      .eq('tenant_id', tenantId)
-      .order('viewing_date', { ascending: true })
-      .order('viewing_time', { ascending: true });
-    if (error) {
-      console.error('[fetchMyViewings]', error.message);
-      throw error;
-    }
-    return (data ?? []).map(rowToViewing);
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('viewing_requests')
+    .select(VIEWING_SELECT)
+    .eq('tenant_id', tenantId)
+    .order('viewing_date', { ascending: true })
+    .order('viewing_time', { ascending: true });
+  if (error) {
+    console.error('[fetchMyViewings]', error.message);
+    throw error;
   }
+  return (data ?? []).map(rowToViewing);
+}
 
 export async function fetchLandlordViewings(landlordId: string): Promise<ViewingRequest[]> {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-      .from('viewing_requests')
-      .select(VIEWING_SELECT)
-      .eq('landlord_id', landlordId)
-      .order('viewing_date', { ascending: true })
-      .order('viewing_time', { ascending: true });
-    if (error) {
-      console.error('[fetchLandlordViewings]', error.message);
-      throw error;
-    }
-    return (data ?? []).map(rowToViewing);
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('viewing_requests')
+    .select(VIEWING_SELECT)
+    .eq('landlord_id', landlordId)
+    .order('viewing_date', { ascending: true })
+    .order('viewing_time', { ascending: true });
+  if (error) {
+    console.error('[fetchLandlordViewings]', error.message);
+    throw error;
   }
+  return (data ?? []).map(rowToViewing);
+}
 
-export async function updateViewingStatus(
-    viewingId: string,
-    status: ViewingStatus,
-  ): Promise<void> {
-    if (!supabase) throw new Error('Viewing requests require a Supabase connection.');
-    const { error } = await supabase
-      .from('viewing_requests')
-      .update({ status })
-      .eq('id', viewingId);
-    if (error) {
-      console.error('[updateViewingStatus]', error.message);
-      throw error;
-    }
+export async function updateViewingStatus(viewingId: string, status: ViewingStatus): Promise<void> {
+  if (!supabase) throw new Error('Viewing requests require a Supabase connection.');
+  const { error } = await supabase.from('viewing_requests').update({ status }).eq('id', viewingId);
+  if (error) {
+    console.error('[updateViewingStatus]', error.message);
+    throw error;
+  }
 }
 
 function rowToRequest(row: AccommodationRequestRow): AccommodationRequest {
@@ -620,7 +628,7 @@ function rowToRequest(row: AccommodationRequestRow): AccommodationRequest {
     city: row.city,
     suburb: row.suburb ?? undefined,
     province: row.province,
-    propertyType: type === 'any' ? 'any' : type as PropertyType,
+    propertyType: type === 'any' ? 'any' : (type as PropertyType),
     bedrooms: bedrooms === 'any' ? 'any' : Number(bedrooms),
     numberOfPeople: row.number_of_people,
     minBudget: Number(row.min_budget),
@@ -665,9 +673,12 @@ export async function insertRequest(
       min_budget: request.minBudget,
       max_budget: request.maxBudget,
       move_in_date: request.moveInDate,
-      furnished: typeof request.furnished === 'boolean'
-        ? (request.furnished ? 'furnished' : 'unfurnished')
-        : request.furnished,
+      furnished:
+        typeof request.furnished === 'boolean'
+          ? request.furnished
+            ? 'furnished'
+            : 'unfurnished'
+          : request.furnished,
       amenities: request.amenities,
       additional_notes: request.additionalNotes ?? request.additionalRequirements ?? null,
       status: request.status,
@@ -745,13 +756,15 @@ function isMessageRow(row: Record<string, unknown>): row is MessageRow {
     'property_inquiry',
     'system',
   ];
-  return typeof row.id === 'string'
-    && typeof row.conversation_id === 'string'
-    && typeof row.sender_id === 'string'
-    && typeof row.text === 'string'
-    && typeof row.created_at === 'string'
-    && typeof row.read === 'boolean'
-    && (row.type == null || validTypes.some(type => type === row.type));
+  return (
+    typeof row.id === 'string' &&
+    typeof row.conversation_id === 'string' &&
+    typeof row.sender_id === 'string' &&
+    typeof row.text === 'string' &&
+    typeof row.created_at === 'string' &&
+    typeof row.read === 'boolean' &&
+    (row.type == null || validTypes.some((type) => type === row.type))
+  );
 }
 
 function rowToConversation(row: ConversationRow, userId: string): Conversation {
@@ -784,7 +797,7 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
       .or(`tenant_id.eq.${userId},landlord_id.eq.${userId}`)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
-    fetchBlockedUserIds(userId).catch(err => {
+    fetchBlockedUserIds(userId).catch((err) => {
       console.warn('[fetchConversations] Could not fetch blocked users:', err);
       return [] as string[];
     }),
@@ -795,8 +808,8 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   }
   const blockedSet = new Set(blockedIds);
   return (convResult.data ?? [])
-    .map(row => rowToConversation(row, userId))
-    .filter(c => !blockedSet.has(c.participantId));
+    .map((row) => rowToConversation(row, userId))
+    .filter((c) => !blockedSet.has(c.participantId));
 }
 
 export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
@@ -827,7 +840,9 @@ export async function fetchBlockedUsers(blockerId: string): Promise<BlockedUser[
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('blocked_users')
-    .select('blocked_id, created_at, blocked:profiles!blocked_users_blocked_id_fkey(full_name, avatar_url)')
+    .select(
+      'blocked_id, created_at, blocked:profiles!blocked_users_blocked_id_fkey(full_name, avatar_url)',
+    )
     .eq('blocker_id', blockerId)
     .order('created_at', { ascending: false });
   if (error) {
@@ -886,16 +901,17 @@ export async function upsertConversation(
   if (!supabase) throw new Error('Chat requires a Supabase connection.');
   const tenantId = userRole === 'tenant' ? userId : participantId;
   const landlordId = userRole === 'landlord' ? userId : participantId;
-  const { error: upsertError } = await supabase
-    .from('conversations')
-    .upsert({
+  const { error: upsertError } = await supabase.from('conversations').upsert(
+    {
       tenant_id: tenantId,
       landlord_id: landlordId,
       property_id: propertyId ?? null,
-    }, {
+    },
+    {
       onConflict: 'tenant_id,landlord_id,property_id',
       ignoreDuplicates: true,
-    });
+    },
+  );
   if (upsertError) {
     console.error('[upsertConversation]', upsertError.message);
     throw upsertError;
@@ -921,10 +937,7 @@ export interface MessagePage {
 
 const MESSAGE_PAGE_SIZE = 30;
 
-export async function fetchMessages(
-  conversationId: string,
-  before?: string,
-): Promise<MessagePage> {
+export async function fetchMessages(conversationId: string, before?: string): Promise<MessagePage> {
   if (!supabase) return { messages: [], hasMore: false };
   let query = supabase
     .from('messages')
@@ -945,10 +958,7 @@ export async function fetchMessages(
   };
 }
 
-export async function sendChatMessage(
-  conversationId: string,
-  text: string,
-): Promise<ChatMessage> {
+export async function sendChatMessage(conversationId: string, text: string): Promise<ChatMessage> {
   if (!supabase) throw new Error('Chat requires a Supabase connection.');
   const { data, error } = await supabase.rpc('send_chat_message', {
     p_conversation_id: conversationId,
@@ -997,18 +1007,22 @@ export function subscribeToMessages(
   if (!supabase || conversationIds.length === 0) return () => {};
   const channel = supabase
     .channel(`messages-${generateUuid()}`)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'messages',
-      filter: `conversation_id=in.(${conversationIds.join(',')})`,
-    }, payload => {
-      if (!isMessageRow(payload.new)) {
-        console.error('[subscribeToMessages] Received a malformed message row.');
-        return;
-      }
-      onMessage(rowToMessage(payload.new));
-    })
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=in.(${conversationIds.join(',')})`,
+      },
+      (payload) => {
+        if (!isMessageRow(payload.new)) {
+          console.error('[subscribeToMessages] Received a malformed message row.');
+          return;
+        }
+        onMessage(rowToMessage(payload.new));
+      },
+    )
     .subscribe();
   return () => {
     void supabase?.removeChannel(channel);
@@ -1105,15 +1119,13 @@ export async function insertReview(
 ): Promise<void> {
   if (!supabase) throw new Error('Reviews require a Supabase connection.');
 
-  const { error } = await supabase
-    .from('reviews')
-    .insert({
-      property_id: propertyId,
-      author_id: authorId,
-      author_name: authorName,
-      rating,
-      text,
-    });
+  const { error } = await supabase.from('reviews').insert({
+    property_id: propertyId,
+    author_id: authorId,
+    author_name: authorName,
+    rating,
+    text,
+  });
 
   if (error) {
     console.error('[insertReview]', error.message);
@@ -1228,9 +1240,7 @@ export async function updateProfile(
   if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
   if (updates.role !== undefined) payload.role = updates.role;
 
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(payload, { onConflict: 'id' });
+  const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
 
   if (error) console.error('[updateProfile]', error.message);
   return !error;
@@ -1286,7 +1296,7 @@ export async function fetchVerifiableProperties(limit = 100): Promise<Verifiable
       title: row.title as string,
       city: row.city as string,
       suburb: row.suburb as string,
-      imageUrl: Array.isArray(row.images) && row.images.length ? row.images[0] as string : null,
+      imageUrl: Array.isArray(row.images) && row.images.length ? (row.images[0] as string) : null,
       verified: Boolean(row.verified),
       createdAt: row.created_at as string,
       landlordName: landlord?.full_name ?? null,
@@ -1319,10 +1329,7 @@ export async function fetchVerifiableLandlords(limit = 100): Promise<VerifiableL
   }));
 }
 
-export async function setPropertyVerified(
-  propertyId: string,
-  verified: boolean,
-): Promise<void> {
+export async function setPropertyVerified(propertyId: string, verified: boolean): Promise<void> {
   if (!supabase) throw new Error('Verification requires a Supabase connection.');
   const { error } = await supabase.rpc('admin_set_property_verified', {
     p_property_id: propertyId,
@@ -1334,10 +1341,7 @@ export async function setPropertyVerified(
   }
 }
 
-export async function setUserVerified(
-  userId: string,
-  verified: boolean,
-): Promise<void> {
+export async function setUserVerified(userId: string, verified: boolean): Promise<void> {
   if (!supabase) throw new Error('Verification requires a Supabase connection.');
   const { error } = await supabase.rpc('admin_set_user_verified', {
     p_user_id: userId,
@@ -1366,10 +1370,7 @@ export async function savePushToken(userId: string, pushToken: string): Promise<
 
 export async function clearPushToken(userId: string): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase
-    .from('profiles')
-    .update({ push_token: null })
-    .eq('id', userId);
+  const { error } = await supabase.from('profiles').update({ push_token: null }).eq('id', userId);
   if (error) {
     console.error('[clearPushToken]', error.message);
     throw error;

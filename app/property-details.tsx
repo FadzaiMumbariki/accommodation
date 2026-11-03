@@ -11,6 +11,7 @@ import {
   Linking,
   Platform,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,17 +19,25 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useApp } from '../context/AppContext';
 import { Brand } from '../constants/Colors';
 import {
   fetchReviews,
+  fetchPropertyById,
   insertReport,
   insertReview,
   updateReview,
   type Review,
 } from '../lib/database';
+import type { Property } from '../types';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
+import { useProperties } from '../context/PropertyContext';
+import { useSaved } from '../context/SavedContext';
+import { useChat } from '../context/ChatContext';
+import { useRole } from '../context/AppContext';
+import { openWhatsAppTarget, buildListingInquiryMessage } from '../lib/formatContact';
+import { Routes, RouteHelpers } from '../constants/routes';
+import { EmptyState } from '../components/common/EmptyState';
 import { ReportDialog } from '../components/common/ReportDialog';
 import { ListingTrustCheckCard } from '../components/property/ListingTrustCheckCard';
 import { ReviewSection } from '../components/property/ReviewSection';
@@ -65,15 +74,10 @@ const AMENITY_ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export default function PropertyDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const {
-    properties,
-    isSaved,
-    toggleSaved,
-    startConversation,
-    openConversation,
-    setSelectedConversationId,
-    userName,
-  } = useApp();
+  const { properties } = useProperties();
+  const { isSaved, toggleSaved } = useSaved();
+  const { startConversation, openConversation, setSelectedConversationId } = useChat();
+  const { userName } = useRole();
   const { user, isSupabaseEnabled } = useAuth();
   const requireAuth = useRequireAuth();
   const [chatStarting, setChatStarting] = useState(false);
@@ -88,7 +92,31 @@ export default function PropertyDetailsScreen() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [verifiedModalVisible, setVerifiedModalVisible] = useState(false);
 
-  const property = properties.find((p) => p.id === id) ?? (id ? undefined : properties[0]);
+  const foundProperty = properties.find((p) => p.id === id) ?? (id ? undefined : properties[0]);
+  const [fetchedProperty, setFetchedProperty] = useState<Property | null>(null);
+  const [fetchFinished, setFetchFinished] = useState(false);
+
+  useEffect(() => {
+    if (foundProperty || !id) return;
+    let isMounted = true;
+    fetchPropertyById(id)
+      .then((data) => {
+        if (isMounted) {
+          setFetchedProperty(data);
+          setFetchFinished(true);
+        }
+      })
+      .catch((err) => {
+        console.error('[PropertyDetails] fetchPropertyById error:', err);
+        if (isMounted) setFetchFinished(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [foundProperty, id]);
+
+  const property = foundProperty ?? fetchedProperty ?? undefined;
+  const isResolvingProperty = !foundProperty && Boolean(id) && !fetchFinished;
   const [imgIndex, setImgIndex] = useState(0);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(Boolean(property));
@@ -116,7 +144,7 @@ export default function PropertyDetailsScreen() {
     };
   }, [property]);
 
-  const ownReview = reviews.find(review => review.authorId === user?.id);
+  const ownReview = reviews.find((review) => review.authorId === user?.id);
   const displayedReviewRating = reviewRating ?? ownReview?.rating ?? 5;
 
   const retryReviews = async () => {
@@ -136,7 +164,10 @@ export default function PropertyDetailsScreen() {
   const submitReview = async () => {
     if (!property || !requireAuth(`/property-details?id=${property.id}`)) return;
     if (!user || !isSupabaseEnabled) {
-      Alert.alert('Reviews unavailable', 'Sign in to a connected ImbaFind account to leave a review.');
+      Alert.alert(
+        'Reviews unavailable',
+        'Sign in to a connected ImbaFind account to leave a review.',
+      );
       return;
     }
     const text = reviewText.trim();
@@ -193,6 +224,14 @@ export default function PropertyDetailsScreen() {
     }
   };
 
+  if (isResolvingProperty) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Brand.terracotta} />
+      </SafeAreaView>
+    );
+  }
+
   if (!property) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -204,20 +243,16 @@ export default function PropertyDetailsScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={Brand.navy} />
         </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-          <Ionicons name="home-outline" size={48} color={Brand.gray300} />
-          <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: Brand.navy }}>
-            Property not found
-          </Text>
-          <Text style={{ marginTop: 8, fontSize: 14, color: Brand.gray500, textAlign: 'center' }}>
-            This property may have been removed or the link is invalid.
-          </Text>
-          <TouchableOpacity
-            style={{ marginTop: 24, backgroundColor: Brand.terracotta, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
-            onPress={() => router.replace('/(tabs)/explore')}
-          >
-            <Text style={{ color: Brand.white, fontWeight: '700', fontSize: 14 }}>Browse Properties</Text>
-          </TouchableOpacity>
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}
+        >
+          <EmptyState
+            icon="home-outline"
+            title="Property not found"
+            message="This property may have been removed or the link is invalid."
+            actionTitle="Browse Properties"
+            onAction={() => router.replace(Routes.explore)}
+          />
         </View>
       </SafeAreaView>
     );
@@ -245,7 +280,7 @@ export default function PropertyDetailsScreen() {
   };
 
   const handleMessage = async () => {
-    if (!requireAuth(`/property-details?id=${property.id}`)) return;
+    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
     if (chatStarting) return;
     setChatStarting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -253,7 +288,7 @@ export default function PropertyDetailsScreen() {
       const convId = await startConversation(property);
       setSelectedConversationId(convId);
       await openConversation(convId);
-      router.push('/chat');
+      router.push(Routes.chat);
     } catch (error) {
       console.error('[PropertyDetails] Could not start conversation:', error);
       Alert.alert(
@@ -269,11 +304,14 @@ export default function PropertyDetailsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const phone = property.landlord?.phone;
     if (!phone) {
-      Alert.alert('Phone number unavailable', 'Use the in-app message option to contact the landlord.');
+      Alert.alert(
+        'Phone number unavailable',
+        'Use the in-app message option to contact the landlord.',
+      );
       return;
     }
     const cleanPhone = phone.replace(/\s/g, '');
-    void Linking.openURL(`tel:${cleanPhone}`).catch(error => {
+    void Linking.openURL(`tel:${cleanPhone}`).catch((error) => {
       console.error('[PropertyDetails] Could not open phone link:', error);
       Alert.alert('Could not place call', 'Please try again.');
     });
@@ -287,11 +325,12 @@ export default function PropertyDetailsScreen() {
           .join(', ');
     const encodedDestination = encodeURIComponent(destination);
     const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}&travelmode=driving`;
-    const nativeMapsUrl = Platform.OS === 'ios'
-      ? `maps://?daddr=${encodedDestination}&dirflg=d`
-      : Platform.OS === 'android'
-        ? `google.navigation:q=${encodedDestination}&mode=d`
-        : googleMapsUrl;
+    const nativeMapsUrl =
+      Platform.OS === 'ios'
+        ? `maps://?daddr=${encodedDestination}&dirflg=d`
+        : Platform.OS === 'android'
+          ? `google.navigation:q=${encodedDestination}&mode=d`
+          : googleMapsUrl;
 
     try {
       await Linking.openURL(nativeMapsUrl);
@@ -310,40 +349,26 @@ export default function PropertyDetailsScreen() {
 
   const handleWhatsAppLandlord = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const rawPhone = property.landlord?.phone;
-    if (!rawPhone) {
-      Alert.alert('Phone number unavailable', 'Use the in-app message option to contact the landlord.');
-      return;
-    }
-    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
-      cleanPhone = '263' + cleanPhone.slice(1);
-    }
-    const defaultMsg = encodeURIComponent(
-      `Hi ${property.landlord?.name || 'there'}, I saw your listing for "${property.title}" in ${property.suburb}, ${property.city} ($${property.price}/month) on ImbaFind. Is it still available?`
-    );
-    const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${defaultMsg}`;
-    const webUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
-    try {
-      const canOpen = await Linking.canOpenURL(appUrl);
-      if (canOpen) {
-        await Linking.openURL(appUrl);
-      } else {
-        await Linking.openURL(webUrl);
-      }
-    } catch {
-      Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
-    }
+    await openWhatsAppTarget({
+      phone: property.landlord?.phone,
+      text: buildListingInquiryMessage(property),
+      onUnavailable: () => {
+        Alert.alert(
+          'Phone number unavailable',
+          'Use the in-app message option to contact the landlord.',
+        );
+      },
+    });
   };
 
   const handleBookViewing = () => {
-    if (!requireAuth(`/property-details?id=${property.id}`)) return;
+    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/book-viewing?id=${property.id}`);
+    router.push(RouteHelpers.bookViewing(property.id));
   };
 
   const handleToggleSaved = () => {
-    if (!requireAuth(`/property-details?id=${property.id}`)) return;
+    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     void toggleSaved(property.id);
   };
@@ -386,273 +411,274 @@ export default function PropertyDetailsScreen() {
               )}
             />
 
-          {/* Top Navigation Overlay */}
-          <View style={styles.topNavOverlay}>
-            <TouchableOpacity
-              style={styles.navCircleBtn}
-              onPress={() => router.back()}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="arrow-back" size={20} color={Brand.white} />
-            </TouchableOpacity>
+            {/* Top Navigation Overlay */}
+            <View style={styles.topNavOverlay}>
+              <TouchableOpacity
+                style={styles.navCircleBtn}
+                onPress={() => router.back()}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <Ionicons name="arrow-back" size={20} color={Brand.white} />
+              </TouchableOpacity>
 
-            <View style={styles.topNavRight}>
-              <TouchableOpacity
-                style={styles.navCircleBtn}
-                onPress={handleShare}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${property.title}`}
-              >
-                <Ionicons name="share-outline" size={20} color={Brand.white} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.navCircleBtn}
-                onPress={handleToggleSaved}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel={saved ? `Remove ${property.title} from saved listings` : `Save ${property.title}`}
-              >
-                <Ionicons
-                  name={saved ? 'heart' : 'heart-outline'}
-                  size={20}
-                  color={saved ? '#E5534B' : Brand.white}
-                />
-              </TouchableOpacity>
+              <View style={styles.topNavRight}>
+                <TouchableOpacity
+                  style={styles.navCircleBtn}
+                  onPress={handleShare}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Share ${property.title}`}
+                >
+                  <Ionicons name="share-outline" size={20} color={Brand.white} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.navCircleBtn}
+                  onPress={handleToggleSaved}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    saved
+                      ? `Remove ${property.title} from saved listings`
+                      : `Save ${property.title}`
+                  }
+                >
+                  <Ionicons
+                    name={saved ? 'heart' : 'heart-outline'}
+                    size={20}
+                    color={saved ? '#E5534B' : Brand.white}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Bottom Badges on Image */}
+            <View style={styles.imageBottomBadges}>
+              <View style={styles.availPillOnImage}>
+                <View style={styles.availDot} />
+                <Text style={styles.availPillText}>Available now</Text>
+              </View>
+              <View style={styles.imageCounter}>
+                <Text style={styles.imageCounterText}>
+                  {imgIndex + 1}/{property.images.length || 1}
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Bottom Badges on Image */}
-          <View style={styles.imageBottomBadges}>
-            <View style={styles.availPillOnImage}>
-              <View style={styles.availDot} />
-              <Text style={styles.availPillText}>Available now</Text>
-            </View>
-            <View style={styles.imageCounter}>
-              <Text style={styles.imageCounterText}>
-                {imgIndex + 1}/{property.images.length || 1}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Content Details */}
-        <View style={styles.detailsContent}>
-          <View style={styles.availTagRow}>
-            <View style={styles.availPill}>
-              <View style={styles.availDotSmall} />
-              <Text style={styles.availTagText}>Available now</Text>
-            </View>
+          {/* Content Details */}
+          <View style={styles.detailsContent}>
             {(property.verified || property.landlord?.verified) && (
+              <View style={styles.availTagRow}>
+                <TouchableOpacity
+                  style={styles.verifiedDetailBadge}
+                  onPress={() => setVerifiedModalVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verified property - tap to learn what this means"
+                >
+                  <Ionicons name="checkmark-circle" size={15} color="#0F4C81" />
+                  <Text style={styles.verifiedDetailBadgeText}>Verified Listing</Text>
+                  <Ionicons name="information-circle-outline" size={13} color="#0F4C81" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.propertyTitle}>{property.title}</Text>
+
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={15} color={Brand.terracotta} />
+              <Text style={styles.locationText} numberOfLines={2}>
+                {property.suburb}, {property.city}
+              </Text>
               <TouchableOpacity
-                style={styles.verifiedDetailBadge}
-                onPress={() => setVerifiedModalVisible(true)}
+                style={styles.directionsButton}
+                onPress={handleGetDirections}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Verified property - tap to learn what this means"
+                accessibilityLabel={`Get directions to ${property.title}`}
               >
-                <Ionicons name="checkmark-circle" size={15} color="#0F4C81" />
-                <Text style={styles.verifiedDetailBadgeText}>Verified Listing</Text>
-                <Ionicons name="information-circle-outline" size={13} color="#0F4C81" />
+                <Ionicons name="navigate-outline" size={15} color={Brand.terracotta} />
+                <Text style={styles.directionsButtonText}>Directions</Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
 
-          <Text style={styles.propertyTitle}>{property.title}</Text>
-
-          <View style={styles.locationRow}>
-            <Ionicons name="location" size={15} color={Brand.terracotta} />
-            <Text style={styles.locationText} numberOfLines={2}>
-              {property.suburb}, {property.city}
+            <Text style={styles.priceText}>
+              ${property.price}
+              <Text style={styles.pricePeriod}>/month</Text>
             </Text>
-            <TouchableOpacity
-              style={styles.directionsButton}
-              onPress={handleGetDirections}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`Get directions to ${property.title}`}
-            >
-              <Ionicons name="navigate-outline" size={15} color={Brand.terracotta} />
-              <Text style={styles.directionsButtonText}>Directions</Text>
-            </TouchableOpacity>
-          </View>
 
-          <Text style={styles.priceText}>
-            ${property.price}
-            <Text style={styles.pricePeriod}>/month</Text>
-          </Text>
-
-          {/* Specs Row */}
-          <View style={styles.specsCard}>
-            <View style={styles.specBox}>
-              <Ionicons name="bed-outline" size={20} color={Brand.navy} />
-              <Text style={styles.specValue}>{property.bedrooms}</Text>
-              <Text style={styles.specTitle}>Bedrooms</Text>
+            {/* Specs Row */}
+            <View style={styles.specsCard}>
+              <View style={styles.specBox}>
+                <Ionicons name="bed-outline" size={20} color={Brand.navy} />
+                <Text style={styles.specValue}>{property.bedrooms}</Text>
+                <Text style={styles.specTitle}>Bedrooms</Text>
+              </View>
+              <View style={styles.specDivider} />
+              <View style={styles.specBox}>
+                <Ionicons name="water-outline" size={20} color={Brand.navy} />
+                <Text style={styles.specValue}>{property.bathrooms}</Text>
+                <Text style={styles.specTitle}>Bathroom</Text>
+              </View>
+              <View style={styles.specDivider} />
+              <View style={styles.specBox}>
+                <Ionicons name="people-outline" size={20} color={Brand.navy} />
+                <Text style={styles.specValue}>{property.maxOccupants}</Text>
+                <Text style={styles.specTitle}>People</Text>
+              </View>
             </View>
-            <View style={styles.specDivider} />
-            <View style={styles.specBox}>
-              <Ionicons name="water-outline" size={20} color={Brand.navy} />
-              <Text style={styles.specValue}>{property.bathrooms}</Text>
-              <Text style={styles.specTitle}>Bathroom</Text>
-            </View>
-            <View style={styles.specDivider} />
-            <View style={styles.specBox}>
-              <Ionicons name="people-outline" size={20} color={Brand.navy} />
-              <Text style={styles.specValue}>{property.maxOccupants}</Text>
-              <Text style={styles.specTitle}>People</Text>
-            </View>
-          </View>
 
-          {/* Key Utilities & Backup Infrastructure Highlights */}
-          <Text style={styles.sectionHeader}>Utilities & Infrastructure</Text>
-          <PropertyUtilitiesCard amenities={property.amenities || []} />
+            {/* Key Utilities & Backup Infrastructure Highlights */}
+            <Text style={styles.sectionHeader}>Utilities & Infrastructure</Text>
+            <PropertyUtilitiesCard amenities={property.amenities || []} />
 
-          {/* Amenities Grid */}
-          <Text style={styles.sectionHeader}>Amenities</Text>
-          {property.amenities && property.amenities.length > 0 ? (
-            <View style={styles.amenitiesGrid}>
-              {property.amenities.map((a) => {
-                const iconName = AMENITY_ICON_MAP[a.toLowerCase()] || 'checkmark-circle';
-                const label = a.charAt(0).toUpperCase() + a.slice(1);
-                return (
-                  <View key={a} style={styles.amenityCard}>
-                    <Ionicons
-                      name={iconName}
-                      size={20}
-                      color={Brand.terracotta}
-                    />
-                    <Text style={styles.amenityLabel} numberOfLines={2}>{label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Text style={styles.noAmenitiesText}>No amenities listed.</Text>
-          )}
-
-          {/* Description Section */}
-          <Text style={styles.sectionHeader}>Description</Text>
-          <Text style={styles.descriptionText}>{property.description}</Text>
-
-          {/* AI Listing Trust Check (Scam Warning & Verification Signals) */}
-          <ListingTrustCheckCard
-            property={property}
-            allProperties={properties}
-            onReportPress={() => {
-              if (!requireAuth(`/property-details?id=${property.id}`)) return;
-              setReportVisible(true);
-            }}
-          />
-
-          {/* Reviews Section */}
-          <ReviewSection
-            reviews={reviews}
-            loading={reviewsLoading}
-            error={reviewsError}
-            reviewsCount={property.reviewsCount}
-            isSupabaseEnabled={isSupabaseEnabled}
-            displayedReviewRating={displayedReviewRating}
-            reviewText={reviewText}
-            reviewSubmitting={reviewSubmitting}
-            ownReview={ownReview}
-            onRetry={() => void retryReviews()}
-            onRatingSelect={setReviewRating}
-            onReviewTextChange={setReviewText}
-            onSubmitReview={() => void submitReview()}
-          />
-
-          {/* Landlord Card */}
-          <Text style={styles.sectionHeader}>Landlord</Text>
-          <View style={styles.landlordCard}>
-            {property.landlord?.avatar ? (
-              <Image
-                source={{ uri: property.landlord.avatar }}
-                style={styles.landlordAvatar}
-                contentFit="cover"
-                transition={200}
-                cachePolicy="memory-disk"
-              />
+            {/* Amenities Grid */}
+            <Text style={styles.sectionHeader}>Amenities</Text>
+            {property.amenities && property.amenities.length > 0 ? (
+              <View style={styles.amenitiesGrid}>
+                {property.amenities.map((a) => {
+                  const iconName = AMENITY_ICON_MAP[a.toLowerCase()] || 'checkmark-circle';
+                  const label = a.charAt(0).toUpperCase() + a.slice(1);
+                  return (
+                    <View key={a} style={styles.amenityCard}>
+                      <Ionicons name={iconName} size={20} color={Brand.terracotta} />
+                      <Text style={styles.amenityLabel} numberOfLines={2}>
+                        {label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             ) : (
-              <View style={[styles.landlordAvatar, styles.landlordAvatarPlaceholder]}>
-                <Text style={styles.landlordAvatarInitial}>
-                  {property.landlord?.name?.charAt(0) || '?'}
-                </Text>
-              </View>
+              <Text style={styles.noAmenitiesText}>No amenities listed.</Text>
             )}
-            <View style={styles.landlordDetails}>
-              <View style={styles.landlordNameRow}>
-                <Text style={styles.landlordName}>{property.landlord?.name || 'Landlord'}</Text>
-                {property.landlord?.verified && (
-                  <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
-                )}
-              </View>
-              {(property.landlord?.rating ?? property.rating) != null && (
-                <Text style={styles.landlordMeta}>
-                  Rating: {property.landlord?.rating ?? property.rating} / 5
-                </Text>
-              )}
-            </View>
-          </View>
 
-          {isSupabaseEnabled && (
-            <TouchableOpacity
-              style={styles.reportListing}
-              onPress={() => {
+            {/* Description Section */}
+            <Text style={styles.sectionHeader}>Description</Text>
+            <Text style={styles.descriptionText}>{property.description}</Text>
+
+            {/* AI Listing Trust Check (Scam Warning & Verification Signals) */}
+            <ListingTrustCheckCard
+              property={property}
+              allProperties={properties}
+              onReportPress={() => {
                 if (!requireAuth(`/property-details?id=${property.id}`)) return;
                 setReportVisible(true);
               }}
-              accessibilityLabel="Report this listing"
-            >
-              <Ionicons name="flag-outline" size={17} color={Brand.error} />
-              <Text style={styles.reportListingText}>Report listing</Text>
-            </TouchableOpacity>
-          )}
+            />
 
-          {/* Tenant Safety & Anti-Scam Alert */}
-          <View style={styles.safetyAlertCard}>
-            <View style={styles.safetyIconBox}>
-              <Ionicons name="shield-half" size={20} color="#D97706" />
+            {/* Reviews Section */}
+            <ReviewSection
+              reviews={reviews}
+              loading={reviewsLoading}
+              error={reviewsError}
+              reviewsCount={property.reviewsCount}
+              isSupabaseEnabled={isSupabaseEnabled}
+              displayedReviewRating={displayedReviewRating}
+              reviewText={reviewText}
+              reviewSubmitting={reviewSubmitting}
+              ownReview={ownReview}
+              onRetry={() => void retryReviews()}
+              onRatingSelect={setReviewRating}
+              onReviewTextChange={setReviewText}
+              onSubmitReview={() => void submitReview()}
+            />
+
+            {/* Landlord Card */}
+            <Text style={styles.sectionHeader}>Landlord</Text>
+            <View style={styles.landlordCard}>
+              {property.landlord?.avatar ? (
+                <Image
+                  source={{ uri: property.landlord.avatar }}
+                  style={styles.landlordAvatar}
+                  contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
+                />
+              ) : (
+                <View style={[styles.landlordAvatar, styles.landlordAvatarPlaceholder]}>
+                  <Text style={styles.landlordAvatarInitial}>
+                    {property.landlord?.name?.charAt(0) || '?'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.landlordDetails}>
+                <View style={styles.landlordNameRow}>
+                  <Text style={styles.landlordName}>{property.landlord?.name || 'Landlord'}</Text>
+                  {property.landlord?.verified && (
+                    <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
+                  )}
+                </View>
+                {(property.landlord?.rating ?? property.rating) != null && (
+                  <Text style={styles.landlordMeta}>
+                    Rating: {property.landlord?.rating ?? property.rating} / 5
+                  </Text>
+                )}
+              </View>
             </View>
-            <View style={styles.safetyAlertContent}>
-              <Text style={styles.safetyAlertTitle}>Safety & Fraud Advisory</Text>
-              <Text style={styles.safetyAlertText}>
-                Never send rental deposits or viewing fees via EcoCash, Innbucks or bank transfer before physically inspecting this property with the landlord.
-              </Text>
+
+            {isSupabaseEnabled && (
+              <TouchableOpacity
+                style={styles.reportListing}
+                onPress={() => {
+                  if (!requireAuth(`/property-details?id=${property.id}`)) return;
+                  setReportVisible(true);
+                }}
+                accessibilityLabel="Report this listing"
+              >
+                <Ionicons name="flag-outline" size={17} color={Brand.error} />
+                <Text style={styles.reportListingText}>Report listing</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Tenant Safety & Anti-Scam Alert */}
+            <View style={styles.safetyAlertCard}>
+              <View style={styles.safetyIconBox}>
+                <Ionicons name="shield-half" size={20} color="#D97706" />
+              </View>
+              <View style={styles.safetyAlertContent}>
+                <Text style={styles.safetyAlertTitle}>Safety & Fraud Advisory</Text>
+                <Text style={styles.safetyAlertText}>
+                  Never send rental deposits or viewing fees via EcoCash, Innbucks or bank transfer
+                  before physically inspecting this property with the landlord.
+                </Text>
+              </View>
+            </View>
+
+            {/* Landlord Contact Buttons */}
+            <View style={styles.landlordActions}>
+              <TouchableOpacity
+                style={[styles.landlordActionBtn, styles.landlordActionBtnSecondary]}
+                onPress={handleCallLandlord}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="call-outline" size={18} color={Brand.terracotta} />
+                <Text style={[styles.landlordActionBtnText, { color: Brand.terracotta }]}>
+                  Call
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.landlordActionBtn, styles.landlordActionBtnWhatsApp]}
+                onPress={handleWhatsAppLandlord}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="logo-whatsapp" size={18} color={Brand.white} />
+                <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.landlordActionBtn, styles.landlordActionBtnPrimary]}
+                onPress={handleMessage}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chatbubble-outline" size={18} color={Brand.white} />
+                <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>Message</Text>
+              </TouchableOpacity>
             </View>
           </View>
-
-          {/* Landlord Contact Buttons */}
-          <View style={styles.landlordActions}>
-            <TouchableOpacity
-              style={[styles.landlordActionBtn, styles.landlordActionBtnSecondary]}
-              onPress={handleCallLandlord}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="call-outline" size={18} color={Brand.terracotta} />
-              <Text style={[styles.landlordActionBtnText, { color: Brand.terracotta }]}>Call</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.landlordActionBtn, styles.landlordActionBtnWhatsApp]}
-              onPress={handleWhatsAppLandlord}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="logo-whatsapp" size={18} color={Brand.white} />
-              <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>WhatsApp</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.landlordActionBtn, styles.landlordActionBtnPrimary]}
-              onPress={handleMessage}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="chatbubble-outline" size={18} color={Brand.white} />
-              <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>Message</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
         </View>
         {!isMobile && <WebFooter />}
       </ScrollView>

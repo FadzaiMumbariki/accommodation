@@ -46,4 +46,12 @@ describe('useRequireAuth', () => {
       params: { returnTo: '/saved' },
     });
   });
+
+  it('returns a stable function reference when auth state is unchanged', async () => {
+    setAuth({ user: { id: 'user-1' }, isSupabaseEnabled: true });
+    const { result, rerender } = await renderHook(() => useRequireAuth());
+    const firstFn = result.current;
+    rerender({});
+    expect(result.current).toBe(firstFn);
+  });
 });

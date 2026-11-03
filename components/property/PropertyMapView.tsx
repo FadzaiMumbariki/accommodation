@@ -1,13 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Linking,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Property } from '../../types';
 import { Brand } from '../../constants/Colors';
 import { getPropertyCoordinates, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
+import { openWhatsAppTarget, buildListingInquiryMessage } from '../../lib/formatContact';
 
 interface PropertyMapViewProps {
   properties: Property[];
@@ -28,7 +21,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
   onSelectProperty,
 }) => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    properties.length > 0 ? properties[0] : null
+    properties.length > 0 ? properties[0] : null,
   );
 
   // Calculate center from properties or default
@@ -40,9 +33,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
         longitudeDelta: 0.1,
       };
     }
-    const coords = properties.map((p) =>
-      getPropertyCoordinates(p.city, p.suburb, p.id)
-    );
+    const coords = properties.map((p) => getPropertyCoordinates(p.city, p.suburb, p.id));
     const avgLat = coords.reduce((acc, c) => acc + c.latitude, 0) / coords.length;
     const avgLng = coords.reduce((acc, c) => acc + c.longitude, 0) / coords.length;
     return {
@@ -61,20 +52,10 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
 
   const handleWhatsApp = (property: Property) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const rawPhone = property.landlord?.phone;
-    if (!rawPhone) return;
-    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
-      cleanPhone = '263' + cleanPhone.slice(1);
-    }
-    const msg = encodeURIComponent(
-      `Hi, I saw your listing "${property.title}" in ${property.suburb}, ${property.city} ($${property.price}/month) on ImbaFind. Is it still available?`
-    );
-    const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${msg}`;
-    const webUrl = `https://wa.me/${cleanPhone}?text=${msg}`;
-    Linking.canOpenURL(appUrl)
-      .then((can) => Linking.openURL(can ? appUrl : webUrl))
-      .catch(() => Linking.openURL(webUrl));
+    void openWhatsAppTarget({
+      phone: property.landlord?.phone,
+      text: buildListingInquiryMessage(property),
+    });
   };
 
   const mapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -96,20 +77,16 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
   }
 
   // Selected property utility highlights
-  const selectedAmenities = (selectedProperty?.amenities || []).map((a) =>
-    a.toLowerCase()
-  );
-  const hasBorehole = selectedAmenities.some(
-    (a) => a.includes('borehole') || a.includes('tank')
-  );
+  const selectedAmenities = (selectedProperty?.amenities || []).map((a) => a.toLowerCase());
+  const hasBorehole = selectedAmenities.some((a) => a.includes('borehole') || a.includes('tank'));
   const hasSolar = selectedAmenities.some(
-    (a) => a.includes('solar') || a.includes('inverter') || a.includes('generator')
+    (a) => a.includes('solar') || a.includes('inverter') || a.includes('generator'),
   );
   const hasDurawall = selectedAmenities.some(
-    (a) => a.includes('durawall') || a.includes('gate') || a.includes('security')
+    (a) => a.includes('durawall') || a.includes('gate') || a.includes('security'),
   );
   const hasWifi = selectedAmenities.some(
-    (a) => a.includes('wifi') || a.includes('fibre') || a.includes('internet')
+    (a) => a.includes('wifi') || a.includes('fibre') || a.includes('internet'),
   );
 
   return (
@@ -130,11 +107,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
           showsCompass
         >
           {properties.map((property) => {
-            const coords = getPropertyCoordinates(
-              property.city,
-              property.suburb,
-              property.id
-            );
+            const coords = getPropertyCoordinates(property.city, property.suburb, property.id);
             const isSelected = selectedProperty?.id === property.id;
             return (
               <MarkerComponent
@@ -142,17 +115,9 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                 coordinate={coords}
                 onPress={() => handleMarkerPress(property)}
               >
-                <View
-                  style={[
-                    styles.priceMarker,
-                    isSelected && styles.priceMarkerSelected,
-                  ]}
-                >
+                <View style={[styles.priceMarker, isSelected && styles.priceMarkerSelected]}>
                   <Text
-                    style={[
-                      styles.priceMarkerText,
-                      isSelected && styles.priceMarkerTextSelected,
-                    ]}
+                    style={[styles.priceMarkerText, isSelected && styles.priceMarkerTextSelected]}
                   >
                     ${property.price}
                   </Text>
@@ -177,10 +142,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
               return (
                 <TouchableOpacity
                   key={p.id}
-                  style={[
-                    styles.webPinButton,
-                    isSelected && styles.webPinButtonSelected,
-                  ]}
+                  style={[styles.webPinButton, isSelected && styles.webPinButtonSelected]}
                   onPress={() => handleMarkerPress(p)}
                   activeOpacity={0.8}
                 >
@@ -189,12 +151,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                     size={16}
                     color={isSelected ? Brand.white : Brand.terracotta}
                   />
-                  <Text
-                    style={[
-                      styles.webPinText,
-                      isSelected && styles.webPinTextSelected,
-                    ]}
-                  >
+                  <Text style={[styles.webPinText, isSelected && styles.webPinTextSelected]}>
                     {p.suburb} • ${p.price}
                   </Text>
                 </TouchableOpacity>
@@ -230,9 +187,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
                   <Text style={styles.previewPerMonth}>/mo</Text>
                 </Text>
                 <View style={styles.previewTypeBadge}>
-                  <Text style={styles.previewTypeText}>
-                    {selectedProperty.propertyType}
-                  </Text>
+                  <Text style={styles.previewTypeText}>{selectedProperty.propertyType}</Text>
                 </View>
               </View>
 
@@ -279,9 +234,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
               <View style={styles.previewActionsRow}>
                 <TouchableOpacity
                   style={styles.viewDetailsBtn}
-                  onPress={() =>
-                    router.push(`/property-details?id=${selectedProperty.id}`)
-                  }
+                  onPress={() => router.push(`/property-details?id=${selectedProperty.id}`)}
                 >
                   <Text style={styles.viewDetailsBtnText}>View Details</Text>
                   <Ionicons name="arrow-forward" size={14} color={Brand.navy} />
