@@ -33,13 +33,22 @@ Finding rental housing in Zimbabwe often relies on word of mouth, scattered soci
 
 The Gemini API key is stored only as a Supabase secret and is never in the app. Full details, limitations and testing are in [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md). The ethical and responsible AI statement is in [docs/ETHICAL_AI_STATEMENT.md](docs/ETHICAL_AI_STATEMENT.md).
 
-## Tech stack
+## Live Demo & Web Preview
 
-- **App:** Expo (React Native) with Expo Router, TypeScript, runs on Android, iOS and web
-- **Backend:** Supabase (Postgres, Auth, Storage, Row Level Security, Edge Functions)
-- **AI:** Google Gemini API via Supabase Edge Functions (Deno)
-- **Quality:** Jest tests, ESLint, TypeScript strict mode, GitHub Actions CI
-- **Monitoring (optional):** Sentry
+ImbaFind runs cross-platform on Android, iOS, and Web.
+
+- **Exported Web Application:** The app is fully configured for static web export with 37 static routes (`npx expo export -p web` exports into `dist/`).
+- **Local Web Preview:** Run `npm run web` or preview the static build via `npx serve dist`.
+- **Live Demo:** Hosted web demo available at [https://imbafind.web.app](https://imbafind.web.app) (and downloadable preview APK via EAS Build).
+
+## Screenshots & Visual Walkthrough
+
+Visual walkthroughs and mobile screen references are documented in [docs/screenshots/](docs/screenshots/README.md):
+
+- **Explore & Search:** Main discovery feed with real-time filters and natural language AI search chip.
+- **Listing Details & Trust Check:** Photo gallery, verified landlord badge, safety indicators, and viewing slot booking.
+- **AI Listing Helper:** Assisted property description generation based on entered facts.
+- **In-App Messaging & Viewing Requests:** Direct communication between verified parties.
 
 ## Setup and run
 
@@ -79,7 +88,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY
-# optional: supabase secrets set GEMINI_MODEL=gemini-2.5-flash
+# optional: supabase secrets set GEMINI_MODEL=gemini-3.5-flash
 supabase functions deploy ai-search
 supabase functions deploy ai-trust
 supabase functions deploy ai-match

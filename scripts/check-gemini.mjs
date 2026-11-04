@@ -5,11 +5,11 @@
  *
  * Usage:
  *   GEMINI_API_KEY=your_key node scripts/check-gemini.mjs
- *   GEMINI_API_KEY=your_key GEMINI_MODEL=gemini-2.5-flash node scripts/check-gemini.mjs
+ *   GEMINI_API_KEY=your_key GEMINI_MODEL=gemini-3.5-flash node scripts/check-gemini.mjs
  */
 
 const apiKey = process.env.GEMINI_API_KEY;
-const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 
 if (!apiKey) {
   console.error('Error: GEMINI_API_KEY is not set.');

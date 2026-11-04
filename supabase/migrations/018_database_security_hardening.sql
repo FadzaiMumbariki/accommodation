@@ -219,15 +219,39 @@ create trigger trg_recalculate_property_rating
   for each row execute function public.recalculate_property_rating();
 
 
--- ── 5. Safe Profile Access (Landlord details on listings) ────────────────────
--- Allow signed-in users to view profile details required for listings, chats, and viewings
+-- ── 5. Safe Profile Access (Landlord details on listings & counterparties) ──
+-- Allow signed-in users to view profile details required for listings, chats, and viewings.
+-- Prevents random tenants from scraping phone numbers of other tenants.
 drop policy if exists "Authenticated users can view public profile details" on public.profiles;
 create policy "Authenticated users can view public profile details"
   on public.profiles for select
   to authenticated
-  using (true);
+  using (
+    -- User can always view their own profile
+    auth.uid() = id
+    -- Anyone can view landlord profiles (required for public listings and verified badge)
+    or role = 'landlord'
+    -- Or users who share an active conversation (chat partners)
+    or id in (
+      select tenant_id from public.conversations where landlord_id = auth.uid()
+      union
+      select landlord_id from public.conversations where tenant_id = auth.uid()
+    )
+    -- Or counterparties in a viewing request
+    or id in (
+      select tenant_id from public.viewing_requests where landlord_id = auth.uid()
+      union
+      select landlord_id from public.viewing_requests where tenant_id = auth.uid()
+    )
+    -- Or tenants who posted an active accommodation request for landlords
+    or id in (
+      select user_id from public.accommodation_requests where status = 'active'
+    )
+  );
 
 -- Restrict columns: grant SELECT only on safe public fields, never email or push_token
 revoke select on public.profiles from authenticated, anon, public;
-grant select (id, full_name, avatar_url, phone, role, verified, is_admin, created_at, updated_at)
+grant select (id, full_name, avatar_url, phone, role, verified, is_admin, created_at)
   on public.profiles to authenticated, anon;
+
+

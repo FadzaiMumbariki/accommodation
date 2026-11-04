@@ -5,6 +5,7 @@ This document records the evaluation methodology, dataset, and detection accurac
 ## 1. Background & Threat Model
 
 Accommodation scams in Zimbabwe predominantly rely on:
+
 1. **Advance Fee / Viewing Demands:** Demanding EcoCash, InnBucks, Mukuru, or bank transfers before permitting physical inspection of a house or room.
 2. **Pressure & Urgency Tactics:** Manufacturing false scarcity ("pay now or lose it", "10 people waiting") to rush victims into sending money without inspecting title or landlord identity.
 3. **Remote Landlord Impersonation:** Claiming the owner is abroad, on mission work, or in the UK/South Africa, and keys will be couriered or collected only after money is sent.
@@ -13,15 +14,23 @@ Accommodation scams in Zimbabwe predominantly rely on:
 ## 2. Evaluation Tool: `scripts/eval-ai-live.mjs`
 
 An automated evaluation script is provided to test listings against both rule heuristics and live Gemini inference.
+The complete test suite inputs and raw outputs are checked into the repository:
+
+- **Test Dataset:** [`evaluation/dataset.json`](../evaluation/dataset.json) (16 scenarios with full text, parameters, and labels)
+- **Raw Evaluation Output:** [`evaluation/raw-results.json`](../evaluation/raw-results.json) (complete per-test evaluation flags and benchmark metrics)
 
 ### Running Live Evaluation
+
 ```bash
-GEMINI_API_KEY="your-gemini-api-key" node scripts/eval-ai-live.mjs
+GEMINI_API_KEY="your-gemini-api-key" GEMINI_MODEL="gemini-3.5-flash" node scripts/eval-ai-live.mjs
 ```
+
+> **Note on Verification:** When run without a `GEMINI_API_KEY`, the script evaluates static rules locally. When supplied with a valid key, it queries live Gemini inference and updates raw metrics. Results recorded in `evaluation/raw-results.json` reflect a live evaluation run using `gemini-3.5-flash`.
 
 ## 3. Benchmark Dataset & Scenarios
 
 The suite evaluates 16 realistic Zimbabwean rental listings:
+
 - **Clean / Benign Listings (4):** Legitimate cottages, apartments, student rooms, and suburban homes in Harare and Bulawayo.
 - **Direct Advance Fee Scams (4):** Explicit mentions of viewing fees and upfront deposits.
 - **Reworded / Obfuscated Payment Scams (4):** Semantically reworded reservation fees, holding sums, and key fees.
@@ -32,24 +41,24 @@ The suite evaluates 16 realistic Zimbabwean rental listings:
 
 The evaluation below compares **Rule-Based Detection** (static regex), **Live Gemini AI Detection** (`ai-trust`), and the **Combined Hybrid Engine**:
 
-| Test ID | Scenario Category | Description Summary | Rule Flagged? | Gemini AI Flagged? | Combined Engine |
-|---|---|---|:---:|:---:|:---:|
-| `B1` | Benign | 2-bed cottage in Avondale | No | No (Clean) | **Clean (Accurate)** |
-| `B2` | Benign | 3-bed house in Kumalo | No | No (Clean) | **Clean (Accurate)** |
-| `B3` | Benign | Student room in Mt Pleasant | No | No (Clean) | **Clean (Accurate)** |
-| `B4` | Benign | 1-bed flat in Avenues | No | No (Clean) | **Clean (Accurate)** |
-| `S1` | Direct Fee Scam | $20 viewing fee before viewing | Yes | Yes (`advance_payment_request`) | **Flagged** |
-| `S2` | Direct Fee Scam | Send EcoCash deposit first | No | Yes (`advance_payment_request`) | **Flagged** |
-| `S3` | Direct Fee Scam | Commitment fee required | Yes | Yes (`advance_payment_request`) | **Flagged** |
-| `S4` | Direct Fee Scam | Deposit to hold keys | Yes | Yes (`advance_payment_request`) | **Flagged** |
-| `R1` | Reworded Scam | Transfer reservation fee via Mukuru | Yes | Yes (`advance_payment_request`) | **Flagged** |
-| `R2` | Reworded Scam | Caretaker dispatched after key clearance fee | No | Yes (`advance_payment_request`) | **Flagged** |
-| `R3` | Reworded Scam | Refundable holding sum for priority viewing | No | Yes (`advance_payment_request`) | **Flagged** |
-| `R4` | Reworded Scam | Advance remittance of holding installment | No | Yes (`advance_payment_request`) | **Flagged** |
-| `P1` | Pressure Scam | Pay now or lose it, 1 hour limit | No | Yes (`pressure_tactics`) | **Flagged** |
-| `P2` | Pressure Scam | Highest immediate payment before 5pm | No | Yes (`pressure_tactics`) | **Flagged** |
-| `L1` | Remote Landlord | Owner in UK, deposit before courier | No | Yes (`cannot_meet_in_person`) | **Flagged** |
-| `L2` | Remote Landlord | Owner outside Zim, transfer funds for keys | Yes | Yes (`cannot_meet_in_person`) | **Flagged** |
+| Test ID | Scenario Category | Description Summary                          | Rule Flagged? |       Gemini AI Flagged?        |   Combined Engine    |
+| ------- | ----------------- | -------------------------------------------- | :-----------: | :-----------------------------: | :------------------: |
+| `B1`    | Benign            | 2-bed cottage in Avondale                    |      No       |           No (Clean)            | **Clean (Accurate)** |
+| `B2`    | Benign            | 3-bed house in Kumalo                        |      No       |           No (Clean)            | **Clean (Accurate)** |
+| `B3`    | Benign            | Student room in Mt Pleasant                  |      No       |           No (Clean)            | **Clean (Accurate)** |
+| `B4`    | Benign            | 1-bed flat in Avenues                        |      No       |           No (Clean)            | **Clean (Accurate)** |
+| `S1`    | Direct Fee Scam   | $20 viewing fee before viewing               |      Yes      | Yes (`advance_payment_request`) |     **Flagged**      |
+| `S2`    | Direct Fee Scam   | Send EcoCash deposit first                   |      No       | Yes (`advance_payment_request`) |     **Flagged**      |
+| `S3`    | Direct Fee Scam   | Commitment fee required                      |      Yes      | Yes (`advance_payment_request`) |     **Flagged**      |
+| `S4`    | Direct Fee Scam   | Deposit to hold keys                         |      Yes      | Yes (`advance_payment_request`) |     **Flagged**      |
+| `R1`    | Reworded Scam     | Transfer reservation fee via Mukuru          |      Yes      | Yes (`advance_payment_request`) |     **Flagged**      |
+| `R2`    | Reworded Scam     | Caretaker dispatched after key clearance fee |      No       | Yes (`advance_payment_request`) |     **Flagged**      |
+| `R3`    | Reworded Scam     | Refundable holding sum for priority viewing  |      No       | Yes (`advance_payment_request`) |     **Flagged**      |
+| `R4`    | Reworded Scam     | Advance remittance of holding installment    |      No       | Yes (`advance_payment_request`) |     **Flagged**      |
+| `P1`    | Pressure Scam     | Pay now or lose it, 1 hour limit             |      No       |    Yes (`pressure_tactics`)     |     **Flagged**      |
+| `P2`    | Pressure Scam     | Highest immediate payment before 5pm         |      No       |    Yes (`pressure_tactics`)     |     **Flagged**      |
+| `L1`    | Remote Landlord   | Owner in UK, deposit before courier          |      No       |  Yes (`cannot_meet_in_person`)  |     **Flagged**      |
+| `L2`    | Remote Landlord   | Owner outside Zim, transfer funds for keys   |      Yes      |  Yes (`cannot_meet_in_person`)  |     **Flagged**      |
 
 ### Summary Metrics
 
