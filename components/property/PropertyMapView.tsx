@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Constants from 'expo-constants';
 import { Property } from '../../types';
 import { Brand } from '../../constants/Colors';
 import { getPropertyCoordinates, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
@@ -15,6 +16,23 @@ interface PropertyMapViewProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Load native react-native-maps once at module level (never during render)
+let MapComponent: any = null;
+let MarkerComponent: any = null;
+let ProviderGoogle: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Maps = require('react-native-maps');
+    MapComponent = Maps.default || Maps;
+    MarkerComponent = Maps.Marker || Maps.default?.Marker;
+    ProviderGoogle = Maps.PROVIDER_GOOGLE;
+  } catch {
+    MapComponent = null;
+  }
+}
 
 export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
   properties,
@@ -58,23 +76,12 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     });
   };
 
-  const mapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const mapsApiKey =
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    Constants.expoConfig?.extra?.googleMapsApiKey ||
+    (Constants.manifest as any)?.extra?.googleMapsApiKey ||
+    'AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA';
   const isMapsKeyMissing = !mapsApiKey;
-
-  // Try to load native react-native-maps if on mobile and key is available
-  let MapComponent: any = null;
-  let MarkerComponent: any = null;
-
-  if (Platform.OS !== 'web' && (Platform.OS === 'ios' || !isMapsKeyMissing)) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Maps = require('react-native-maps');
-      MapComponent = Maps.default;
-      MarkerComponent = Maps.Marker;
-    } catch {
-      MapComponent = null;
-    }
-  }
 
   // Selected property utility highlights
   const selectedAmenities = (selectedProperty?.amenities || []).map((a) => a.toLowerCase());
@@ -102,6 +109,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
       {MapComponent && MarkerComponent ? (
         <MapComponent
           style={StyleSheet.absoluteFill}
+          provider={Platform.OS === 'android' && ProviderGoogle ? ProviderGoogle : undefined}
           initialRegion={mapRegion}
           showsUserLocation
           showsCompass
