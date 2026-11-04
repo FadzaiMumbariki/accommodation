@@ -254,6 +254,7 @@ export function PropertyProvider({
       if (supabase) {
         if (!userId) throw new Error('Please sign in to publish a property.');
         const newProp = await insertProperty(userId, p);
+        setHasLiveRows(true);
         setProperties((prev) => {
           const next = [newProp, ...prev];
           void saveCachedProperties(next, new Date().toISOString()).then(setHasCachedProperties);
