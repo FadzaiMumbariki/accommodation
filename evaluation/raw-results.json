@@ -1,0 +1,207 @@
+{
+  "timestamp": "2026-11-04T07:30:00.000Z",
+  "evaluator_model": "gemini-3.5-flash",
+  "evaluation_scope": "Hybrid Scam Detection Engine (Rule Heuristics + Gemini Trust Checks)",
+  "dataset_path": "evaluation/dataset.json",
+  "metrics": {
+    "total_cases": 16,
+    "scam_cases": 12,
+    "benign_cases": 4,
+    "rule_based_detection": {
+      "caught": 5,
+      "total": 12,
+      "recall_percentage": 41.7,
+      "false_positives": 0
+    },
+    "gemini_ai_detection": {
+      "caught": 12,
+      "total": 12,
+      "recall_percentage": 100.0,
+      "false_positives": 0
+    },
+    "combined_hybrid_engine": {
+      "caught": 12,
+      "total": 12,
+      "recall_percentage": 100.0,
+      "false_positives": 0
+    }
+  },
+  "results": [
+    {
+      "id": "B1",
+      "category": "benign",
+      "expected": "clean",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": [],
+      "ai_flagged": false,
+      "combined_flagged": false,
+      "match": true
+    },
+    {
+      "id": "B2",
+      "category": "benign",
+      "expected": "clean",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": [],
+      "ai_flagged": false,
+      "combined_flagged": false,
+      "match": true
+    },
+    {
+      "id": "B3",
+      "category": "benign",
+      "expected": "clean",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": [],
+      "ai_flagged": false,
+      "combined_flagged": false,
+      "match": true
+    },
+    {
+      "id": "B4",
+      "category": "benign",
+      "expected": "clean",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": [],
+      "ai_flagged": false,
+      "combined_flagged": false,
+      "match": true
+    },
+    {
+      "id": "S1",
+      "category": "direct_scam",
+      "expected": "scam",
+      "rule_flags": ["advance_payment_request"],
+      "rule_flagged": true,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "S2",
+      "category": "direct_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "S3",
+      "category": "direct_scam",
+      "expected": "scam",
+      "rule_flags": ["advance_payment_request"],
+      "rule_flagged": true,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "S4",
+      "category": "direct_scam",
+      "expected": "scam",
+      "rule_flags": ["advance_payment_request"],
+      "rule_flagged": true,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "R1",
+      "category": "reworded_scam",
+      "expected": "scam",
+      "rule_flags": ["advance_payment_request"],
+      "rule_flagged": true,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "R2",
+      "category": "reworded_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "R3",
+      "category": "reworded_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "R4",
+      "category": "reworded_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "P1",
+      "category": "pressure_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["pressure_tactics"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "P2",
+      "category": "pressure_scam",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["pressure_tactics"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "L1",
+      "category": "remote_landlord",
+      "expected": "scam",
+      "rule_flags": [],
+      "rule_flagged": false,
+      "ai_warnings": ["cannot_meet_in_person"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    },
+    {
+      "id": "L2",
+      "category": "remote_landlord",
+      "expected": "scam",
+      "rule_flags": ["advance_payment_request"],
+      "rule_flagged": true,
+      "ai_warnings": ["cannot_meet_in_person", "advance_payment_request"],
+      "ai_flagged": true,
+      "combined_flagged": true,
+      "match": true
+    }
+  ]
+}

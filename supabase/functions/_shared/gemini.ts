@@ -77,8 +77,8 @@ interface GeminiJsonOptions {
 export async function callGeminiJson({ system, user, schema, temperature = 0 }: GeminiJsonOptions) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
-  // Default to gemini-2.5-flash; can be overridden via GEMINI_MODEL secret
-  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+  // Default to gemini-3.5-flash; can be overridden via GEMINI_MODEL secret
+  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.5-flash';
 
   const sanitizedUser = stripPii(user);
 
