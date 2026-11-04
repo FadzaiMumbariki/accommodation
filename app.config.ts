@@ -51,6 +51,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const androidConfig = {
     ...config.android,
+    ...(mapsApiKey
+      ? {
+          config: {
+            ...config.android?.config,
+            googleMaps: {
+              apiKey: mapsApiKey,
+            },
+          },
+        }
+      : {}),
     ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
   };
 
@@ -74,6 +84,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
         ? { supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY }
         : {}),
+      googleMapsApiKey: mapsApiKey ?? '',
       sentryDsn: sentryDsn ?? '',
       sentryEnabled,
     },
