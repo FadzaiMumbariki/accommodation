@@ -118,3 +118,27 @@ export async function updateViewingStatus(viewingId: string, status: ViewingStat
     throw error;
   }
 }
+
+export async function rescheduleViewing(
+  viewingId: string,
+  newDate: string,
+  newTime: string,
+): Promise<void> {
+  if (!supabase) throw new Error('Viewing requests require a Supabase connection.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    throw new Error('Choose a valid viewing date.');
+  }
+  const sqlTime = toSqlTime(newTime);
+  const scheduledAt = new Date(`${newDate}T${sqlTime}`);
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    throw new Error('Choose a viewing date and time in the future.');
+  }
+  const { error } = await supabase
+    .from('viewing_requests')
+    .update({ viewing_date: newDate, viewing_time: sqlTime, status: 'pending' })
+    .eq('id', viewingId);
+  if (error) {
+    console.error('[rescheduleViewing]', error.message);
+    throw error;
+  }
+}

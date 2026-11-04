@@ -264,6 +264,7 @@ export function useApp() {
       viewings: activity.viewings,
       addViewing: activity.addViewing,
       updateViewingStatus: activity.updateViewingStatus,
+      rescheduleViewing: activity.rescheduleViewing,
       activityLoading: activity.loading,
       activityError: activity.error,
       refreshActivity: activity.refresh,

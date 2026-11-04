@@ -21,6 +21,7 @@ import {
   insertRequest,
   updateRequestStatus as updateRequestStatusRecord,
   updateViewingStatus as updateViewingStatusRecord,
+  rescheduleViewing as rescheduleViewingRecord,
 } from '../lib/database';
 import { getNotifications } from '../lib/notifications';
 
@@ -30,6 +31,7 @@ interface ActivityContextValue {
     v: Omit<ViewingRequest, 'id' | 'createdAt' | 'landlordId' | 'tenantId' | 'tenantName'>,
   ) => Promise<void>;
   updateViewingStatus: (id: string, status: ViewingStatus) => Promise<void>;
+  rescheduleViewing: (id: string, newDate: string, newTime: string) => Promise<void>;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -137,6 +139,17 @@ export function ActivityProvider({
       });
   }, []);
 
+  const rescheduleViewing = useCallback(async (id: string, newDate: string, newTime: string) => {
+    if (supabase) await rescheduleViewingRecord(id, newDate, newTime);
+    setViewings((prev) =>
+      prev.map((v) =>
+        v.id === id
+          ? { ...v, date: newDate, time: newTime, status: 'pending' as ViewingStatus }
+          : v,
+      ),
+    );
+  }, []);
+
   const addRequest = useCallback(
     async (
       r: Omit<AccommodationRequest, 'id' | 'postedAt' | 'createdAt' | 'userId' | 'userName'>,
@@ -175,6 +188,7 @@ export function ActivityProvider({
         viewings,
         addViewing,
         updateViewingStatus,
+        rescheduleViewing,
         loading,
         error,
         refresh,

@@ -1,5 +1,49 @@
 import { describe, expect, it, jest, beforeEach, afterEach } from '@jest/globals';
 
+import {
+  rowToProperty,
+  fetchProperties,
+  fetchPropertyById,
+  fetchLandlordProperties,
+  insertProperty,
+  updateProperty,
+  deleteProperty,
+  uploadPropertyImage,
+  deleteAccountAndPropertyImages,
+  insertViewing,
+  fetchMyViewings,
+  updateViewingStatus,
+  insertRequest,
+  fetchConversations,
+  fetchMessages,
+  sendChatMessage,
+  markConversationRead,
+  subscribeToMessages,
+  upsertConversation,
+  saveProperty,
+  unsaveProperty,
+  insertReport,
+  fetchReviews,
+  insertReview,
+  updateReview,
+  fetchMyRequests,
+  fetchActiveRequests,
+  updateRequestStatus,
+  rescheduleViewing,
+  savePushToken,
+  fetchProfile,
+  fetchVerifiableProperties,
+  fetchVerifiableLandlords,
+  setPropertyVerified,
+  setUserVerified,
+  blockUser,
+  unblockUser,
+  fetchBlockedUsers,
+  fetchBlockedUserIds,
+} from './database';
+import { filterMockProperties } from './propertyFilters';
+import { MOCK_PROPERTIES } from '../constants/mockData';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Supabase plumbing
 //
@@ -12,8 +56,8 @@ import { describe, expect, it, jest, beforeEach, afterEach } from '@jest/globals
 interface MockState {
   client: Record<string, any> | null;
   resolved: Record<string, Record<string, any>>;
-  responses: Map<string, Array<Record<string, any>>>;
-  getters: Array<[string, unknown[]]>;
+  responses: Map<string, Record<string, any>[]>;
+  getters: [string, unknown[]][];
   rpc: any;
   channel: any;
   removeChannel: any;
@@ -97,47 +141,27 @@ jest.mock('../constants/mockData', () => ({
   MOCK_REQUESTS: [],
 }));
 
-import {
-  rowToProperty,
-  fetchProperties,
-  fetchPropertyById,
-  fetchLandlordProperties,
-  insertProperty,
-  updateProperty,
-  deleteProperty,
-  uploadPropertyImage,
-  deleteAccountAndPropertyImages,
-  insertViewing,
-  fetchMyViewings,
-  updateViewingStatus,
-  insertRequest,
-  fetchConversations,
-  fetchMessages,
-  sendChatMessage,
-  markConversationRead,
-  subscribeToMessages,
-  upsertConversation,
-  saveProperty,
-  unsaveProperty,
-  insertReport,
-  savePushToken,
-  fetchProfile,
-  fetchVerifiableProperties,
-  fetchVerifiableLandlords,
-  setPropertyVerified,
-  setUserVerified,
-  blockUser,
-  unblockUser,
-  fetchBlockedUsers,
-  fetchBlockedUserIds,
-} from './database';
-import { filterMockProperties } from './propertyFilters';
-import { MOCK_PROPERTIES } from '../constants/mockData';
-
 const RESOLVE_FALLBACK = { data: null, error: null, count: null };
 const CHAIN_METHODS = [
-  'eq', 'neq', 'gte', 'lte', 'ilike', 'in', 'is', 'or', 'not', 'contains', 'overlaps',
-  'order', 'select', 'insert', 'update', 'delete', 'upsert', 'range', 'limit',
+  'eq',
+  'neq',
+  'gte',
+  'lte',
+  'ilike',
+  'in',
+  'is',
+  'or',
+  'not',
+  'contains',
+  'overlaps',
+  'order',
+  'select',
+  'insert',
+  'update',
+  'delete',
+  'upsert',
+  'range',
+  'limit',
 ];
 
 function anyFn(impl?: (...args: any[]) => any): any {
@@ -159,9 +183,10 @@ function makeBuilder(table: string, entryMethod: string): any {
   const builder: Record<string, any> = {
     then: (cb?: (v: any) => any) => {
       const queued = S.responses.get(responseKey);
-      const response = (queued && queued.length > 0)
-        ? queued.shift()
-        : (S.resolved[responseKey] ?? S.resolved['*'] ?? RESOLVE_FALLBACK);
+      const response =
+        queued && queued.length > 0
+          ? queued.shift()
+          : (S.resolved[responseKey] ?? S.resolved['*'] ?? RESOLVE_FALLBACK);
       return Promise.resolve(response).then(cb);
     },
     single: () => builder,
@@ -206,17 +231,17 @@ function resolveFor(table: string, entryMethod: string, value: any) {
 function queueFor(table: string, entryMethod: string, values: any[]) {
   S.responses.set(
     `${table}.${entryMethod}`,
-    values.map(v => ({ ...RESOLVE_FALLBACK, ...v })),
+    values.map((v) => ({ ...RESOLVE_FALLBACK, ...v })),
   );
 }
 
 function chainCalls(key: string): unknown[][] {
-  return S.getters.filter((entry: [string, unknown[]]) => entry[0] === key).map(e => e[1]);
+  return S.getters.filter((entry: [string, unknown[]]) => entry[0] === key).map((e) => e[1]);
 }
 
 /** Filter values, e.g. all `.eq(column, value)` pairs for a table. */
 function pairsFor(key: string): unknown[] {
-  return chainCalls(key).map(args => args.slice(0, 2));
+  return chainCalls(key).map((args) => args.slice(0, 2));
 }
 
 /** First argument of the first recorded call, i.e. insert/update payloads. */
@@ -340,14 +365,24 @@ function requestRow(overrides: Record<string, unknown> = {}): any {
 }
 
 function propertyInput(): any {
-  const { id, postedAt, landlord, ...rest } =
-    MOCK_PROPERTIES[0] as unknown as Record<string, unknown>;
-  void id; void postedAt; void landlord;
+  const { id, postedAt, landlord, ...rest } = MOCK_PROPERTIES[0] as unknown as Record<
+    string,
+    unknown
+  >;
+  void id;
+  void postedAt;
+  void landlord;
   return rest;
 }
 
 function viewingInput(): any {
-  return { propertyId: 'property-1', date: '2027-06-01', time: '10:00 AM', attendees: 2, message: 'Hi' };
+  return {
+    propertyId: 'property-1',
+    date: '2027-06-01',
+    time: '10:00 AM',
+    attendees: 2,
+    message: 'Hi',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -362,7 +397,9 @@ beforeEach(() => {
     list: anyFn().mockResolvedValue({ data: [{ name: 'photo.jpg' }], error: null }),
     remove: anyFn().mockResolvedValue({ data: null, error: null }),
     upload: anyFn().mockResolvedValue({ data: null, error: null }),
-    getPublicUrl: anyFn().mockReturnValue({ data: { publicUrl: 'https://cdn.example.com/photo.jpg' } }),
+    getPublicUrl: anyFn().mockReturnValue({
+      data: { publicUrl: 'https://cdn.example.com/photo.jpg' },
+    }),
   };
   const chain: Record<string, any> = {
     on: (_event: string, _cfg: unknown, cb: (payload: { new: unknown }) => void) => {
@@ -416,7 +453,9 @@ describe('rowToProperty', () => {
   });
 
   it('falls back to empty arrays and defaults for nullable columns', () => {
-    const property = rowToProperty(propertyRow({ images: null, amenities: null, description: null }));
+    const property = rowToProperty(
+      propertyRow({ images: null, amenities: null, description: null }),
+    );
     expect(property.images).toEqual([]);
     expect(property.amenities).toEqual([]);
     expect(property.description).toBe('');
@@ -526,7 +565,9 @@ describe('write paths', () => {
 
   it('insertProperty throws when the insert returns no row', async () => {
     resolve({ data: null, error: null });
-    await expect(insertProperty('landlord-1', propertyInput())).rejects.toThrow(/could not be saved/i);
+    await expect(insertProperty('landlord-1', propertyInput())).rejects.toThrow(
+      /could not be saved/i,
+    );
   });
 
   it('updateProperty only sends provided fields and maps coordinates', async () => {
@@ -638,8 +679,9 @@ describe('write paths', () => {
   });
 
   it('insertRequest rejects a malformed move-in date', async () => {
-    await expect(insertRequest('tenant-1', { moveInDate: '01/2027/01' } as any))
-      .rejects.toThrow(/YYYY-MM-DD/);
+    await expect(insertRequest('tenant-1', { moveInDate: '01/2027/01' } as any)).rejects.toThrow(
+      /YYYY-MM-DD/,
+    );
   });
 
   it('insertReport trims details and writes the row', async () => {
@@ -769,7 +811,10 @@ describe('admin verifications', () => {
   });
 
   it('setUserVerified surfaces rpc errors', async () => {
-    S.rpc.mockResolvedValueOnce({ data: null, error: { message: 'Only ImbaFind admins can verify landlords.' } });
+    S.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Only ImbaFind admins can verify landlords.' },
+    });
     await expect(setUserVerified('user-9', true)).rejects.toThrow(/admins/i);
   });
 });
@@ -901,7 +946,7 @@ describe('offline fallback when Supabase is unavailable or failing', () => {
     // The context layer treats this signal as \u201cuse mock data\u201d; the local
     // filter must still yield usable results from MOCK_PROPERTIES.
     const fallback = filterMockProperties(MOCK_PROPERTIES, { city: 'Harare' });
-    expect(fallback.map(p => p.id)).toEqual(['mock-1']);
+    expect(fallback.map((p) => p.id)).toEqual(['mock-1']);
   });
 
   it('fetchProperties swallows query errors instead of throwing', async () => {
@@ -926,8 +971,9 @@ describe('offline fallback when Supabase is unavailable or failing', () => {
     S.client = null;
     await expect(insertProperty('x', propertyInput())).rejects.toThrow(/Supabase connection/);
     await expect(insertViewing('tenant-1', viewingInput())).rejects.toThrow(/Supabase connection/);
-    await expect(insertReport({ reporterId: 'x', propertyId: 'p', reason: 'scam' }))
-      .rejects.toThrow(/Supabase connection/);
+    await expect(
+      insertReport({ reporterId: 'x', propertyId: 'p', reason: 'scam' }),
+    ).rejects.toThrow(/Supabase connection/);
     await expect(uploadPropertyImage('x', 'file://a.jpg')).rejects.toThrow(/Supabase connection/);
   });
 
@@ -937,7 +983,7 @@ describe('offline fallback when Supabase is unavailable or failing', () => {
       bedrooms: 2,
       furnished: 'furnished',
     });
-    expect(results.map(p => p.id)).toEqual(['mock-1']);
+    expect(results.map((p) => p.id)).toEqual(['mock-1']);
   });
 });
 
@@ -956,26 +1002,29 @@ describe('fetchProperties filter builder', () => {
       furnished: 'furnished',
       selectedAmenities: ['water'],
     });
-    expect(pairsFor('properties.eq')).toEqual(expect.arrayContaining([
-      ['available', true],
-      ['property_type', 'apartment'],
-      ['availability_status', 'available_now'],
-    ]));
+    expect(pairsFor('properties.eq')).toEqual(
+      expect.arrayContaining([
+        ['available', true],
+        ['property_type', 'apartment'],
+        ['availability_status', 'available_now'],
+      ]),
+    );
     expect(pairsFor('properties.ilike')).toContainEqual(['city', 'Harare']);
     expect(pairsFor('properties.lte')).toContainEqual(['price', 500]);
-    expect(pairsFor('properties.gte')).toEqual(expect.arrayContaining([
-      ['bedrooms', 2],
-    ]));
-    expect(chainCalls('properties.contains').map(args => args[1]))
-      .toEqual(expect.arrayContaining([['furnished'], ['water']]));
+    expect(pairsFor('properties.gte')).toEqual(expect.arrayContaining([['bedrooms', 2]]));
+    expect(chainCalls('properties.contains').map((args) => args[1])).toEqual(
+      expect.arrayContaining([['furnished'], ['water']]),
+    );
   });
 
   it('applies budgetMin and bathrooms as lower bounds', async () => {
     await fetchProperties({ budgetMin: 150, bathrooms: 1 });
-    expect(pairsFor('properties.gte')).toEqual(expect.arrayContaining([
-      ['price', 150],
-      ['bathrooms', 1],
-    ]));
+    expect(pairsFor('properties.gte')).toEqual(
+      expect.arrayContaining([
+        ['price', 150],
+        ['bathrooms', 1],
+      ]),
+    );
   });
 
   it('ignores the \u201cany\u201d property type', async () => {
@@ -992,7 +1041,7 @@ describe('fetchProperties filter builder', () => {
     // literal, while the injected percent sign is neutralized into whitespace
     // so it cannot act as a Postgres wildcard.
     expect(clause).not.toContain('"');
-    expect(clause).toContain('avon\'dale');
+    expect(clause).toContain("avon'dale");
     expect(clause).toMatch(/%avon'dale\s+x%/);
   });
 
@@ -1029,17 +1078,16 @@ describe('insertViewing conflict protection', () => {
     queueFor('viewing_requests', 'select', [{ data: null }]);
     queueFor('viewing_requests', 'insert', [{ data: viewingRow() }]);
     await insertViewing('tenant-1', viewingInput());
-    expect(pairsFor('viewing_requests.in')).toContainEqual([
-      'status',
-      ['pending', 'confirmed'],
-    ]);
+    expect(pairsFor('viewing_requests.in')).toContainEqual(['status', ['pending', 'confirmed']]);
   });
 
   it('rejects when a conflicting slot already exists', async () => {
     queueFor('viewing_requests', 'select', [{ data: { id: 'existing' } }]);
     await expect(insertViewing('tenant-1', viewingInput())).rejects.toThrow(/already requested/i);
     // The insert must never be attempted.
-    expect(S.getters.some(([key]: [string, unknown[]]) => key === 'viewing_requests.insert')).toBe(false);
+    expect(S.getters.some(([key]: [string, unknown[]]) => key === 'viewing_requests.insert')).toBe(
+      false,
+    );
   });
 
   it('maps a unique-violation race to the friendly conflict error', async () => {
@@ -1054,12 +1102,15 @@ describe('insertViewing conflict protection', () => {
   });
 
   it('rejects invalid viewing dates and times before querying', async () => {
-    await expect(insertViewing('tenant-1', { ...viewingInput(), date: '06-2027-01' }))
-      .rejects.toThrow(/valid viewing date/i);
-    await expect(insertViewing('tenant-1', { ...viewingInput(), time: '25:00' }))
-      .rejects.toThrow(/valid viewing time/i);
-    await expect(insertViewing('tenant-1', { ...viewingInput(), time: 'garbage' }))
-      .rejects.toThrow(/valid viewing time/i);
+    await expect(
+      insertViewing('tenant-1', { ...viewingInput(), date: '06-2027-01' }),
+    ).rejects.toThrow(/valid viewing date/i);
+    await expect(insertViewing('tenant-1', { ...viewingInput(), time: '25:00' })).rejects.toThrow(
+      /valid viewing time/i,
+    );
+    await expect(insertViewing('tenant-1', { ...viewingInput(), time: 'garbage' })).rejects.toThrow(
+      /valid viewing time/i,
+    );
     expect(S.getters).toHaveLength(0);
   });
 
@@ -1089,15 +1140,18 @@ describe('insertViewing conflict protection', () => {
   });
 
   it('refuses past viewing slots', async () => {
-    await expect(insertViewing('tenant-1', { ...viewingInput(), date: '2020-01-01' }))
-      .rejects.toThrow(/in the future/i);
+    await expect(
+      insertViewing('tenant-1', { ...viewingInput(), date: '2020-01-01' }),
+    ).rejects.toThrow(/in the future/i);
   });
 
   it('rejects unuploaded local file URIs on the property write paths', async () => {
-    await expect(insertProperty('landlord-1', { ...propertyInput(), images: ['file:///cache.jpg'] }))
-      .rejects.toThrow(/finish uploading/i);
-    await expect(updateProperty('property-1', { images: ['content://cache.jpg'] }))
-      .rejects.toThrow(/finish uploading/i);
+    await expect(
+      insertProperty('landlord-1', { ...propertyInput(), images: ['file:///cache.jpg'] }),
+    ).rejects.toThrow(/finish uploading/i);
+    await expect(updateProperty('property-1', { images: ['content://cache.jpg'] })).rejects.toThrow(
+      /finish uploading/i,
+    );
   });
 
   describe('blocking and blocked users', () => {
@@ -1152,41 +1206,273 @@ describe('insertViewing conflict protection', () => {
     });
 
     it('fetchConversations filters out conversations with blocked users', async () => {
-      queueFor('conversations', 'select', [{
-        data: [
-          {
-            id: 'c-1',
-            tenant_id: 'user-a',
-            landlord_id: 'landlord-normal',
-            last_message: 'Hi',
-            last_message_at: '2026-03-01T12:00:00Z',
-            tenant_unread: 0,
-            landlord_unread: 0,
-            landlord: { full_name: 'Landlord Normal', avatar_url: null, phone: null },
-            properties: { title: 'Nice house' },
-          },
-          {
-            id: 'c-2',
-            tenant_id: 'user-a',
-            landlord_id: 'landlord-blocked',
-            last_message: 'Spam',
-            last_message_at: '2026-03-01T11:00:00Z',
-            tenant_unread: 1,
-            landlord_unread: 0,
-            landlord: { full_name: 'Landlord Blocked', avatar_url: null, phone: null },
-            properties: { title: 'Spam listing' },
-          },
-        ],
-        error: null,
-      }]);
-      queueFor('blocked_users', 'select', [{
-        data: [{ blocker_id: 'user-a', blocked_id: 'landlord-blocked' }],
-        error: null,
-      }]);
+      queueFor('conversations', 'select', [
+        {
+          data: [
+            {
+              id: 'c-1',
+              tenant_id: 'user-a',
+              landlord_id: 'landlord-normal',
+              last_message: 'Hi',
+              last_message_at: '2026-03-01T12:00:00Z',
+              tenant_unread: 0,
+              landlord_unread: 0,
+              landlord: { full_name: 'Landlord Normal', avatar_url: null, phone: null },
+              properties: { title: 'Nice house' },
+            },
+            {
+              id: 'c-2',
+              tenant_id: 'user-a',
+              landlord_id: 'landlord-blocked',
+              last_message: 'Spam',
+              last_message_at: '2026-03-01T11:00:00Z',
+              tenant_unread: 1,
+              landlord_unread: 0,
+              landlord: { full_name: 'Landlord Blocked', avatar_url: null, phone: null },
+              properties: { title: 'Spam listing' },
+            },
+          ],
+          error: null,
+        },
+      ]);
+      queueFor('blocked_users', 'select', [
+        {
+          data: [{ blocker_id: 'user-a', blocked_id: 'landlord-blocked' }],
+          error: null,
+        },
+      ]);
 
       const convs = await fetchConversations('user-a');
       expect(convs).toHaveLength(1);
       expect(convs[0].participantId).toBe('landlord-normal');
+    });
+  });
+
+  describe('reviews and reporting', () => {
+    it('fetchReviews returns local mock reviews when supabase is disabled', async () => {
+      S.client = null;
+      const reviews = await fetchReviews('prop-1');
+      expect(Array.isArray(reviews)).toBe(true);
+    });
+
+    it('fetchReviews queries reviews table ordered by created_at desc', async () => {
+      resolveFor('reviews', 'select', {
+        data: [
+          {
+            id: 'rev-1',
+            property_id: 'prop-1',
+            author_id: 'user-1',
+            author_name: 'Tenant Jane',
+            rating: 5,
+            text: 'Great place!',
+            created_at: '2026-03-01T12:00:00Z',
+          },
+        ],
+        error: null,
+      });
+      const reviews = await fetchReviews('prop-1');
+      expect(reviews).toEqual([
+        {
+          id: 'rev-1',
+          propertyId: 'prop-1',
+          authorId: 'user-1',
+          authorName: 'Tenant Jane',
+          rating: 5,
+          text: 'Great place!',
+          createdAt: '2026-03-01T12:00:00Z',
+        },
+      ]);
+    });
+
+    it('fetchReviews handles 22P02 error by returning local mock reviews', async () => {
+      resolveFor('reviews', 'select', {
+        data: null,
+        error: dbError('invalid uuid', '22P02'),
+      });
+      const reviews = await fetchReviews('prop-1');
+      expect(Array.isArray(reviews)).toBe(true);
+    });
+
+    it('fetchReviews throws on database error', async () => {
+      resolveFor('reviews', 'select', {
+        data: null,
+        error: dbError('Fatal error'),
+      });
+      await expect(fetchReviews('prop-1')).rejects.toThrow('Fatal error');
+    });
+
+    it('insertReview inserts into reviews table when supabase is active', async () => {
+      resolveFor('reviews', 'insert', { error: null });
+      await insertReview('prop-1', 'author-1', 'Jane Doe', 4, 'Very clean');
+      expect(payloadFor('reviews.insert')).toMatchObject({
+        property_id: 'prop-1',
+        author_id: 'author-1',
+        author_name: 'Jane Doe',
+        rating: 4,
+        text: 'Very clean',
+      });
+    });
+
+    it('insertReview falls back to local mocks when supabase is disabled or on 22P02', async () => {
+      S.client = null;
+      await expect(
+        insertReview('prop-demo', 'author-demo', 'Demo', 5, 'Nice'),
+      ).resolves.toBeUndefined();
+
+      S.client = makeClient();
+      resolveFor('reviews', 'insert', { error: dbError('bad uuid', '22P02') });
+      await expect(
+        insertReview('prop-demo2', 'author-demo2', 'Demo', 5, 'Nice'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('insertReview throws on general db error', async () => {
+      resolveFor('reviews', 'insert', { error: dbError('insert failed') });
+      await expect(insertReview('prop-1', 'author-1', 'Jane', 5, 'Great')).rejects.toThrow(
+        'insert failed',
+      );
+    });
+
+    it('updateReview updates rating and text on reviews table', async () => {
+      resolveFor('reviews', 'update', { data: { id: 'rev-1' }, error: null });
+      await updateReview('prop-1', 'author-1', 4, 'Updated comment');
+      expect(payloadFor('reviews.update')).toEqual({ rating: 4, text: 'Updated comment' });
+    });
+
+    it('updateReview throws if review not found', async () => {
+      resolveFor('reviews', 'update', { data: null, error: null });
+      await expect(updateReview('prop-1', 'author-1', 4, 'Updated')).rejects.toThrow(
+        'Your review could not be found',
+      );
+    });
+
+    it('insertReport validates required fields', async () => {
+      await expect(insertReport({ reporterId: 'u-1', reason: '', details: '' })).rejects.toThrow(
+        'Choose a reason',
+      );
+      await expect(insertReport({ reporterId: 'u-1', reason: 'Spam' })).rejects.toThrow(
+        'Choose a reason and a listing',
+      );
+
+      S.client = null;
+      await expect(
+        insertReport({ reporterId: 'u-1', propertyId: 'p-1', reason: 'Spam' }),
+      ).rejects.toThrow('Reporting requires a Supabase connection');
+    });
+
+    it('insertReport sends report to supabase', async () => {
+      resolveFor('reports', 'insert', { error: null });
+      await insertReport({
+        reporterId: 'u-1',
+        propertyId: 'p-1',
+        reason: 'Misleading',
+        details: 'Wrong photos',
+      });
+      expect(payloadFor('reports.insert')).toMatchObject({
+        reporter_id: 'u-1',
+        property_id: 'p-1',
+        reason: 'Misleading',
+        details: 'Wrong photos',
+      });
+    });
+  });
+
+  describe('accommodation requests', () => {
+    it('insertRequest validates move-in date format', async () => {
+      await expect(
+        insertRequest('user-1', {
+          city: 'Harare',
+          province: 'Harare',
+          propertyType: 'apartment',
+          bedrooms: 2,
+          numberOfPeople: 2,
+          minBudget: 200,
+          maxBudget: 400,
+          moveInDate: 'tomorrow',
+          furnished: true,
+          amenities: [],
+          status: 'active',
+        }),
+      ).rejects.toThrow('Enter your move-in date in YYYY-MM-DD format');
+    });
+
+    it('insertRequest inserts formatted accommodation request', async () => {
+      const mockReqRow = requestRow();
+      resolveFor('accommodation_requests', 'insert', {
+        data: mockReqRow,
+        error: null,
+      });
+      const req = await insertRequest('user-1', {
+        city: 'Harare',
+        suburb: 'Avondale',
+        province: 'Harare',
+        propertyType: 'apartment',
+        bedrooms: 2,
+        numberOfPeople: 2,
+        minBudget: 200,
+        maxBudget: 400,
+        moveInDate: '2027-01-01',
+        furnished: true,
+        amenities: ['water'],
+        status: 'active',
+      });
+      expect(req.id).toBe('req-1');
+      expect(payloadFor('accommodation_requests.insert')).toMatchObject({
+        user_id: 'user-1',
+        city: 'Harare',
+        move_in_date: '2027-01-01',
+        furnished: 'furnished',
+      });
+    });
+
+    it('fetchMyRequests and fetchActiveRequests return mapped requests', async () => {
+      resolveFor('accommodation_requests', 'select', {
+        data: [requestRow()],
+        error: null,
+      });
+      const myRequests = await fetchMyRequests('tenant-1');
+      expect(myRequests).toHaveLength(1);
+      expect(myRequests[0].id).toBe('req-1');
+
+      const activeRequests = await fetchActiveRequests();
+      expect(activeRequests).toHaveLength(1);
+    });
+
+    it('fetchMyRequests and fetchActiveRequests return empty when supabase disabled', async () => {
+      S.client = null;
+      expect(await fetchMyRequests('u-1')).toEqual([]);
+      expect(await fetchActiveRequests()).toEqual([]);
+    });
+
+    it('updateRequestStatus updates status on accommodation_requests', async () => {
+      resolveFor('accommodation_requests', 'update', { error: null });
+      await updateRequestStatus('req-1', 'paused');
+      expect(payloadFor('accommodation_requests.update')).toEqual({ status: 'paused' });
+    });
+  });
+
+  describe('viewing reschedule', () => {
+    it('rescheduleViewing validates date and future time', async () => {
+      await expect(rescheduleViewing('v-1', 'bad-date', '10:00 AM')).rejects.toThrow(
+        'Choose a valid viewing date',
+      );
+      await expect(rescheduleViewing('v-1', '2020-01-01', '10:00 AM')).rejects.toThrow('future');
+    });
+
+    it('rescheduleViewing throws when supabase is disabled', async () => {
+      S.client = null;
+      await expect(rescheduleViewing('v-1', '2030-01-01', '10:00 AM')).rejects.toThrow(
+        'Supabase connection',
+      );
+    });
+
+    it('rescheduleViewing updates viewing_date, viewing_time and resets status to pending', async () => {
+      resolveFor('viewing_requests', 'update', { error: null });
+      await rescheduleViewing('v-1', '2030-01-01', '10:00 AM');
+      expect(payloadFor('viewing_requests.update')).toMatchObject({
+        viewing_date: '2030-01-01',
+        status: 'pending',
+      });
     });
   });
 });

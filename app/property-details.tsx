@@ -163,12 +163,14 @@ export default function PropertyDetailsScreen() {
 
   const submitReview = async () => {
     if (!property) return;
+    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
     const text = reviewText.trim();
     if (!text) {
       Alert.alert('Review required', 'Please add a short comment with your rating.');
       return;
     }
-    const authorId = user?.id || 'demo-reviewer';
+    const authorId = user?.id;
+    if (!authorId) return;
     const authorDisplayName =
       userName || (user?.user_metadata?.full_name as string) || 'Verified Tenant';
     setReviewSubmitting(true);

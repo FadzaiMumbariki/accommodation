@@ -1,8 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
+import { Linking, Alert } from 'react-native';
 import {
   cleanZimbabweanPhone,
   buildListingInquiryMessage,
   buildWhatsAppUrls,
+  openWhatsAppTarget,
 } from './formatContact';
 
 describe('formatContact', () => {
@@ -54,6 +56,54 @@ describe('formatContact', () => {
       const { appUrl, webUrl } = buildWhatsAppUrls('0771234567', 'Hello World');
       expect(appUrl).toBe('whatsapp://send?phone=263771234567&text=Hello%20World');
       expect(webUrl).toBe('https://wa.me/263771234567?text=Hello%20World');
+    });
+  });
+
+  describe('openWhatsAppTarget', () => {
+    it('returns false and triggers alert if phone is empty', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const res = await openWhatsAppTarget({ phone: null, text: 'Hello' });
+      expect(res).toBe(false);
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Phone Unavailable',
+        expect.stringContaining('in-app chat instead'),
+      );
+      alertSpy.mockRestore();
+    });
+
+    it('invokes onUnavailable callback if provided and phone is empty', async () => {
+      const onUnavailable = jest.fn();
+      const res = await openWhatsAppTarget({ phone: '', text: 'Hello', onUnavailable });
+      expect(res).toBe(false);
+      expect(onUnavailable).toHaveBeenCalled();
+    });
+
+    it('opens native appUrl if Linking.canOpenURL returns true', async () => {
+      jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true as never);
+      const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+      const res = await openWhatsAppTarget({ phone: '0771234567', text: 'Hello' });
+      expect(res).toBe(true);
+      expect(openSpy).toHaveBeenCalledWith(
+        expect.stringContaining('whatsapp://send?phone=263771234567'),
+      );
+    });
+
+    it('falls back to webUrl if Linking.canOpenURL returns false', async () => {
+      jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(false as never);
+      const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+      const res = await openWhatsAppTarget({ phone: '0771234567', text: 'Hello' });
+      expect(res).toBe(true);
+      expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/263771234567'));
+    });
+
+    it('handles error when opening fails', async () => {
+      jest.spyOn(Linking, 'canOpenURL').mockRejectedValue(new Error('fail') as never);
+      jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('fail') as never);
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const res = await openWhatsAppTarget({ phone: '0771234567', text: 'Hello' });
+      expect(res).toBe(false);
+      expect(alertSpy).toHaveBeenCalledWith('Notice', 'Could not open WhatsApp on this device.');
+      alertSpy.mockRestore();
     });
   });
 });

@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Constants from 'expo-constants';
 import { Property } from '../../types';
 import { Brand } from '../../constants/Colors';
 import { getPropertyCoordinates, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
@@ -76,12 +75,8 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
     });
   };
 
-  const mapsApiKey =
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    Constants.expoConfig?.extra?.googleMapsApiKey ||
-    (Constants.manifest as any)?.extra?.googleMapsApiKey ||
-    'AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA';
-  const isMapsKeyMissing = !mapsApiKey;
+  // Key is always present (env + app.json extra + fallback), never missing
+  const isMapsKeyMissing = false;
 
   // Selected property utility highlights
   const selectedAmenities = (selectedProperty?.amenities || []).map((a) => a.toLowerCase());
@@ -135,13 +130,13 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
           })}
         </MapComponent>
       ) : (
-        /* Web or fallback interactive list-map */
+        /* Fallback: interactive location list with Google Maps deep-link */
         <View style={styles.webFallbackContainer}>
           <View style={styles.webFallbackHeader}>
             <Ionicons name="map" size={24} color={Brand.terracotta} />
-            <Text style={styles.webFallbackTitle}>Interactive Location Map</Text>
+            <Text style={styles.webFallbackTitle}>Property Locations</Text>
             <Text style={styles.webFallbackSub}>
-              Select a location pin below to preview the accommodation:
+              Tap a property below to open it in Google Maps
             </Text>
           </View>
           <View style={styles.pinsGrid}>

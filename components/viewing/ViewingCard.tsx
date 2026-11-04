@@ -14,6 +14,7 @@ interface ViewingCardProps {
   onDecline?: () => void;
   onComplete?: () => void;
   onCancel?: () => void;
+  onReschedule?: () => void;
 }
 
 export const ViewingCard: React.FC<ViewingCardProps> = ({
@@ -24,15 +25,12 @@ export const ViewingCard: React.FC<ViewingCardProps> = ({
   onDecline,
   onComplete,
   onCancel,
+  onReschedule,
 }) => {
   const attendees = viewing.attendees ?? viewing.numberOfPeople;
   return (
     <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.propertyHeader}
-        onPress={onPressProperty}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.propertyHeader} onPress={onPressProperty} activeOpacity={0.8}>
         {viewing.propertyImage ? (
           <Image
             source={{ uri: viewing.propertyImage }}
@@ -123,15 +121,26 @@ export const ViewingCard: React.FC<ViewingCardProps> = ({
       )}
       {role === 'tenant' &&
         (viewing.status === 'pending' || viewing.status === 'confirmed') &&
-        onCancel && (
+        (onCancel || onReschedule) && (
           <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={[styles.btn, styles.declineBtn]}
-              onPress={onCancel}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.declineText}>Cancel Viewing</Text>
-            </TouchableOpacity>
+            {onReschedule && (
+              <TouchableOpacity
+                style={[styles.btn, styles.rescheduleBtn]}
+                onPress={onReschedule}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.rescheduleText}>Reschedule</Text>
+              </TouchableOpacity>
+            )}
+            {onCancel && (
+              <TouchableOpacity
+                style={[styles.btn, styles.declineBtn]}
+                onPress={onCancel}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.declineText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
     </View>
@@ -243,6 +252,16 @@ const styles = StyleSheet.create({
   confirmText: {
     color: Brand.white,
     fontWeight: '700',
+    fontSize: 13,
+  },
+  rescheduleBtn: {
+    backgroundColor: Brand.creamDark,
+    borderWidth: 1,
+    borderColor: Brand.terracotta,
+  },
+  rescheduleText: {
+    color: Brand.terracotta,
+    fontWeight: '600',
     fontSize: 13,
   },
   declineBtn: {
