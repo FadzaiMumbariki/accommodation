@@ -12,7 +12,7 @@ App (Expo)  ->  supabase.functions.invoke()  ->  Edge Function (Deno)  ->  Gemin
 
 - Edge Functions: `supabase/functions/ai-search`, `ai-trust`, `ai-match`, `ai-describe`, shared helper in `supabase/functions/_shared/gemini.ts`
 - Client code: `lib/ai.ts`, `lib/aiFilters.ts`, `lib/trustCheck.ts`, and `lib/smartMatching.ts`
-- Model: configurable with the `GEMINI_MODEL` secret, default `gemini-2.0-flash`. Privacy: phone numbers and emails are automatically stripped before text reaches Gemini.
+- Model: configurable with the `GEMINI_MODEL` secret, default `gemini-2.5-flash`. Privacy: phone numbers and emails are automatically stripped before text reaches Gemini.
 - Secrets: `GEMINI_API_KEY` is set with `supabase secrets set`. It is never committed.
 - Functions use structured JSON output and validate the returned fields before applying them.
 - `supabase/migrations/006_ai_request_limits.sql` limits each signed-in account to 30 requests per rolling hour across all AI features.
@@ -24,6 +24,7 @@ App (Expo)  ->  supabase.functions.invoke()  ->  Edge Function (Deno)  ->  Gemin
 **Important design choice:** the AI never returns or ranks listings. It only produces filters, and all results come from ImbaFind's own database. The AI therefore cannot invent properties.
 
 **Safeguards**
+
 - Output is validated in `sanitizeAiFilters`: unknown fields are dropped, numbers are clamped, swapped budget bounds are fixed, property types must be from the allowed list, and a city is only accepted if it is a real city in the app's data.
 - The system prompt tells the model to treat the user text as a search request only and never to filter by personal traits.
 - Query length is limited to 200 characters.

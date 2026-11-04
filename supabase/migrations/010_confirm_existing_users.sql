@@ -1,4 +1,4 @@
--- Auto-confirm any existing unconfirmed auth users so they can sign in immediately
-update auth.users
-set email_confirmed_at = coalesce(email_confirmed_at, now())
-where email_confirmed_at is null;
+-- 010_confirm_existing_users.sql
+-- Disabled: Email confirmations are strictly enforced in production to ensure
+-- accounts are verified before sign in. This migration is retained as a no-op
+-- to preserve migration version ordering.
