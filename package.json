@@ -71,7 +71,7 @@
     "format:check": "prettier --check .",
     "expo-doctor": "npx expo-doctor",
     "build:apk": "eas build -p android --profile preview",
-    "deploy:functions": "supabase functions deploy ai-search && supabase functions deploy ai-describe && supabase functions deploy ai-match && supabase functions deploy ai-trust",
+    "deploy:functions": "npx supabase functions deploy ai-search && npx supabase functions deploy ai-describe && npx supabase functions deploy ai-match && npx supabase functions deploy ai-trust",
     "prepare": "husky"
   },
   "lint-staged": {
