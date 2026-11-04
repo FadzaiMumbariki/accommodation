@@ -1,9 +1,9 @@
 // Shared helpers for ImbaFind AI Edge Functions (Deno runtime).
 // The Gemini API key lives only in Supabase secrets (GEMINI_API_KEY) and is never sent to the app.
 
-import { stripPii } from './pii.ts';
+import { stripPii, sanitizePiiValue } from './pii.ts';
 
-export { stripPii };
+export { stripPii, sanitizePiiValue };
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,8 +77,8 @@ interface GeminiJsonOptions {
 export async function callGeminiJson({ system, user, schema, temperature = 0 }: GeminiJsonOptions) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
-  // Default to gemini-2.0-flash; can be overridden via GEMINI_MODEL secret
-  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+  // Default to gemini-2.5-flash; can be overridden via GEMINI_MODEL secret
+  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
 
   const sanitizedUser = stripPii(user);
 
@@ -104,6 +104,6 @@ export async function callGeminiJson({ system, user, schema, temperature = 0 }: 
   const data = await response.json();
   const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini returned no content');
-  return JSON.parse(text);
+  const parsed = JSON.parse(text);
+  return sanitizePiiValue(parsed);
 }
-

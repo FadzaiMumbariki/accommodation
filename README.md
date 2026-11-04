@@ -79,7 +79,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_KEY
-# optional: supabase secrets set GEMINI_MODEL=gemini-2.0-flash
+# optional: supabase secrets set GEMINI_MODEL=gemini-2.5-flash
 supabase functions deploy ai-search
 supabase functions deploy ai-trust
 supabase functions deploy ai-match
