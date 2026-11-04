@@ -48,22 +48,39 @@ export async function updateProfile(
 ): Promise<boolean> {
   if (!supabase) return false;
 
-  const payload: {
-    id: string;
-    full_name?: string | null;
-    phone?: string | null;
-    avatar_url?: string | null;
-    role?: 'tenant' | 'landlord';
-  } = { id: userId };
-  if (updates.fullName !== undefined) payload.full_name = updates.fullName;
-  if (updates.phone !== undefined) payload.phone = updates.phone;
-  if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
-  if (updates.role !== undefined) payload.role = updates.role;
+  const updateFields: Record<string, unknown> = {};
+  if (updates.fullName !== undefined) updateFields.full_name = updates.fullName;
+  if (updates.phone !== undefined) updateFields.phone = updates.phone;
+  if (updates.avatarUrl !== undefined) updateFields.avatar_url = updates.avatarUrl;
+  if (updates.role !== undefined) updateFields.role = updates.role;
 
+  // Try direct update first
+  const { data, error: updateError } = await supabase
+    .from('profiles')
+    .update(updateFields)
+    .eq('id', userId)
+    .select('id');
+
+  if (!updateError && data && data.length > 0) {
+    if (updates.role !== undefined) {
+      void supabase.auth.updateUser({ data: { role: updates.role } }).catch(() => {});
+    }
+    return true;
+  }
+
+  // Fallback to upsert if profile row did not exist yet
+  const payload: Record<string, unknown> = { id: userId, ...updateFields };
   const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
 
-  if (error) console.error('[updateProfile]', error.message);
-  return !error;
+  if (error) {
+    console.error('[updateProfile]', error.message);
+    return false;
+  }
+
+  if (updates.role !== undefined) {
+    void supabase.auth.updateUser({ data: { role: updates.role } }).catch(() => {});
+  }
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
