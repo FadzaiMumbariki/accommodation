@@ -52,8 +52,8 @@ export function ChatProvider({
   userId?: string;
   userRole: UserRole;
 }) {
-  const [conversations, setConversations] = useState<Conversation[]>(
-    () => supabase ? [] : MOCK_CONVERSATIONS,
+  const [conversations, setConversations] = useState<Conversation[]>(() =>
+    supabase ? [] : MOCK_CONVERSATIONS,
   );
   const conversationsRef = useRef(conversations);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -93,228 +93,269 @@ export function ChatProvider({
     void refresh();
   }, [refresh]);
 
-  const openConversation = useCallback(async (id: string) => {
-    setSelectedConversationId(id);
-    setMessageError(null);
-    if (!supabase || !userId) return;
-    setMessageLoading(true);
-    try {
-      if (!conversationsRef.current.some(conversation => conversation.id === id)) {
-        const conversation = await fetchConversationById(id, userId);
-        if (!conversation) throw new Error('This conversation is not available for your account.');
-        setConversations(previous => [
-          conversation,
-          ...previous.filter(item => item.id !== conversation.id),
-        ]);
+  const openConversation = useCallback(
+    async (id: string) => {
+      setSelectedConversationId(id);
+      setMessageError(null);
+      if (!supabase || !userId) return;
+      setMessageLoading(true);
+      try {
+        if (!conversationsRef.current.some((conversation) => conversation.id === id)) {
+          const conversation = await fetchConversationById(id, userId);
+          if (!conversation)
+            throw new Error('This conversation is not available for your account.');
+          setConversations((previous) => [
+            conversation,
+            ...previous.filter((item) => item.id !== conversation.id),
+          ]);
+        }
+        const result = await fetchMessages(id);
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === id
+              ? { ...conversation, messages: result.messages, unreadCount: 0 }
+              : conversation,
+          ),
+        );
+        setHasOlderByConversation((previous) => ({ ...previous, [id]: result.hasMore }));
+        await markConversationRead(id, userId, userRole);
+      } catch (loadError) {
+        console.error('[ChatContext] Could not open conversation:', loadError);
+        setMessageError('Could not load this conversation. Please try again.');
+        throw loadError;
+      } finally {
+        setMessageLoading(false);
       }
-      const result = await fetchMessages(id);
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === id ? { ...conversation, messages: result.messages, unreadCount: 0 } : conversation,
-      ));
-      setHasOlderByConversation(previous => ({ ...previous, [id]: result.hasMore }));
-      await markConversationRead(id, userId, userRole);
-    } catch (loadError) {
-      console.error('[ChatContext] Could not open conversation:', loadError);
-      setMessageError('Could not load this conversation. Please try again.');
-      throw loadError;
-    } finally {
-      setMessageLoading(false);
-    }
-  }, [userId, userRole]);
+    },
+    [userId, userRole],
+  );
 
-  const sendMessage = useCallback(async (conversationId: string, rawText: string) => {
-    const text = rawText.trim();
-    if (!text) return;
-    if (supabase && !userId) throw new Error('Please sign in to send messages.');
-    const pending: ChatMessage = {
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      senderId: userId ?? 'me',
-      text,
-      timestamp: new Date().toISOString(),
-      read: false,
-      deliveryStatus: supabase ? 'sending' : 'sent',
-    };
-    setConversations(previous => previous.map(conversation =>
-      conversation.id === conversationId
-        ? {
-            ...conversation,
-            messages: [...conversation.messages, pending],
-            lastMessage: text,
-            lastMessageTime: pending.timestamp,
-            unreadCount: 0,
-          }
-        : conversation,
-    ));
-    if (!supabase) return;
+  const sendMessage = useCallback(
+    async (conversationId: string, rawText: string) => {
+      const text = rawText.trim();
+      if (!text) return;
+      if (supabase && !userId) throw new Error('Please sign in to send messages.');
+      const pending: ChatMessage = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        senderId: userId ?? 'me',
+        text,
+        timestamp: new Date().toISOString(),
+        read: false,
+        deliveryStatus: supabase ? 'sending' : 'sent',
+      };
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: [...conversation.messages, pending],
+                lastMessage: text,
+                lastMessageTime: pending.timestamp,
+                unreadCount: 0,
+              }
+            : conversation,
+        ),
+      );
+      if (!supabase) return;
 
-    try {
-      const sent = await sendChatMessage(conversationId, text);
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              messages: conversation.messages.map(message =>
-                message.id === pending.id ? sent : message,
-              ),
-              lastMessage: text,
-              lastMessageTime: sent.timestamp,
-            }
-          : conversation,
-      ));
-    } catch (sendError) {
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              messages: conversation.messages.map(message =>
-                message.id === pending.id ? { ...message, deliveryStatus: 'failed' } : message,
-              ),
-            }
-          : conversation,
-      ));
-      throw sendError;
-    }
-  }, [userId]);
+      try {
+        const sent = await sendChatMessage(conversationId, text);
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === pending.id ? sent : message,
+                  ),
+                  lastMessage: text,
+                  lastMessageTime: sent.timestamp,
+                }
+              : conversation,
+          ),
+        );
+      } catch (sendError) {
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === pending.id ? { ...message, deliveryStatus: 'failed' } : message,
+                  ),
+                }
+              : conversation,
+          ),
+        );
+        throw sendError;
+      }
+    },
+    [userId],
+  );
 
-  const retryMessage = useCallback(async (conversationId: string, messageId: string) => {
-    const pending = conversations
-      .find(conversation => conversation.id === conversationId)
-      ?.messages.find(message => message.id === messageId);
-    if (!pending) return;
-    setConversations(previous => previous.map(conversation =>
-      conversation.id === conversationId
-        ? {
-            ...conversation,
-            messages: conversation.messages.map(message =>
-              message.id === messageId ? { ...message, deliveryStatus: 'sending' } : message,
-            ),
-          }
-        : conversation,
-    ));
-    if (!supabase) {
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              messages: conversation.messages.map(message =>
-                message.id === messageId ? { ...message, deliveryStatus: 'sent' } : message,
-              ),
-            }
-          : conversation,
-      ));
-      return;
-    }
-    try {
-      const sent = await sendChatMessage(conversationId, pending.text);
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              messages: conversation.messages.map(message =>
-                message.id === messageId ? sent : message,
-              ),
-              lastMessage: sent.text,
-              lastMessageTime: sent.timestamp,
-            }
-          : conversation,
-      ));
-    } catch (sendError) {
-      setConversations(previous => previous.map(conversation =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              messages: conversation.messages.map(message =>
-                message.id === messageId ? { ...message, deliveryStatus: 'failed' } : message,
-              ),
-            }
-          : conversation,
-      ));
-      throw sendError;
-    }
-  }, [conversations]);
+  const retryMessage = useCallback(
+    async (conversationId: string, messageId: string) => {
+      const pending = conversations
+        .find((conversation) => conversation.id === conversationId)
+        ?.messages.find((message) => message.id === messageId);
+      if (!pending) return;
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: conversation.messages.map((message) =>
+                  message.id === messageId ? { ...message, deliveryStatus: 'sending' } : message,
+                ),
+              }
+            : conversation,
+        ),
+      );
+      if (!supabase) {
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === messageId ? { ...message, deliveryStatus: 'sent' } : message,
+                  ),
+                }
+              : conversation,
+          ),
+        );
+        return;
+      }
+      try {
+        const sent = await sendChatMessage(conversationId, pending.text);
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === messageId ? sent : message,
+                  ),
+                  lastMessage: sent.text,
+                  lastMessageTime: sent.timestamp,
+                }
+              : conversation,
+          ),
+        );
+      } catch (sendError) {
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === messageId ? { ...message, deliveryStatus: 'failed' } : message,
+                  ),
+                }
+              : conversation,
+          ),
+        );
+        throw sendError;
+      }
+    },
+    [conversations],
+  );
 
-  const startConversationWithUser = useCallback(async (
-    recipientId: string,
-    recipientName = 'ImbaFind member',
-  ): Promise<string> => {
-    if (!userId && supabase) throw new Error('Please sign in to start a conversation.');
-    if (supabase && userId) {
-      const conversation = await upsertConversation(userId, userRole, recipientId);
-      setConversations(previous => [
-        conversation,
-        ...previous.filter(item => item.id !== conversation.id),
+  const startConversationWithUser = useCallback(
+    async (recipientId: string, recipientName = 'ImbaFind member'): Promise<string> => {
+      if (!userId && supabase) throw new Error('Please sign in to start a conversation.');
+      if (supabase && userId) {
+        const conversation = await upsertConversation(userId, userRole, recipientId);
+        setConversations((previous) => [
+          conversation,
+          ...previous.filter((item) => item.id !== conversation.id),
+        ]);
+        return conversation.id;
+      }
+      const existing = conversations.find(
+        (item) => item.participantId === recipientId && !item.propertyId,
+      );
+      if (existing) return existing.id;
+      const id = `conv-${Date.now()}`;
+      setConversations((previous) => [
+        {
+          id,
+          participantId: recipientId,
+          participantName: recipientName,
+          messages: [],
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        },
+        ...previous,
       ]);
-      return conversation.id;
-    }
-    const existing = conversations.find(item => item.participantId === recipientId && !item.propertyId);
-    if (existing) return existing.id;
-    const id = `conv-${Date.now()}`;
-    setConversations(previous => [{
-      id,
-      participantId: recipientId,
-      participantName: recipientName,
-      messages: [],
-      lastMessage: '',
-      lastMessageTime: new Date().toISOString(),
-      unreadCount: 0,
-    }, ...previous]);
-    return id;
-  }, [conversations, userId, userRole]);
+      return id;
+    },
+    [conversations, userId, userRole],
+  );
 
-  const startConversation = useCallback(async (property: Property): Promise<string> => {
-    if (userRole !== 'tenant') {
-      throw new Error('Landlords can start conversations by replying to an accommodation request.');
-    }
-    const participantId = property.landlordId ?? property.landlord.id;
-    if (!userId && supabase) throw new Error('Please sign in to start a conversation.');
-    if (supabase && userId) {
-      const conversation = await upsertConversation(userId, userRole, participantId, property.id);
-      setConversations(previous => [
-        conversation,
-        ...previous.filter(item => item.id !== conversation.id),
+  const startConversation = useCallback(
+    async (property: Property): Promise<string> => {
+      const participantId = property.landlordId ?? property.landlord?.id ?? 'landlord';
+      if (userId && (property.landlordId === userId || property.landlord?.id === userId)) {
+        throw new Error('You cannot start a conversation with yourself.');
+      }
+      if (!userId && supabase) throw new Error('Please sign in to start a conversation.');
+      if (supabase && userId) {
+        const conversation = await upsertConversation(userId, userRole, participantId, property.id);
+        setConversations((previous) => [
+          conversation,
+          ...previous.filter((item) => item.id !== conversation.id),
+        ]);
+        return conversation.id;
+      }
+      const existing = conversations.find((item) => item.propertyId === property.id);
+      if (existing) return existing.id;
+      const id = `conv-${Date.now()}`;
+      setConversations((previous) => [
+        {
+          id,
+          participantId,
+          participantName: property.landlord.name,
+          participantAvatar: property.landlord.avatar,
+          propertyId: property.id,
+          propertyTitle: property.title,
+          messages: [],
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        },
+        ...previous,
       ]);
-      return conversation.id;
-    }
-    const existing = conversations.find(item => item.propertyId === property.id);
-    if (existing) return existing.id;
-    const id = `conv-${Date.now()}`;
-    setConversations(previous => [{
-      id,
-      participantId,
-      participantName: property.landlord.name,
-      participantAvatar: property.landlord.avatar,
-      propertyId: property.id,
-      propertyTitle: property.title,
-      messages: [],
-      lastMessage: '',
-      lastMessageTime: new Date().toISOString(),
-      unreadCount: 0,
-    }, ...previous]);
-    return id;
-  }, [conversations, userId, userRole]);
+      return id;
+    },
+    [conversations, userId, userRole],
+  );
 
   const loadOlderMessages = useCallback(async () => {
     const id = selectedConversationId;
     if (!supabase || !id || !hasOlderByConversation[id] || messageLoading) return;
-    const current = conversations.find(conversation => conversation.id === id);
+    const current = conversations.find((conversation) => conversation.id === id);
     const oldest = current?.messages[0]?.timestamp;
     if (!oldest) return;
     setMessageLoading(true);
     setMessageError(null);
     try {
       const result = await fetchMessages(id, oldest);
-      setConversations(previous => previous.map(conversation => {
-        if (conversation.id !== id) return conversation;
-        const ids = new Set(conversation.messages.map(message => message.id));
-        return {
-          ...conversation,
-          messages: [
-            ...result.messages.filter(message => !ids.has(message.id)),
-            ...conversation.messages,
-          ],
-        };
-      }));
-      setHasOlderByConversation(previous => ({ ...previous, [id]: result.hasMore }));
+      setConversations((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== id) return conversation;
+          const ids = new Set(conversation.messages.map((message) => message.id));
+          return {
+            ...conversation,
+            messages: [
+              ...result.messages.filter((message) => !ids.has(message.id)),
+              ...conversation.messages,
+            ],
+          };
+        }),
+      );
+      setHasOlderByConversation((previous) => ({ ...previous, [id]: result.hasMore }));
     } catch (loadError) {
       console.error('[ChatContext] Could not load older messages:', loadError);
       setMessageError('Could not load older messages. Please retry.');
@@ -323,27 +364,33 @@ export function ChatProvider({
     }
   }, [conversations, hasOlderByConversation, messageLoading, selectedConversationId]);
 
-  const conversationIdKey = conversations.map(conversation => conversation.id).join(',');
+  const conversationIdKey = conversations.map((conversation) => conversation.id).join(',');
   useEffect(() => {
     if (!userId || !supabase || !conversationIdKey) return;
-    const unsubscribe = subscribeToMessages(conversationIdKey.split(','), message => {
+    const unsubscribe = subscribeToMessages(conversationIdKey.split(','), (message) => {
       const conversationId = message.conversationId;
       if (!conversationId) return;
-      setConversations(previous => previous.map(conversation => {
-        if (conversation.id !== conversationId) return conversation;
-        if (conversation.messages.some(existing => existing.id === message.id)) return conversation;
-        return {
-          ...conversation,
-          messages: [...conversation.messages, message],
-          lastMessage: message.text,
-          lastMessageTime: message.timestamp,
-          unreadCount: message.senderId === userId
-            ? conversation.unreadCount
-            : selectedConversationId === conversationId ? 0 : conversation.unreadCount + 1,
-        };
-      }));
+      setConversations((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== conversationId) return conversation;
+          if (conversation.messages.some((existing) => existing.id === message.id))
+            return conversation;
+          return {
+            ...conversation,
+            messages: [...conversation.messages, message],
+            lastMessage: message.text,
+            lastMessageTime: message.timestamp,
+            unreadCount:
+              message.senderId === userId
+                ? conversation.unreadCount
+                : selectedConversationId === conversationId
+                  ? 0
+                  : conversation.unreadCount + 1,
+          };
+        }),
+      );
       if (message.senderId !== userId && selectedConversationId === conversationId) {
-        void markConversationRead(conversationId, userId, userRole).catch(readError => {
+        void markConversationRead(conversationId, userId, userRole).catch((readError) => {
           console.error('[ChatContext] Could not mark realtime message as read:', readError);
         });
       }
@@ -363,7 +410,9 @@ export function ChatProvider({
         startConversation,
         startConversationWithUser,
         loadOlderMessages,
-        hasOlderMessages: Boolean(selectedConversationId && hasOlderByConversation[selectedConversationId]),
+        hasOlderMessages: Boolean(
+          selectedConversationId && hasOlderByConversation[selectedConversationId],
+        ),
         loading,
         messageLoading,
         error,

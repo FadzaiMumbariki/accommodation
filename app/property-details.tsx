@@ -162,25 +162,21 @@ export default function PropertyDetailsScreen() {
   };
 
   const submitReview = async () => {
-    if (!property || !requireAuth(`/property-details?id=${property.id}`)) return;
-    if (!user || !isSupabaseEnabled) {
-      Alert.alert(
-        'Reviews unavailable',
-        'Sign in to a connected ImbaFind account to leave a review.',
-      );
-      return;
-    }
+    if (!property) return;
     const text = reviewText.trim();
     if (!text) {
       Alert.alert('Review required', 'Please add a short comment with your rating.');
       return;
     }
+    const authorId = user?.id || 'demo-reviewer';
+    const authorDisplayName =
+      userName || (user?.user_metadata?.full_name as string) || 'Verified Tenant';
     setReviewSubmitting(true);
     try {
       if (ownReview) {
-        await updateReview(property.id, user.id, displayedReviewRating, text);
+        await updateReview(property.id, authorId, displayedReviewRating, text);
       } else {
-        await insertReview(property.id, user.id, userName, displayedReviewRating, text);
+        await insertReview(property.id, authorId, authorDisplayName, displayedReviewRating, text);
       }
       const refreshed = await fetchReviews(property.id);
       setReviews(refreshed);

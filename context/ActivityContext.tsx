@@ -9,11 +9,7 @@ import React, {
   useEffect,
   type ReactNode,
 } from 'react';
-import type {
-  ViewingRequest,
-  ViewingStatus,
-  AccommodationRequest,
-} from '../types';
+import type { ViewingRequest, ViewingStatus, AccommodationRequest } from '../types';
 import { MOCK_VIEWINGS, MOCK_REQUESTS } from '../constants/mockData';
 import { supabase } from '../lib/supabase';
 import {
@@ -61,8 +57,10 @@ export function ActivityProvider({
   userRole: 'tenant' | 'landlord';
   userName: string;
 }) {
-  const [viewings, setViewings] = useState<ViewingRequest[]>(() => supabase ? [] : MOCK_VIEWINGS);
-  const [requests, setRequests] = useState<AccommodationRequest[]>(() => supabase ? [] : MOCK_REQUESTS);
+  const [viewings, setViewings] = useState<ViewingRequest[]>(() => (supabase ? [] : MOCK_VIEWINGS));
+  const [requests, setRequests] = useState<AccommodationRequest[]>(() =>
+    supabase ? [] : MOCK_REQUESTS,
+  );
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => Boolean(supabase && userId));
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +77,8 @@ export function ActivityProvider({
     setError(null);
     try {
       const [viewingRecords, requestRecords] = await Promise.all([
-        userRole === 'landlord'
-          ? fetchLandlordViewings(userId)
-          : fetchMyViewings(userId),
-        userRole === 'landlord'
-          ? fetchActiveRequests()
-          : fetchMyRequests(userId),
+        userRole === 'landlord' ? fetchLandlordViewings(userId) : fetchMyViewings(userId),
+        userRole === 'landlord' ? fetchActiveRequests() : fetchMyRequests(userId),
       ]);
       setViewings(viewingRecords);
       setRequests(requestRecords);
@@ -103,68 +97,77 @@ export function ActivityProvider({
     void refresh();
   }, [refresh]);
 
-  const addViewing = useCallback(async (
-    v: Omit<ViewingRequest, 'id' | 'createdAt' | 'landlordId' | 'tenantId' | 'tenantName'>,
-  ) => {
-    if (supabase) {
-      if (!userId) throw new Error('Please sign in to request a viewing.');
-      const record = await insertViewing(userId, v);
-      setViewings(prev => [record, ...prev]);
-      return;
-    }
-    const newV: ViewingRequest = {
-      ...v,
-      id: `v-${Date.now()}`,
-      tenantId: userId ?? 'me',
-      tenantName: userName || 'You',
-      landlordId: '',
-      createdAt: new Date().toISOString(),
-    };
-    setViewings(prev => [newV, ...prev]);
-  }, [userId, userName]);
+  const addViewing = useCallback(
+    async (
+      v: Omit<ViewingRequest, 'id' | 'createdAt' | 'landlordId' | 'tenantId' | 'tenantName'>,
+    ) => {
+      if (supabase && userId) {
+        const record = await insertViewing(userId, v);
+        setViewings((prev) => [record, ...prev]);
+        return;
+      }
+      const newV: ViewingRequest = {
+        ...v,
+        id: `v-${Date.now()}`,
+        tenantId: userId ?? 'me',
+        tenantName: userName || 'You',
+        landlordId: '',
+        createdAt: new Date().toISOString(),
+      };
+      setViewings((prev) => [newV, ...prev]);
+    },
+    [userId, userName],
+  );
 
   const updateViewingStatus = useCallback(async (id: string, status: ViewingStatus) => {
     if (supabase) await updateViewingStatusRecord(id, status);
-    setViewings(prev => prev.map(v => (v.id === id ? { ...v, status } : v)));
+    setViewings((prev) => prev.map((v) => (v.id === id ? { ...v, status } : v)));
     const notifications = getNotifications();
-    void notifications?.scheduleNotificationAsync({
-      content: {
-        title: 'Viewing request updated',
-        body: `The viewing request status is now ${status}.`,
-        data: { viewingId: id },
-      },
-      trigger: null,
-    }).catch(error => {
-      console.error('[ActivityContext] Could not schedule viewing notification:', error);
-    });
+    void notifications
+      ?.scheduleNotificationAsync({
+        content: {
+          title: 'Viewing request updated',
+          body: `The viewing request status is now ${status}.`,
+          data: { viewingId: id },
+        },
+        trigger: null,
+      })
+      .catch((error) => {
+        console.error('[ActivityContext] Could not schedule viewing notification:', error);
+      });
   }, []);
 
-  const addRequest = useCallback(async (
-    r: Omit<AccommodationRequest, 'id' | 'postedAt' | 'createdAt' | 'userId' | 'userName'>,
-  ) => {
-    if (supabase) {
-      if (!userId) throw new Error('Please sign in to post an accommodation request.');
-      const newRequest = await insertRequest(userId, r);
-      setRequests(prev => [newRequest, ...prev]);
-      return;
-    }
-    const newR: AccommodationRequest = {
-      ...r,
-      id: `req-${Date.now()}`,
-      userId: userId ?? 'me',
-      userName: userName || 'You',
-      postedAt: new Date().toISOString(),
-    };
-    setRequests(prev => [newR, ...prev]);
-  }, [userId, userName]);
+  const addRequest = useCallback(
+    async (
+      r: Omit<AccommodationRequest, 'id' | 'postedAt' | 'createdAt' | 'userId' | 'userName'>,
+    ) => {
+      if (supabase) {
+        if (!userId) throw new Error('Please sign in to post an accommodation request.');
+        const newRequest = await insertRequest(userId, r);
+        setRequests((prev) => [newRequest, ...prev]);
+        return;
+      }
+      const newR: AccommodationRequest = {
+        ...r,
+        id: `req-${Date.now()}`,
+        userId: userId ?? 'me',
+        userName: userName || 'You',
+        postedAt: new Date().toISOString(),
+      };
+      setRequests((prev) => [newR, ...prev]);
+    },
+    [userId, userName],
+  );
 
-  const updateRequestStatus = useCallback(async (
-    id: string,
-    status: 'active' | 'paused' | 'closed',
-  ) => {
-    if (supabase) await updateRequestStatusRecord(id, status);
-    setRequests(prev => prev.map(request => request.id === id ? { ...request, status } : request));
-  }, []);
+  const updateRequestStatus = useCallback(
+    async (id: string, status: 'active' | 'paused' | 'closed') => {
+      if (supabase) await updateRequestStatusRecord(id, status);
+      setRequests((prev) =>
+        prev.map((request) => (request.id === id ? { ...request, status } : request)),
+      );
+    },
+    [],
+  );
 
   return (
     <ActivityContext.Provider

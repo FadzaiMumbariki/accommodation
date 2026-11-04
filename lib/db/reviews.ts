@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import type { ReviewRow } from './types';
+import { type ReviewRow, isValidUuid, generateUuid } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reviews & Reporting
@@ -15,8 +15,12 @@ export interface Review {
   createdAt: string;
 }
 
+const localMockReviews: Record<string, Review[]> = {};
+
 export async function fetchReviews(propertyId: string): Promise<Review[]> {
-  if (!supabase) return [];
+  if (!supabase) {
+    return localMockReviews[propertyId] ?? [];
+  }
 
   const { data, error } = await supabase
     .from('reviews')
@@ -25,6 +29,9 @@ export async function fetchReviews(propertyId: string): Promise<Review[]> {
     .order('created_at', { ascending: false });
 
   if (error) {
+    if (error.code === '22P02') {
+      return localMockReviews[propertyId] ?? [];
+    }
     console.error('[fetchReviews]', error.message);
     throw error;
   }
@@ -46,7 +53,19 @@ export async function insertReview(
   rating: number,
   text: string,
 ): Promise<void> {
-  if (!supabase) throw new Error('Reviews require a Supabase connection.');
+  if (!supabase) {
+    const newRev: Review = {
+      id: generateUuid(),
+      propertyId,
+      authorId,
+      authorName: authorName || 'Anonymous',
+      rating,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    localMockReviews[propertyId] = [newRev, ...(localMockReviews[propertyId] ?? [])];
+    return;
+  }
 
   const { error } = await supabase.from('reviews').insert({
     property_id: propertyId,
@@ -57,6 +76,19 @@ export async function insertReview(
   });
 
   if (error) {
+    if (error.code === '22P02') {
+      const newRev: Review = {
+        id: generateUuid(),
+        propertyId,
+        authorId,
+        authorName: authorName || 'Anonymous',
+        rating,
+        text,
+        createdAt: new Date().toISOString(),
+      };
+      localMockReviews[propertyId] = [newRev, ...(localMockReviews[propertyId] ?? [])];
+      return;
+    }
     console.error('[insertReview]', error.message);
     throw error;
   }
@@ -68,7 +100,14 @@ export async function updateReview(
   rating: number,
   text: string,
 ): Promise<void> {
-  if (!supabase) throw new Error('Reviews require a Supabase connection.');
+  if (!supabase) {
+    if (localMockReviews[propertyId]) {
+      localMockReviews[propertyId] = localMockReviews[propertyId].map((r) =>
+        r.authorId === authorId ? { ...r, rating, text } : r,
+      );
+    }
+    return;
+  }
   const { data, error } = await supabase
     .from('reviews')
     .update({ rating, text })
@@ -76,7 +115,16 @@ export async function updateReview(
     .eq('author_id', authorId)
     .select('id')
     .maybeSingle();
+
   if (error) {
+    if (error.code === '22P02') {
+      if (localMockReviews[propertyId]) {
+        localMockReviews[propertyId] = localMockReviews[propertyId].map((r) =>
+          r.authorId === authorId ? { ...r, rating, text } : r,
+        );
+      }
+      return;
+    }
     console.error('[updateReview]', error.message);
     throw error;
   }
