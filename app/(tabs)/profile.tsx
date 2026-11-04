@@ -43,7 +43,7 @@ export default function ProfileScreen() {
     }
     Alert.alert(
       'Account Switched',
-      `You are now in ${newRole === 'tenant' ? 'Tenant (Home Seeker)' : 'Landlord (Property Owner)'} mode.`
+      `You are now in ${newRole === 'tenant' ? 'Tenant (Home Seeker)' : 'Landlord (Property Owner)'} mode.`,
     );
   };
 
@@ -62,7 +62,7 @@ export default function ProfileScreen() {
   };
 
   const openPrivacyPolicy = () => {
-    void Linking.openURL(PRIVACY_POLICY_URL).catch(error => {
+    void Linking.openURL(PRIVACY_POLICY_URL).catch((error) => {
       console.error('[Profile] Could not open privacy policy:', error);
       Alert.alert('Could not open link', 'Please try again later.');
     });
@@ -211,61 +211,83 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <ResponsiveContainer maxWidth={760}>
-        {/* User Card */}
-        <View style={styles.userCard}>
-          <Image
-            source={{
-              uri: user?.user_metadata?.avatar_url
-                ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
-            }}
-            style={styles.userAvatar}
-            contentFit="cover"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>
-              {user?.user_metadata?.full_name ?? userName ?? 'Fadzai'}
-            </Text>
-            <Text style={styles.userEmail} numberOfLines={1}>
-              {user?.email ?? 'tenant@imbafind.co.zw'}
-            </Text>
-            <Text style={styles.userRole}>
-              {userRole === 'landlord' ? 'Landlord' : 'Tenant'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Menu Items */}
-        <View style={styles.menuList}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={item.onPress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuLeft}>
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={item.isDanger ? Brand.error : Brand.navy}
-                />
-                <Text
+          {/* User Card */}
+          <View style={styles.userCard}>
+            <Image
+              source={{
+                uri:
+                  user?.user_metadata?.avatar_url ??
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300',
+              }}
+              style={styles.userAvatar}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {user?.user_metadata?.full_name ?? userName ?? 'Fadzai'}
+              </Text>
+              <Text style={styles.userEmail} numberOfLines={1}>
+                {user?.email ?? 'tenant@imbafind.co.zw'}
+              </Text>
+              <View style={styles.roleActionRow}>
+                <View
                   style={[
-                    styles.menuLabel,
-                    item.isDanger && styles.menuLabelDanger,
+                    styles.roleBadge,
+                    userRole === 'landlord' ? styles.roleBadgeLandlord : styles.roleBadgeTenant,
                   ]}
                 >
-                  {item.label}
-                </Text>
+                  <Ionicons
+                    name={userRole === 'landlord' ? 'business' : 'person'}
+                    size={12}
+                    color={Brand.white}
+                  />
+                  <Text style={styles.roleBadgeText}>
+                    {userRole === 'landlord' ? 'Landlord' : 'Tenant'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.quickSwitchBtn}
+                  onPress={switchRole}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Switch to ${userRole === 'landlord' ? 'Tenant' : 'Landlord'} mode`}
+                >
+                  <Ionicons name="swap-horizontal" size={14} color={Brand.terracotta} />
+                  <Text style={styles.quickSwitchBtnText}>
+                    Switch to {userRole === 'landlord' ? 'Tenant' : 'Landlord'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              {!item.isDanger && (
-                <Ionicons name="chevron-forward" size={16} color={Brand.gray400} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+            </View>
+          </View>
+
+          {/* Menu Items */}
+          <View style={styles.menuList}>
+            {menuItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.menuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuLeft}>
+                  <Ionicons
+                    name={item.icon}
+                    size={20}
+                    color={item.isDanger ? Brand.error : Brand.navy}
+                  />
+                  <Text style={[styles.menuLabel, item.isDanger && styles.menuLabelDanger]}>
+                    {item.label}
+                  </Text>
+                </View>
+                {!item.isDanger && (
+                  <Ionicons name="chevron-forward" size={16} color={Brand.gray400} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         </ResponsiveContainer>
         {!isMobile && <WebFooter />}
       </ScrollView>
@@ -330,10 +352,47 @@ const styles = StyleSheet.create({
     color: Brand.gray400,
     marginTop: 1,
   },
-  userRole: {
-    fontSize: 13,
-    color: Brand.gray500,
-    marginTop: 2,
+  roleActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  roleBadgeLandlord: {
+    backgroundColor: Brand.terracotta,
+  },
+  roleBadgeTenant: {
+    backgroundColor: Brand.navy,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Brand.white,
+  },
+  quickSwitchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Brand.terracotta,
+    backgroundColor: Brand.cream,
+  },
+  quickSwitchBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Brand.terracotta,
   },
   menuList: {
     marginTop: 10,

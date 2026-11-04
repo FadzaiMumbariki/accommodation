@@ -130,8 +130,11 @@ function RoleProvider({ children }: { children: ReactNode }) {
   const setUserRole = useCallback(
     async (role: UserRole, options?: { localOnly?: boolean }): Promise<boolean> => {
       if (user && isSupabaseEnabled && !options?.localOnly) {
-        const updated = await changeRole(user.id, role);
-        if (!updated) return false;
+        try {
+          await changeRole(user.id, role);
+        } catch (error) {
+          console.warn('[RoleProvider] Remote changeRole error, proceeding locally:', error);
+        }
       }
       setUserRoleState(role);
       try {
