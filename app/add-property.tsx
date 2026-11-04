@@ -50,6 +50,12 @@ const AMENITIES_LIST = [
   'Furnished',
 ];
 
+const SAMPLE_PROPERTY_PHOTOS = [
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80',
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80',
+  'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=1200&q=80',
+];
+
 const getProvinceForCity = (city: string): string => {
   const lower = city.toLowerCase().trim();
   const provinceMap: Record<string, string> = {
@@ -88,24 +94,28 @@ const getProvinceForCity = (city: string): string => {
 
 export default function AddPropertyScreen() {
   const { editId } = useLocalSearchParams<{ editId?: string }>();
-  const { addProperty, updateProperty, properties } = useApp();
+  const { addProperty, updateProperty, properties, userRole, setUserRole } = useApp();
   const requireAuth = useRequireAuth();
   const { user, isSupabaseEnabled } = useAuth();
-  const editingProperty = properties.find(property => property.id === editId);
+  const editingProperty = properties.find((property) => property.id === editId);
 
   const [title, setTitle] = useState(editingProperty?.title ?? '');
   const [city, setCity] = useState(editingProperty?.city ?? 'Bulawayo');
   const [suburb, setSuburb] = useState(editingProperty?.suburb ?? '');
   const [price, setPrice] = useState(String(editingProperty?.price ?? 300));
   const [deposit, setDeposit] = useState(String(editingProperty?.deposit ?? 300));
-  const [propertyType, setPropertyType] = useState<PropertyType>(editingProperty?.propertyType ?? 'house');
+  const [propertyType, setPropertyType] = useState<PropertyType>(
+    editingProperty?.propertyType ?? 'house',
+  );
   const [bedrooms, setBedrooms] = useState(editingProperty?.bedrooms ?? 2);
   const [bathrooms, setBathrooms] = useState(editingProperty?.bathrooms ?? 1);
   const [maxOccupants, setMaxOccupants] = useState(editingProperty?.maxOccupants ?? 4);
   const [description, setDescription] = useState(editingProperty?.description ?? '');
   const [pickedImages, setPickedImages] = useState<string[]>(editingProperty?.images ?? []);
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
-  const [uploadStates, setUploadStates] = useState<Record<string, 'uploading' | 'uploaded' | 'failed'>>({});
+  const [uploadStates, setUploadStates] = useState<
+    Record<string, 'uploading' | 'uploaded' | 'failed'>
+  >({});
   const [pickingImage, setPickingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [writingDescription, setWritingDescription] = useState(false);
@@ -143,8 +153,8 @@ export default function AddPropertyScreen() {
       });
       if (!result.canceled) {
         const remaining = Math.max(0, 8 - pickedImages.length);
-        const uris = result.assets.slice(0, remaining).map(asset => asset.uri);
-        setPickedImages(prev => [...prev, ...uris]);
+        const uris = result.assets.slice(0, remaining).map((asset) => asset.uri);
+        setPickedImages((prev) => [...prev, ...uris]);
         if (result.assets.length > remaining) {
           Alert.alert('Photo limit reached', 'A listing can have up to 8 photos.');
         }
@@ -158,13 +168,13 @@ export default function AddPropertyScreen() {
   };
 
   const removeImage = (uri: string) => {
-    setPickedImages(prev => prev.filter(u => u !== uri));
-    setUploadedUrls(prev => {
+    setPickedImages((prev) => prev.filter((u) => u !== uri));
+    setUploadedUrls((prev) => {
       const next = { ...prev };
       delete next[uri];
       return next;
     });
-    setUploadStates(prev => {
+    setUploadStates((prev) => {
       const next = { ...prev };
       delete next[uri];
       return next;
@@ -176,16 +186,23 @@ export default function AddPropertyScreen() {
       Alert.alert('Sign in required', 'Please sign in to upload property photos.');
       return null;
     }
-    setUploadStates(prev => ({ ...prev, [uri]: 'uploading' }));
+    setUploadStates((prev) => ({ ...prev, [uri]: 'uploading' }));
     try {
       const publicUrl = await uploadPropertyImage(user.id, uri);
-      setUploadedUrls(prev => ({ ...prev, [uri]: publicUrl }));
-      setUploadStates(prev => ({ ...prev, [uri]: 'uploaded' }));
+      setUploadedUrls((prev) => ({ ...prev, [uri]: publicUrl }));
+      setUploadStates((prev) => ({ ...prev, [uri]: 'uploaded' }));
       return publicUrl;
     } catch (error) {
       console.error('[AddProperty] Photo upload failed:', error);
-      setUploadStates(prev => ({ ...prev, [uri]: 'failed' }));
+      setUploadStates((prev) => ({ ...prev, [uri]: 'failed' }));
       return null;
+    }
+  };
+
+  const handleAddSamplePhotos = () => {
+    setPickedImages(SAMPLE_PROPERTY_PHOTOS);
+    if (formErrors.images) {
+      setFormErrors((prev) => ({ ...prev, images: '' }));
     }
   };
 
@@ -202,7 +219,7 @@ export default function AddPropertyScreen() {
     setter: (v: number) => void,
     delta: number,
     min = 0,
-    max = 20
+    max = 20,
   ) => {
     const next = Math.max(min, Math.min(max, value + delta));
     setter(next);
@@ -210,7 +227,10 @@ export default function AddPropertyScreen() {
 
   const handleWriteDescription = async () => {
     if (!title.trim() && !suburb.trim()) {
-      Alert.alert('Add details first', 'Enter a title and suburb so the AI has facts to work from.');
+      Alert.alert(
+        'Add details first',
+        'Enter a title and suburb so the AI has facts to work from.',
+      );
       return;
     }
     // AI requires a real signed-in account (per-user rate limit). Prompt sign-in instead of a silent fallback.
@@ -223,7 +243,11 @@ export default function AddPropertyScreen() {
       const numericPrice = Number(price) || 0;
       const benchmark = getMarketBenchmark(city, propertyType, bedrooms);
 
-      const { description: draft, source, unavailable } = await generateListingDescription({
+      const {
+        description: draft,
+        source,
+        unavailable,
+      } = await generateListingDescription({
         title: title.trim(),
         propertyType,
         city,
@@ -244,10 +268,13 @@ export default function AddPropertyScreen() {
 
       Alert.alert(
         `${source === 'ai' ? 'AI' : 'Basic'} Draft Ready & Price Evaluated`,
-        `${source === 'basic' && unavailable ? aiUnavailableMessage(unavailable) + '\n\n' : ''}This ${source === 'ai' ? 'AI-generated' : 'locally generated'} description uses the property facts you entered.${priceNotice}\n\nPlease check it for accuracy and edit before publishing.`
+        `${source === 'basic' && unavailable ? aiUnavailableMessage(unavailable) + '\n\n' : ''}This ${source === 'ai' ? 'AI-generated' : 'locally generated'} description uses the property facts you entered.${priceNotice}\n\nPlease check it for accuracy and edit before publishing.`,
       );
     } catch (error) {
-      Alert.alert('AI unavailable', error instanceof Error ? error.message : 'Please write the description yourself.');
+      Alert.alert(
+        'AI unavailable',
+        error instanceof Error ? error.message : 'Please write the description yourself.',
+      );
     } finally {
       setWritingDescription(false);
     }
@@ -256,15 +283,26 @@ export default function AddPropertyScreen() {
   const executeSave = async () => {
     setSaving(true);
     try {
+      if (userRole !== 'landlord') {
+        try {
+          await setUserRole('landlord');
+        } catch (roleError) {
+          console.warn('[AddProperty] Auto-promoted to landlord role failed:', roleError);
+        }
+      }
+
       const imageUrls: string[] = [];
       for (const uri of pickedImages) {
         if (!isSupabaseEnabled || (!uri.startsWith('file://') && !uri.startsWith('content://'))) {
           imageUrls.push(uri);
           continue;
         }
-        const publicUrl = uploadedUrls[uri] ?? await uploadImage(uri);
+        const publicUrl = uploadedUrls[uri] ?? (await uploadImage(uri));
         if (!publicUrl) {
-          Alert.alert('Photo upload failed', 'Retry each failed photo before publishing your listing.');
+          Alert.alert(
+            'Photo upload failed',
+            'Retry each failed photo before publishing your listing.',
+          );
           return;
         }
         imageUrls.push(publicUrl);
@@ -275,7 +313,9 @@ export default function AddPropertyScreen() {
 
       const payload = {
         title: title.trim(),
-        description: description || 'Beautiful, secure property available in ' + suburb.trim() + ', ' + city.trim() + '.',
+        description:
+          description ||
+          'Beautiful, secure property available in ' + suburb.trim() + ', ' + city.trim() + '.',
         price: parsedPrice,
         deposit: parsedDeposit,
         propertyType,
@@ -286,7 +326,7 @@ export default function AddPropertyScreen() {
         bathrooms,
         maxOccupants,
         available: editingProperty?.available ?? true,
-        availabilityStatus: editingProperty?.availabilityStatus ?? 'available_now' as const,
+        availabilityStatus: editingProperty?.availabilityStatus ?? ('available_now' as const),
         availableFromDate: editingProperty?.availableFromDate,
         coordinates: editingProperty?.coordinates,
         verified: editingProperty?.verified ?? false,
@@ -330,8 +370,8 @@ export default function AddPropertyScreen() {
       newErrors.price = 'Please enter a valid monthly rent greater than $0.';
     }
 
-    if (pickedImages.length < 3) {
-      newErrors.images = 'Please add at least 3 photos (living room, bedroom, bathroom/exterior).';
+    if (pickedImages.length < 1) {
+      newErrors.images = 'Please add at least 1 photo of the property.';
     } else if (pickedImages.length > 8) {
       newErrors.images = 'A listing can have up to 8 photos.';
     }
@@ -346,11 +386,11 @@ export default function AddPropertyScreen() {
 
     // Duplicate listing check: warn if landlord already has an active listing with identical title and suburb
     const isDuplicate = properties.some(
-      p =>
+      (p) =>
         p.landlordId === user?.id &&
         p.id !== editingProperty?.id &&
         p.title.trim().toLowerCase() === title.trim().toLowerCase() &&
-        p.suburb.trim().toLowerCase() === suburb.trim().toLowerCase()
+        p.suburb.trim().toLowerCase() === suburb.trim().toLowerCase(),
     );
 
     if (isDuplicate) {
@@ -360,7 +400,7 @@ export default function AddPropertyScreen() {
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Publish Anyway', onPress: () => void executeSave() },
-        ]
+        ],
       );
       return;
     }
@@ -386,10 +426,7 @@ export default function AddPropertyScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
 
@@ -399,7 +436,7 @@ export default function AddPropertyScreen() {
             value={title}
             onChangeText={(t) => {
               setTitle(t);
-              if (formErrors.title) setFormErrors(prev => ({ ...prev, title: '' }));
+              if (formErrors.title) setFormErrors((prev) => ({ ...prev, title: '' }));
             }}
             placeholder="e.g. Modern 2-Bedroom Cottage with Solar"
             placeholderTextColor={Brand.gray400}
@@ -414,12 +451,14 @@ export default function AddPropertyScreen() {
                 value={city}
                 onChangeText={(c) => {
                   setCity(c);
-                  if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
+                  if (formErrors.city) setFormErrors((prev) => ({ ...prev, city: '' }));
                 }}
                 placeholder="e.g. Bulawayo"
                 placeholderTextColor={Brand.gray400}
               />
-              {Boolean(formErrors.city) && <Text style={styles.inlineError}>{formErrors.city}</Text>}
+              {Boolean(formErrors.city) && (
+                <Text style={styles.inlineError}>{formErrors.city}</Text>
+              )}
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Suburb *</Text>
@@ -428,12 +467,14 @@ export default function AddPropertyScreen() {
                 value={suburb}
                 onChangeText={(s) => {
                   setSuburb(s);
-                  if (formErrors.suburb) setFormErrors(prev => ({ ...prev, suburb: '' }));
+                  if (formErrors.suburb) setFormErrors((prev) => ({ ...prev, suburb: '' }));
                 }}
                 placeholder="e.g. Nkulumane"
                 placeholderTextColor={Brand.gray400}
               />
-              {Boolean(formErrors.suburb) && <Text style={styles.inlineError}>{formErrors.suburb}</Text>}
+              {Boolean(formErrors.suburb) && (
+                <Text style={styles.inlineError}>{formErrors.suburb}</Text>
+              )}
             </View>
           </View>
 
@@ -465,13 +506,15 @@ export default function AddPropertyScreen() {
                 value={price}
                 onChangeText={(p) => {
                   setPrice(p);
-                  if (formErrors.price) setFormErrors(prev => ({ ...prev, price: '' }));
+                  if (formErrors.price) setFormErrors((prev) => ({ ...prev, price: '' }));
                 }}
                 keyboardType="numeric"
                 placeholder="300"
                 placeholderTextColor={Brand.gray400}
               />
-              {Boolean(formErrors.price) && <Text style={styles.inlineError}>{formErrors.price}</Text>}
+              {Boolean(formErrors.price) && (
+                <Text style={styles.inlineError}>{formErrors.price}</Text>
+              )}
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Security Deposit ($)</Text>
@@ -500,17 +543,11 @@ export default function AddPropertyScreen() {
                   isCurrentPriceLow
                     ? 'alert-circle'
                     : isCurrentPriceHigh
-                    ? 'information-circle'
-                    : 'checkmark-circle'
+                      ? 'information-circle'
+                      : 'checkmark-circle'
                 }
                 size={16}
-                color={
-                  isCurrentPriceLow
-                    ? '#EF4444'
-                    : isCurrentPriceHigh
-                    ? '#3B82F6'
-                    : '#10B981'
-                }
+                color={isCurrentPriceLow ? '#EF4444' : isCurrentPriceHigh ? '#3B82F6' : '#10B981'}
               />
               <Text
                 style={[
@@ -521,8 +558,8 @@ export default function AddPropertyScreen() {
                 {isCurrentPriceLow
                   ? `Warning: $${currentPriceNum} is unusually low for a ${bedrooms}-bed ${propertyType} in ${city} (typical: $${currentBenchmark.min} - $${currentBenchmark.max}). AI Trust Check may flag unusually low prices.`
                   : isCurrentPriceHigh
-                  ? `Notice: $${currentPriceNum} is above average for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}). Ensure premium backup utilities are highlighted.`
-                  : `Price ($${currentPriceNum}/mo) matches standard market rates for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}).`}
+                    ? `Notice: $${currentPriceNum} is above average for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}). Ensure premium backup utilities are highlighted.`
+                    : `Price ($${currentPriceNum}/mo) matches standard market rates for ${city} ($${currentBenchmark.min} - $${currentBenchmark.max}).`}
               </Text>
             </View>
           )}
@@ -609,6 +646,7 @@ export default function AddPropertyScreen() {
           onPickImage={handlePickImage}
           onRemoveImage={removeImage}
           onRetryUpload={(uri) => void uploadImage(uri)}
+          onAddSamplePhotos={handleAddSamplePhotos}
           maxPhotos={8}
         />
         {Boolean(formErrors.images) && (
@@ -634,9 +672,7 @@ export default function AddPropertyScreen() {
                     size={16}
                     color={active ? Brand.white : Brand.gray600}
                   />
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {item}
-                  </Text>
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -655,10 +691,16 @@ export default function AddPropertyScreen() {
             {writingDescription ? (
               <ActivityIndicator size="small" color={Brand.white} />
             ) : (
-              <MaterialCommunityIcons name="file-document-edit-outline" size={15} color={Brand.white} />
+              <MaterialCommunityIcons
+                name="file-document-edit-outline"
+                size={15}
+                color={Brand.white}
+              />
             )}
             <Text style={styles.aiAssistantBtnText}>
-              {writingDescription ? 'Writing with AI…' : 'AI Writing Assistant (Draft & Price Check)'}
+              {writingDescription
+                ? 'Writing with AI…'
+                : 'AI Writing Assistant (Draft & Price Check)'}
             </Text>
           </TouchableOpacity>
           <TextInput

@@ -11,6 +11,7 @@ interface PropertyPhotoPickerProps {
   onPickImage: () => void;
   onRemoveImage: (uri: string) => void;
   onRetryUpload: (uri: string) => void;
+  onAddSamplePhotos?: () => void;
   maxPhotos?: number;
 }
 
@@ -21,12 +22,27 @@ export function PropertyPhotoPicker({
   onPickImage,
   onRemoveImage,
   onRetryUpload,
+  onAddSamplePhotos,
   maxPhotos = 8,
 }: PropertyPhotoPickerProps) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Property Photos *</Text>
-      <Text style={styles.photoHint}>Add at least 3 photos (living room, bedroom, bathroom/exterior) up to {maxPhotos}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>Property Photos *</Text>
+        {Boolean(onAddSamplePhotos) && pickedImages.length === 0 && (
+          <TouchableOpacity
+            onPress={onAddSamplePhotos}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Add sample property photos"
+          >
+            <Text style={styles.samplePhotosBtn}>+ Sample Photos</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <Text style={styles.photoHint}>
+        Add at least 1 photo (living room, bedroom, or exterior) up to {maxPhotos}
+      </Text>
       <View style={styles.photoGrid}>
         {pickedImages.map((img, i) => (
           <View key={img + i} style={styles.photoTile}>
@@ -106,17 +122,30 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: Brand.navy,
-    marginBottom: 14,
+  },
+  samplePhotosBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Brand.navy,
+    backgroundColor: Brand.gray100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   photoHint: {
     fontSize: 12,
     color: Brand.gray500,
     marginBottom: 12,
-    marginTop: -8,
   },
   photoGrid: {
     flexDirection: 'row',
@@ -161,7 +190,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   photoStatusText: { color: Brand.white, fontSize: 9, fontWeight: '700' },
-  photoRetry: { color: Brand.white, fontSize: 10, fontWeight: '800', textDecorationLine: 'underline' },
+  photoRetry: {
+    color: Brand.white,
+    fontSize: 10,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+  },
   photoTileAdd: {
     backgroundColor: Brand.gray100,
     borderWidth: 1,

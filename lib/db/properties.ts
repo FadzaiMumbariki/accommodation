@@ -150,6 +150,11 @@ export async function insertProperty(
 
   if (error) {
     console.error('[insertProperty]', error.message);
+    if (error.message?.toLowerCase().includes('violates row-level security')) {
+      throw new Error(
+        'Only landlords can publish property listings. Please ensure your account is set to Landlord.',
+      );
+    }
     throw error;
   }
   if (!data) throw new Error('The property listing could not be saved.');
@@ -158,20 +163,34 @@ export async function insertProperty(
 
 export async function uploadPropertyImage(userId: string, uri: string): Promise<string> {
   if (!supabase) throw new Error('Photo uploads require a Supabase connection.');
-  const manipulator = ImageManipulator.ImageManipulator.manipulate(uri);
-  const original = await manipulator.renderAsync();
-  let image = original;
-  if (original.width > 1600) {
-    manipulator.reset().resize({ width: 1600 });
-    image = await manipulator.renderAsync();
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    return uri;
   }
-  const compressed = await image.saveAsync({
-    format: ImageManipulator.SaveFormat.JPEG,
-    compress: 0.7,
-  });
-  const response = await fetch(compressed.uri);
-  if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
-  const body = await response.arrayBuffer();
+  let body: ArrayBuffer;
+  try {
+    const manipulator = ImageManipulator.ImageManipulator.manipulate(uri);
+    const original = await manipulator.renderAsync();
+    let image = original;
+    if (original.width > 1600) {
+      manipulator.reset().resize({ width: 1600 });
+      image = await manipulator.renderAsync();
+    }
+    const compressed = await image.saveAsync({
+      format: ImageManipulator.SaveFormat.JPEG,
+      compress: 0.7,
+    });
+    const response = await fetch(compressed.uri);
+    if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
+    body = await response.arrayBuffer();
+  } catch (manipulatorError) {
+    console.warn(
+      '[uploadPropertyImage] Manipulator failed, falling back to direct fetch:',
+      manipulatorError,
+    );
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
+    body = await response.arrayBuffer();
+  }
   const path = `${userId}/${generateUuid()}.jpg`;
   const { error } = await supabase.storage
     .from('property-images')
