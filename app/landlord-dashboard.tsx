@@ -16,14 +16,19 @@ import { Brand } from '../constants/Colors';
 import { useApp } from '../context/AppContext';
 
 export default function LandlordDashboardScreen() {
-  const { myListings, viewings, conversations, requests, updateProperty, deleteProperty } = useApp();
+  const { myListings, viewings, conversations, requests, updateProperty, deleteProperty } =
+    useApp();
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-  const myListingIds = useMemo(() => new Set(myListings.map(p => p.id)), [myListings]);
+  const myListingIds = useMemo(() => new Set(myListings.map((p) => p.id)), [myListings]);
   const totalListings = myListings.length;
-  const availableCount = myListings.filter(p => p.available).length;
+  const availableCount = myListings.filter((p) => p.available).length;
   const occupiedCount = totalListings - availableCount;
-  const viewingReqForMe = viewings.filter(v => v.propertyId && myListingIds.has(v.propertyId)).length;
-  const msgForMe = conversations.filter(c => c.propertyId && myListingIds.has(c.propertyId)).length;
+  const viewingReqForMe = viewings.filter(
+    (v) => v.propertyId && myListingIds.has(v.propertyId),
+  ).length;
+  const msgForMe = conversations.filter(
+    (c) => c.propertyId && myListingIds.has(c.propertyId),
+  ).length;
   const tenantReq = requests.length;
 
   const openProp = (id: string) => {
@@ -79,7 +84,11 @@ export default function LandlordDashboardScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         {/* Stats Grid Card */}
         <View style={styles.statsCard}>
           <View style={styles.statsRow}>
@@ -129,6 +138,24 @@ export default function LandlordDashboardScreen() {
           <Text style={styles.addPropertyBtnText}>+ Add Property</Text>
         </TouchableOpacity>
 
+        {/* Verification Banner */}
+        <TouchableOpacity
+          style={styles.verificationBanner}
+          onPress={() => router.push('/verify-identity')}
+          activeOpacity={0.88}
+        >
+          <View style={styles.verificationIconBox}>
+            <Ionicons name="shield-checkmark" size={22} color="#059669" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.verificationBannerTitle}>Get Verified Landlord Badge</Text>
+            <Text style={styles.verificationBannerDesc}>
+              Upload your ID or proof of ownership to build trust and get more tenant inquiries.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Brand.gray400} />
+        </TouchableOpacity>
+
         {/* 3 Action Tiles */}
         <View style={styles.actionTilesRow}>
           <TouchableOpacity
@@ -166,7 +193,8 @@ export default function LandlordDashboardScreen() {
           <View style={styles.emptySection}>
             <Ionicons name="home-outline" size={36} color={Brand.gray300} />
             <Text style={styles.emptySectionText}>
-              You haven&apos;t listed any properties yet. Add your first property to start receiving enquiries.
+              You haven&apos;t listed any properties yet. Add your first property to start receiving
+              enquiries.
             </Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/add-property')}>
               <Text style={styles.emptyBtnText}>+ Add Property</Text>
@@ -197,7 +225,9 @@ export default function LandlordDashboardScreen() {
                   <Text style={styles.cardPrice}>${prop.price}/month</Text>
                 </View>
                 <View style={prop.available ? styles.availableBadge : styles.occupiedBadge}>
-                  <Text style={prop.available ? styles.availableBadgeText : styles.occupiedBadgeText}>
+                  <Text
+                    style={prop.available ? styles.availableBadgeText : styles.occupiedBadgeText}
+                  >
                     {prop.available ? 'Available' : 'Occupied'}
                   </Text>
                 </View>
@@ -339,6 +369,35 @@ const styles = StyleSheet.create({
     color: Brand.white,
     fontSize: 15,
     fontWeight: '700',
+  },
+  verificationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  verificationIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verificationBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  verificationBannerDesc: {
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 2,
+    lineHeight: 15,
   },
   actionTilesRow: {
     flexDirection: 'row',

@@ -36,6 +36,8 @@ import {
   fetchVerifiableLandlords,
   setPropertyVerified,
   setUserVerified,
+  submitVerificationRequest,
+  fetchMyVerificationStatus,
   blockUser,
   unblockUser,
   fetchBlockedUsers,
@@ -1473,6 +1475,58 @@ describe('insertViewing conflict protection', () => {
         viewing_date: '2030-01-01',
         status: 'pending',
       });
+    });
+  });
+
+  describe('landlord document verification requests', () => {
+    it('submitVerificationRequest inserts into verification_requests', async () => {
+      resolveFor('verification_requests', 'insert', { error: null });
+      await submitVerificationRequest('user-1', {
+        documentType: 'national_id',
+        documentUrl: 'https://cdn.example.com/id.jpg',
+        notes: '  National ID scan  ',
+      });
+      expect(payloadFor('verification_requests.insert')).toEqual({
+        user_id: 'user-1',
+        document_type: 'national_id',
+        document_url: 'https://cdn.example.com/id.jpg',
+        document_notes: 'National ID scan',
+      });
+    });
+
+    it('submitVerificationRequest throws when supabase is disabled', async () => {
+      S.client = null;
+      await expect(
+        submitVerificationRequest('user-1', {
+          documentType: 'national_id',
+          documentUrl: 'https://cdn.example.com/id.jpg',
+        }),
+      ).rejects.toThrow(/Supabase connection/);
+    });
+
+    it('fetchMyVerificationStatus returns status and notes', async () => {
+      resolveFor('verification_requests', 'select', {
+        data: {
+          status: 'pending',
+          created_at: '2026-11-01T10:00:00Z',
+          admin_notes: 'Under review',
+        },
+        error: null,
+      });
+      const status = await fetchMyVerificationStatus('user-1');
+      expect(status).toEqual({
+        status: 'pending',
+        submittedAt: '2026-11-01T10:00:00Z',
+        adminNotes: 'Under review',
+      });
+    });
+
+    it('fetchMyVerificationStatus falls back to unverified when no record or offline', async () => {
+      resolveFor('verification_requests', 'select', { data: null, error: null });
+      expect(await fetchMyVerificationStatus('user-1')).toEqual({ status: 'unverified' });
+
+      S.client = null;
+      expect(await fetchMyVerificationStatus('user-1')).toEqual({ status: 'unverified' });
     });
   });
 });

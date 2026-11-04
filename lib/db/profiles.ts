@@ -213,3 +213,60 @@ export async function clearPushToken(userId: string): Promise<void> {
     throw error;
   }
 }
+
+export type DocumentType =
+  'national_id' | 'passport' | 'title_deed' | 'utility_bill' | 'management_mandate';
+
+export interface VerificationRequestInput {
+  documentType: DocumentType;
+  documentUrl: string;
+  notes?: string;
+}
+
+export interface VerificationRequestStatus {
+  status: 'unverified' | 'pending' | 'approved' | 'rejected';
+  submittedAt?: string;
+  adminNotes?: string;
+}
+
+export async function submitVerificationRequest(
+  userId: string,
+  input: VerificationRequestInput,
+): Promise<void> {
+  if (!supabase) throw new Error('Document verification requires a Supabase connection.');
+  const { error } = await supabase.from('verification_requests').insert({
+    user_id: userId,
+    document_type: input.documentType,
+    document_url: input.documentUrl,
+    document_notes: input.notes?.trim() || null,
+  });
+  if (error) {
+    console.error('[submitVerificationRequest]', error.message);
+    throw new Error(error.message);
+  }
+}
+
+export async function fetchMyVerificationStatus(
+  userId: string,
+): Promise<VerificationRequestStatus> {
+  if (!supabase) return { status: 'unverified' };
+  const { data, error } = await supabase
+    .from('verification_requests')
+    .select('status, created_at, admin_notes')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[fetchMyVerificationStatus]', error.message);
+    return { status: 'unverified' };
+  }
+  if (!data) return { status: 'unverified' };
+
+  return {
+    status: data.status as VerificationRequestStatus['status'],
+    submittedAt: data.created_at,
+    adminNotes: data.admin_notes ?? undefined,
+  };
+}

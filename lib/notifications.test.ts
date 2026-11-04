@@ -6,15 +6,19 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
 type LoadedNotifications = typeof import('./notifications');
 
-async function loadWith(
-  options: { environment: 'storeClient' | 'bare'; platform?: string; notifications?: 'ok' | 'missing' },
-): Promise<{ mod: LoadedNotifications; getNotifications: () => unknown }> {
+async function loadWith(options: {
+  environment: 'storeClient' | 'bare';
+  platform?: string;
+  notifications?: 'ok' | 'missing';
+  supabase?: unknown;
+}): Promise<{ mod: LoadedNotifications; getNotifications: () => unknown }> {
   let mod!: LoadedNotifications;
   await jest.isolateModulesAsync(async () => {
     jest.resetModules();
     jest.unmock('expo-constants');
     jest.unmock('react-native');
     jest.unmock('expo-notifications');
+    jest.unmock('./supabase');
     jest.doMock('expo-constants', () => ({
       __esModule: true,
       default: { executionEnvironment: options.environment },
@@ -27,6 +31,11 @@ async function loadWith(
       });
     } else {
       jest.doMock('expo-notifications', () => ({ __esModule: true, default: { marker: true } }));
+    }
+    if (options.supabase !== undefined) {
+      jest.doMock('./supabase', () => ({ supabase: options.supabase }));
+    } else {
+      jest.doMock('./supabase', () => ({ supabase: null }));
     }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     mod = require('./notifications') as LoadedNotifications;
@@ -52,7 +61,7 @@ describe('notifications availability', () => {
   });
 
   it('returns the module when running natively outside Expo Go', async () => {
-    const { mod, getNotifications } = await loadWith({ environment: 'bare', platform: 'ios' });
+    const { getNotifications } = await loadWith({ environment: 'bare', platform: 'ios' });
     expect(getNotifications()).not.toBeNull();
   });
 
@@ -61,5 +70,52 @@ describe('notifications availability', () => {
     const { getNotifications } = await loadWith({ environment: 'bare', notifications: 'missing' });
     expect(getNotifications()).toBeNull();
     expect(warn).toHaveBeenCalled();
+  });
+
+  describe('sendRemotePushNotification', () => {
+    it('returns false when supabase is null or unavailable', async () => {
+      const { mod } = await loadWith({ environment: 'bare', supabase: null });
+      const res = await mod.sendRemotePushNotification({
+        recipientUserId: 'u-1',
+        title: 'New Message',
+        body: 'Hello',
+      });
+      expect(res).toBe(false);
+    });
+
+    it('invokes send-push function and returns success boolean', async () => {
+      const mockInvoke = jest
+        .fn()
+        .mockResolvedValue({ data: { success: true }, error: null } as never);
+      const { mod } = await loadWith({
+        environment: 'bare',
+        supabase: { functions: { invoke: mockInvoke } },
+      });
+      const res = await mod.sendRemotePushNotification({
+        recipientUserId: 'u-1',
+        title: 'New Message',
+        body: 'Hello',
+      });
+      expect(res).toBe(true);
+      expect(mockInvoke).toHaveBeenCalledWith('send-push', {
+        body: { recipientUserId: 'u-1', title: 'New Message', body: 'Hello' },
+      });
+    });
+
+    it('handles function error gracefully and returns false', async () => {
+      const mockInvoke = jest
+        .fn()
+        .mockResolvedValue({ data: null, error: new Error('invoke failed') } as never);
+      const { mod } = await loadWith({
+        environment: 'bare',
+        supabase: { functions: { invoke: mockInvoke } },
+      });
+      const res = await mod.sendRemotePushNotification({
+        recipientUserId: 'u-1',
+        title: 'New Message',
+        body: 'Hello',
+      });
+      expect(res).toBe(false);
+    });
   });
 });

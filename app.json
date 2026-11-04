@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.imbafind.app",
+      "associatedDomains": ["applinks:imbafind.co.zw"],
       "infoPlist": {
         "NSCameraUsageDescription": "ImbaFind uses your camera so you can take photos of accommodation listings and upload profile pictures.",
         "NSPhotoLibraryUsageDescription": "ImbaFind accesses your photo library so you can select property photos and profile avatars.",
@@ -23,6 +24,25 @@
           "apiKey": "AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA"
         }
       },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "imbafind.co.zw",
+              "pathPrefix": "/property"
+            },
+            {
+              "scheme": "https",
+              "host": "imbafind.co.zw",
+              "pathPrefix": "/viewing"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
