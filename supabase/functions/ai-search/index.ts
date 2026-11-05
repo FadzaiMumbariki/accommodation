@@ -46,11 +46,19 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  let body: Record<string, unknown>;
   try {
-    const { query, knownCities } = await req.json();
-    if (typeof query !== 'string' || !query.trim() || query.length > 200) {
-      return json({ error: 'Query must be 1-200 characters.' }, 400);
-    }
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON body.' }, 400);
+  }
+
+  const { query, knownCities } = body ?? {};
+  if (typeof query !== 'string' || !query.trim() || query.length > 200) {
+    return json({ error: 'Query must be 1-200 characters.' }, 400);
+  }
+
+  try {
     const rateLimitResponse = await enforceAiRateLimit(req, 'ai-search');
     if (rateLimitResponse) return rateLimitResponse;
 

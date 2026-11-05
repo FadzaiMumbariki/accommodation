@@ -19,11 +19,6 @@
     },
     "android": {
       "package": "com.imbafind.app",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA"
-        }
-      },
       "intentFilters": [
         {
           "action": "VIEW",

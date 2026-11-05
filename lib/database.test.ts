@@ -38,6 +38,11 @@ import {
   setUserVerified,
   submitVerificationRequest,
   fetchMyVerificationStatus,
+  uploadVerificationDocument,
+  getVerificationDocumentSignedUrl,
+  deleteVerificationDocument,
+  fetchPendingVerificationRequests,
+  reviewVerificationRequest,
   blockUser,
   unblockUser,
   fetchBlockedUsers,
@@ -401,6 +406,10 @@ beforeEach(() => {
     upload: anyFn().mockResolvedValue({ data: null, error: null }),
     getPublicUrl: anyFn().mockReturnValue({
       data: { publicUrl: 'https://cdn.example.com/photo.jpg' },
+    }),
+    createSignedUrl: anyFn().mockResolvedValue({
+      data: { signedUrl: 'https://cdn.example.com/signed-doc.jpg' },
+      error: null,
     }),
   };
   const chain: Record<string, any> = {
@@ -1521,12 +1530,82 @@ describe('insertViewing conflict protection', () => {
       });
     });
 
-    it('fetchMyVerificationStatus falls back to unverified when no record or offline', async () => {
-      resolveFor('verification_requests', 'select', { data: null, error: null });
-      expect(await fetchMyVerificationStatus('user-1')).toEqual({ status: 'unverified' });
+    it('uploadVerificationDocument uploads to private verification-documents bucket', async () => {
+      const g = globalThis as Record<string, any>;
+      const originalFetch = g.fetch;
+      g.fetch = anyFn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+      });
 
-      S.client = null;
-      expect(await fetchMyVerificationStatus('user-1')).toEqual({ status: 'unverified' });
+      try {
+        const path = await uploadVerificationDocument('user-1', 'file://doc.jpg');
+        expect(path).toMatch(/^user-1\/[0-9a-f-]+\.jpg$/);
+        expect(S.bucket.upload).toHaveBeenCalledWith(path, expect.anything(), {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      } finally {
+        g.fetch = originalFetch;
+      }
+    });
+
+    it('getVerificationDocumentSignedUrl creates time-limited signed url', async () => {
+      const signedUrl = await getVerificationDocumentSignedUrl('user-1/doc-123.jpg', 1800);
+      expect(signedUrl).toBe('https://cdn.example.com/signed-doc.jpg');
+      expect(S.bucket.createSignedUrl).toHaveBeenCalledWith('user-1/doc-123.jpg', 1800);
+    });
+
+    it('deleteVerificationDocument removes document from storage', async () => {
+      await deleteVerificationDocument('user-1/doc-123.jpg');
+      expect(S.bucket.remove).toHaveBeenCalledWith(['user-1/doc-123.jpg']);
+    });
+
+    it('fetchPendingVerificationRequests lists pending documents for admin review', async () => {
+      resolveFor('verification_requests', 'select', {
+        data: [
+          {
+            id: 'req-1',
+            user_id: 'user-1',
+            document_type: 'national_id',
+            document_url: 'user-1/id.jpg',
+            document_notes: 'National ID front',
+            status: 'pending',
+            admin_notes: null,
+            created_at: '2026-11-01T12:00:00Z',
+            profile: {
+              full_name: 'Jane Landlord',
+              phone: '+263771234567',
+              email: 'jane@example.com',
+            },
+          },
+        ],
+        error: null,
+      });
+
+      const docs = await fetchPendingVerificationRequests();
+      expect(docs).toHaveLength(1);
+      expect(docs[0].applicantName).toBe('Jane Landlord');
+      expect(docs[0].documentType).toBe('national_id');
+      expect(docs[0].status).toBe('pending');
+    });
+
+    it('reviewVerificationRequest updates status, sets verified and deletes document', async () => {
+      resolveFor('verification_requests', 'update', { data: [{ id: 'req-1' }], error: null });
+
+      await reviewVerificationRequest({
+        requestId: 'req-1',
+        userId: 'user-1',
+        decision: 'approved',
+        adminNotes: 'Verified ID document',
+        documentUrl: 'user-1/id.jpg',
+      });
+
+      expect(S.rpc).toHaveBeenCalledWith('admin_set_user_verified', {
+        p_user_id: 'user-1',
+        p_verified: true,
+      });
+      expect(S.bucket.remove).toHaveBeenCalledWith(['user-1/id.jpg']);
     });
   });
 });

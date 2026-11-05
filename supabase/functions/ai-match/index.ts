@@ -20,18 +20,31 @@ const str = (v: unknown, max = 80) => (typeof v === 'string' ? v.slice(0, max) :
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const list = (v: unknown) =>
   Array.isArray(v)
-    ? v.filter((a: unknown) => typeof a === 'string').slice(0, 10).map((a: string) => a.slice(0, 30))
+    ? v
+        .filter((a: unknown) => typeof a === 'string')
+        .slice(0, 10)
+        .map((a: string) => a.slice(0, 30))
     : [];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
-    const request = body?.request ?? {};
-    const property = body?.property ?? {};
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON body.' }, 400);
+  }
 
+  if (!body || typeof body !== 'object') {
+    return json({ error: 'Body must be a JSON object.' }, 400);
+  }
+
+  const request = (body.request as Record<string, unknown>) ?? {};
+  const property = (body.property as Record<string, unknown>) ?? {};
+
+  try {
     const payload = {
       request: {
         city: str(request.city, 40),

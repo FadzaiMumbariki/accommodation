@@ -8,6 +8,7 @@ describe('stripPii', () => {
 
   it('redacts Zimbabwean phone numbers in local and international format', () => {
     expect(stripPii('Call 0771234567')).toBe('Call [REDACTED_PHONE]');
+    expect(stripPii('Call 0772 345 678')).toBe('Call [REDACTED_PHONE]');
     expect(stripPii('Call +263 77 123 4567')).toBe('Call [REDACTED_PHONE]');
     expect(stripPii('Reach us on (0242) 700100')).toBe('Reach us on [REDACTED_PHONE]');
   });

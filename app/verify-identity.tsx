@@ -18,7 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Brand } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
 import {
-  uploadPropertyImage,
+  uploadVerificationDocument,
   submitVerificationRequest,
   fetchMyVerificationStatus,
   type DocumentType,
@@ -148,13 +148,13 @@ export default function VerifyIdentityScreen() {
 
     setUploading(true);
     try {
-      // 1. Upload photo to secure storage
-      const uploadedUrl = await uploadPropertyImage(user.id, documentUri);
+      // 1. Upload photo to private verification documents storage
+      const documentPath = await uploadVerificationDocument(user.id, documentUri);
 
       // 2. Insert verification request record
       await submitVerificationRequest(user.id, {
         documentType: selectedType,
-        documentUrl: uploadedUrl,
+        documentUrl: documentPath,
         notes: notes.trim(),
       });
 

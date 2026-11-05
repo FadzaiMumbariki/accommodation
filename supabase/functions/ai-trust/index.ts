@@ -44,8 +44,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON body.' }, 400);
+  }
+
+  if (!body || typeof body !== 'object') {
+    return json({ error: 'Body must be a JSON object.' }, 400);
+  }
+
+  try {
     const facts = {
       title: str(body.title),
       city: str(body.city, 40),
@@ -55,7 +65,8 @@ Deno.serve(async (req) => {
       propertyType: str(body.propertyType, 20),
       description: str(body.description, 400),
     };
-    if (!facts.title && !facts.description) return json({ error: 'Not enough listing detail.' }, 400);
+    if (!facts.title && !facts.description)
+      return json({ error: 'Not enough listing detail.' }, 400);
     const rateLimitResponse = await enforceAiRateLimit(req, 'ai-trust');
     if (rateLimitResponse) return rateLimitResponse;
 
@@ -74,9 +85,13 @@ Deno.serve(async (req) => {
       'missing_practical_details',
     ]);
     const warnings = Array.isArray(result.warnings)
-      ? [...new Set(result.warnings.filter((warning: unknown) =>
-          typeof warning === 'string' && allowedWarnings.has(warning),
-        ))]
+      ? [
+          ...new Set(
+            result.warnings.filter(
+              (warning: unknown) => typeof warning === 'string' && allowedWarnings.has(warning),
+            ),
+          ),
+        ]
       : [];
     return json({ warnings });
   } catch (error) {

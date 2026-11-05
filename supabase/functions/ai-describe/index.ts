@@ -22,8 +22,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON body.' }, 400);
+  }
+
+  if (!body || typeof body !== 'object') {
+    return json({ error: 'Body must be a JSON object.' }, 400);
+  }
+
+  try {
     const facts = {
       title: str(body.title),
       propertyType: str(body.propertyType, 20),
@@ -33,7 +43,10 @@ Deno.serve(async (req) => {
       bathrooms: num(body.bathrooms),
       monthlyRentUsd: num(body.price),
       amenities: Array.isArray(body.amenities)
-        ? body.amenities.filter((a: unknown) => typeof a === 'string').slice(0, 20).map((a: string) => a.slice(0, 30))
+        ? body.amenities
+            .filter((a: unknown) => typeof a === 'string')
+            .slice(0, 20)
+            .map((a: string) => a.slice(0, 30))
         : [],
     };
     if (!facts.suburb && !facts.title) return json({ error: 'Add a title and suburb first.' }, 400);
@@ -46,7 +59,8 @@ Deno.serve(async (req) => {
       schema: SCHEMA,
       temperature: 0.4,
     });
-    const description = typeof result.description === 'string' ? result.description.trim().slice(0, 1000) : '';
+    const description =
+      typeof result.description === 'string' ? result.description.trim().slice(0, 1000) : '';
     if (!description) throw new Error('Empty description');
     return json({ description });
   } catch (error) {

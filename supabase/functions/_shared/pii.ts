@@ -16,7 +16,7 @@ export function stripPii(text: string): string {
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
       // Redact Zimbabwean mobile & landline phone numbers (+263 7x, 07x, 086, +263 24, etc.)
       .replace(
-        /(?:\+263|263|0)[\s.-]?(?:7[1378]|86|24|29|54|20)[\s.-]?\d{3}[\s.-]?\d{3,4}\b/g,
+        /(?:\+263|263|0)[\s.-]?(?:7[1-9](?:[\s.-]?\d){7}|(?:86|24\d?|29\d?|54|20)(?:[\s.-]?\d){6,7})\b/g,
         '[REDACTED_PHONE]',
       )
       // Redact standalone long sequences of 9 to 13 digits (reference ids, national IDs, account numbers)

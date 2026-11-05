@@ -25,4 +25,19 @@ create policy "Users can view own verification requests"
 drop policy if exists "Users can submit own verification requests" on public.verification_requests;
 create policy "Users can submit own verification requests"
   on public.verification_requests for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and status = 'pending'
+    and admin_notes is null
+  );
+
+drop policy if exists "Admins can update verification requests" on public.verification_requests;
+create policy "Admins can update verification requests"
+  on public.verification_requests for update
+  using ((select coalesce(is_admin, false) from public.profiles where id = auth.uid()))
+  with check ((select coalesce(is_admin, false) from public.profiles where id = auth.uid()));
+
+drop policy if exists "Admins can delete verification requests" on public.verification_requests;
+create policy "Admins can delete verification requests"
+  on public.verification_requests for delete
+  using ((select coalesce(is_admin, false) from public.profiles where id = auth.uid()));

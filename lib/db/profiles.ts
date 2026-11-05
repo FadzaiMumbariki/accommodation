@@ -1,4 +1,6 @@
+import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../supabase';
+import { generateUuid } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profiles & Push Tokens
@@ -229,6 +231,107 @@ export interface VerificationRequestStatus {
   adminNotes?: string;
 }
 
+export interface PendingVerificationRequest {
+  id: string;
+  userId: string;
+  documentType: DocumentType;
+  documentUrl: string;
+  documentNotes: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes: string | null;
+  createdAt: string;
+  applicantName: string | null;
+  applicantPhone: string | null;
+  applicantEmail: string | null;
+}
+
+/**
+ * Uploads an identity document (national ID, passport, title deed) to the private
+ * `verification-documents` bucket. Returns the storage path (not a public URL)
+ * so it cannot be accessed without an authorized signed URL.
+ */
+export async function uploadVerificationDocument(userId: string, uri: string): Promise<string> {
+  if (!supabase) throw new Error('Document uploads require a Supabase connection.');
+  let body: ArrayBuffer;
+  try {
+    const manipulator = ImageManipulator.ImageManipulator.manipulate(uri);
+    const original = await manipulator.renderAsync();
+    let image = original;
+    if (original.width > 1600) {
+      manipulator.reset().resize({ width: 1600 });
+      image = await manipulator.renderAsync();
+    }
+    const compressed = await image.saveAsync({
+      format: ImageManipulator.SaveFormat.JPEG,
+      compress: 0.75,
+    });
+    const response = await fetch(compressed.uri);
+    if (!response.ok) throw new Error('Could not prepare document for upload.');
+    body = await response.arrayBuffer();
+  } catch (manipulatorError) {
+    console.warn('[uploadVerificationDocument] Manipulator fallback:', manipulatorError);
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error('Could not prepare document for upload.');
+    body = await response.arrayBuffer();
+  }
+
+  const path = `${userId}/${generateUuid()}.jpg`;
+  const { error } = await supabase.storage
+    .from('verification-documents')
+    .upload(path, body, { contentType: 'image/jpeg', upsert: false });
+
+  if (error) {
+    console.error('[uploadVerificationDocument]', error.message);
+    throw error;
+  }
+
+  return path;
+}
+
+/**
+ * Generates a short-lived signed URL to view a private verification document.
+ * Returns null if the Supabase connection or path is invalid.
+ */
+export async function getVerificationDocumentSignedUrl(
+  filePathOrUrl: string,
+  expiresIn = 3600,
+): Promise<string | null> {
+  if (!supabase || !filePathOrUrl) return null;
+  const path = filePathOrUrl.includes('verification-documents/')
+    ? filePathOrUrl.split('verification-documents/')[1]?.split('?')[0]
+    : filePathOrUrl;
+
+  if (!path) return null;
+
+  const { data, error } = await supabase.storage
+    .from('verification-documents')
+    .createSignedUrl(path, expiresIn);
+
+  if (error) {
+    console.error('[getVerificationDocumentSignedUrl]', error.message);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
+/**
+ * Deletes a sensitive verification document from storage after review to uphold data privacy.
+ */
+export async function deleteVerificationDocument(filePathOrUrl: string): Promise<void> {
+  if (!supabase || !filePathOrUrl) return;
+  const path = filePathOrUrl.includes('verification-documents/')
+    ? filePathOrUrl.split('verification-documents/')[1]?.split('?')[0]
+    : filePathOrUrl;
+
+  if (!path) return;
+
+  const { error } = await supabase.storage.from('verification-documents').remove([path]);
+
+  if (error) {
+    console.warn('[deleteVerificationDocument]', error.message);
+  }
+}
+
 export async function submitVerificationRequest(
   userId: string,
   input: VerificationRequestInput,
@@ -269,4 +372,81 @@ export async function fetchMyVerificationStatus(
     submittedAt: data.created_at,
     adminNotes: data.admin_notes ?? undefined,
   };
+}
+
+/**
+ * Lists pending verification requests with landlord applicant details for admin review.
+ */
+export async function fetchPendingVerificationRequests(
+  limit = 100,
+): Promise<PendingVerificationRequest[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('verification_requests')
+    .select(
+      'id, user_id, document_type, document_url, document_notes, status, admin_notes, created_at, profile:profiles!verification_requests_user_id_fkey(full_name, phone, email)',
+    )
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[fetchPendingVerificationRequests]', error.message);
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+    return {
+      id: row.id as string,
+      userId: row.user_id as string,
+      documentType: row.document_type as DocumentType,
+      documentUrl: row.document_url as string,
+      documentNotes: (row.document_notes as string) ?? null,
+      status: row.status as 'pending',
+      adminNotes: (row.admin_notes as string) ?? null,
+      createdAt: row.created_at as string,
+      applicantName: profile?.full_name ?? null,
+      applicantPhone: profile?.phone ?? null,
+      applicantEmail: profile?.email ?? null,
+    };
+  });
+}
+
+/**
+ * Admin action: reviews an identity verification request.
+ * Sets the decision ('approved' | 'rejected'), marks landlord verified if approved,
+ * and deletes the stored document to prevent retaining sensitive PII in storage.
+ */
+export async function reviewVerificationRequest(params: {
+  requestId: string;
+  userId: string;
+  decision: 'approved' | 'rejected';
+  adminNotes?: string;
+  documentUrl?: string;
+}): Promise<void> {
+  if (!supabase) throw new Error('Verification review requires a Supabase connection.');
+
+  const { error: updateError } = await supabase
+    .from('verification_requests')
+    .update({
+      status: params.decision,
+      admin_notes: params.adminNotes?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', params.requestId);
+
+  if (updateError) {
+    console.error('[reviewVerificationRequest]', updateError.message);
+    throw new Error(updateError.message);
+  }
+
+  if (params.decision === 'approved') {
+    await setUserVerified(params.userId, true);
+  }
+
+  // Delete sensitive identity document from storage after decision is made
+  if (params.documentUrl) {
+    await deleteVerificationDocument(params.documentUrl);
+  }
 }
