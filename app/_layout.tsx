@@ -99,4 +99,4 @@ function RootLayout() {
   );
 }
 
-export default sentryEnabled && sentryDsn ? Sentry.wrap(RootLayout) : RootLayout;
+export default SENTRY_ENABLED && SENTRY_DSN ? Sentry.wrap(RootLayout) : RootLayout;

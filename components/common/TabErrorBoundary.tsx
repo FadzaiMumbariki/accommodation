@@ -32,7 +32,7 @@ export function TabErrorBoundary({ children, tabName }: TabErrorBoundaryProps) {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.btn, styles.btnSecondary]}
-                onPress={() => router.replace('/(tabs)/')}
+                onPress={() => router.replace('/(tabs)')}
                 activeOpacity={0.85}
               >
                 <Ionicons name="home-outline" size={18} color={Brand.navy} />

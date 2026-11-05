@@ -107,7 +107,7 @@ npm run typecheck      # TypeScript
 npm run format:check   # Prettier
 ```
 
-Unit and component tests sit next to the code they cover (`lib/*.test.ts`, `components/**/*.test.tsx`, `hooks/*.test.ts`) and run in the `jest-expo` environment. `jest.setup.js` stubs the icon font so components using `@expo/vector-icons` render headlessly. The coverage gate in `package.json` is measured over `lib/`; the component and hook tests are enforced by running in CI, not by the coverage percentage.
+Unit and component tests sit next to the code they cover (`lib/*.test.ts`, `components/**/*.test.tsx`, `hooks/*.test.ts`) and run in the `jest-expo` environment. `jest.setup.js` stubs the icon font so components using `@expo/vector-icons` render headlessly. The coverage gate in `package.json` is measured over all reusable code (`lib/`, `components/`, `hooks/`, `context/`); screens in `app/` are covered by the E2E flows instead.
 
 End-to-end tests run against a real build on a device or emulator:
 
@@ -198,6 +198,10 @@ Push notifications in ImbaFind are powered by Expo Push Notifications and delive
   npx supabase functions delete push-notify
   ```
 
+### Over-the-air updates
+
+`expo-updates` is not installed, so the app ships without OTA updates and [eas.json](eas.json) deliberately declares no `channel`. Add `expo-updates` (with an `updates.url` and a `runtimeVersion`) if you want `eas update` to deliver JS updates without a new store build.
+
 ### Environment variables & EAS build configuration
 
 The following environment variables are used by ImbaFind across local development, preview builds, and production:
@@ -219,6 +223,10 @@ The following environment variables are used by ImbaFind across local developmen
 | `SENTRY_AUTH_TOKEN`               | Build time (if Sentry)      | Sentry authentication token for source maps          | Secret (Never public!)  |
 
 #### Configuring with EAS CLI (`eas env:create` / `eas env:set`)
+
+Public build variables for the `preview` and `production` profiles are declared in [eas.json](eas.json), so the repository is the single source of truth for them. Entries left as `""` are deliberately unset: an empty `EXPO_PUBLIC_SUPPORT_*` hides that channel on the Help screen, an empty `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` leaves the native map without a key, and an empty `EXPO_PUBLIC_EAS_PROJECT_ID` disables push registration. Fill them in before shipping.
+
+The Google Maps key is never committed. [app.config.ts](app.config.ts) adds the `react-native-maps` config plugin only when `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is set, using the plugin's `androidGoogleMapsApiKey` / `iosGoogleMapsApiKey` props. Restrict the key in Google Cloud to the `com.imbafind.app` package name and its signing certificate.
 
 For EAS Build environments (`preview` and `production`), set variables using the EAS CLI:
 

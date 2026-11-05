@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Text, FlatList, ViewToken } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, FlatList, FlatListProps } from 'react-native';
 import { Image } from 'expo-image';
 import { Brand } from '../../constants/Colors';
 
@@ -22,8 +22,8 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
           'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80',
         ];
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken<string>[] }) => {
+  const onViewableItemsChanged: FlatListProps<string>['onViewableItemsChanged'] = useCallback(
+    ({ viewableItems }) => {
       if (viewableItems && viewableItems.length > 0) {
         setActiveIndex(viewableItems[0].index ?? 0);
       }

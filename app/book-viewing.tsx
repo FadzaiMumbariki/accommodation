@@ -33,10 +33,10 @@ const ATTENDEE_OPTIONS = [
 
 export default function BookViewingScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { properties, selectedPropertyId } = useProperties();
+  const { properties } = useProperties();
   const { addViewing } = useActivity();
   const requireAuth = useRequireAuth();
-  const property = properties.find((p) => p.id === (id ?? selectedPropertyId)) || properties[0];
+  const property = properties.find((p) => p.id === id) || properties[0];
 
   // Default to tomorrow at 10:00 AM
   const getInitialDate = () => {

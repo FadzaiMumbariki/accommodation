@@ -8,17 +8,12 @@ import {
   FlatList,
   Dimensions,
   Alert,
-  Linking,
-  Platform,
-  Share,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { Brand } from '../constants/Colors';
 import {
   fetchReviews,
@@ -33,9 +28,8 @@ import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../context/AuthContext';
 import { useProperties } from '../context/PropertyContext';
 import { useSaved } from '../context/SavedContext';
-import { useChat } from '../context/ChatContext';
 import { useRole } from '../context/AppContext';
-import { openWhatsAppTarget, buildListingInquiryMessage } from '../lib/formatContact';
+import { usePropertyContact } from '../hooks/usePropertyContact';
 import { Routes, RouteHelpers } from '../constants/routes';
 import { EmptyState } from '../components/common/EmptyState';
 import { ReportDialog } from '../components/common/ReportDialog';
@@ -75,23 +69,17 @@ const AMENITY_ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function PropertyDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { properties } = useProperties();
-  const { isSaved, toggleSaved } = useSaved();
-  const { startConversation, openConversation, setSelectedConversationId } = useChat();
+  const { isSaved } = useSaved();
   const { userName } = useRole();
   const { user, isSupabaseEnabled } = useAuth();
   const requireAuth = useRequireAuth();
-  const [chatStarting, setChatStarting] = useState(false);
   const { width, isMobile } = useResponsive();
   const imageWidth = !isMobile ? Math.min(width - 48, 1180) : width;
   const imageHeight = !isMobile ? 480 : Math.min(width * 0.75, 420);
-  const [reviewsError, setReviewsError] = useState<string | null>(null);
-  const [reviewRating, setReviewRating] = useState<number | null>(null);
-  const [reviewText, setReviewText] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reportVisible, setReportVisible] = useState(false);
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [verifiedModalVisible, setVerifiedModalVisible] = useState(false);
 
+  // usePropertyContact must be called unconditionally (Rules of Hooks).
+  // We pass a stable fallback when `property` hasn't resolved yet; the
+  // handlers are only wired to UI after the `!property` early-return guard.
   const foundProperty = properties.find((p) => p.id === id) ?? (id ? undefined : properties[0]);
   const [fetchedProperty, setFetchedProperty] = useState<Property | null>(null);
   const [fetchFinished, setFetchFinished] = useState(false);
@@ -117,6 +105,29 @@ export default function PropertyDetailsScreen() {
 
   const property = foundProperty ?? fetchedProperty ?? undefined;
   const isResolvingProperty = !foundProperty && Boolean(id) && !fetchFinished;
+
+  // All contact/action handlers — extracted to keep this file focused on rendering.
+  const {
+    chatStarting,
+    handleShare,
+    handleMessage,
+    handleCallLandlord,
+    handleWhatsAppLandlord,
+    handleGetDirections,
+    handleBookViewing,
+    handleToggleSaved,
+  } = usePropertyContact(
+    // Stable fallback so the hook never receives undefined
+    property ?? ({} as Property),
+  );
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState<number | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [verifiedModalVisible, setVerifiedModalVisible] = useState(false);
+
   const [imgIndex, setImgIndex] = useState(0);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(Boolean(property));
@@ -257,119 +268,6 @@ export default function PropertyDetailsScreen() {
   }
 
   const saved = isSaved(property.id);
-
-  const handleShare = async () => {
-    const url = `https://imbafind.co.zw/property/${property.id}`;
-    const message = `${property.title} - $${property.price}/month in ${property.suburb}, ${property.city}`;
-    try {
-      await Share.share({
-        message: `${message}\n${url}`,
-        url,
-        title: `Share ${property.title}`,
-      });
-    } catch {
-      try {
-        await Clipboard.setStringAsync(`${message}\n${url}`);
-        Alert.alert('Copied', 'Property link copied to clipboard!');
-      } catch {
-        Alert.alert('Copied', 'Property link copied to clipboard!');
-      }
-    }
-  };
-
-  const handleMessage = async () => {
-    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
-    if (chatStarting) return;
-    setChatStarting(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const convId = await startConversation(property);
-      setSelectedConversationId(convId);
-      await openConversation(convId);
-      router.push(Routes.chat);
-    } catch (error) {
-      console.error('[PropertyDetails] Could not start conversation:', error);
-      Alert.alert(
-        'Could not start chat',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
-    } finally {
-      setChatStarting(false);
-    }
-  };
-
-  const handleCallLandlord = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const phone = property.landlord?.phone;
-    if (!phone) {
-      Alert.alert(
-        'Phone number unavailable',
-        'Use the in-app message option to contact the landlord.',
-      );
-      return;
-    }
-    const cleanPhone = phone.replace(/\s/g, '');
-    void Linking.openURL(`tel:${cleanPhone}`).catch((error) => {
-      console.error('[PropertyDetails] Could not open phone link:', error);
-      Alert.alert('Could not place call', 'Please try again.');
-    });
-  };
-
-  const handleGetDirections = async () => {
-    const destination = property.coordinates
-      ? `${property.coordinates.lat},${property.coordinates.lng}`
-      : [property.address, property.suburb, property.city, property.province]
-          .filter(Boolean)
-          .join(', ');
-    const encodedDestination = encodeURIComponent(destination);
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}&travelmode=driving`;
-    const nativeMapsUrl =
-      Platform.OS === 'ios'
-        ? `maps://?daddr=${encodedDestination}&dirflg=d`
-        : Platform.OS === 'android'
-          ? `google.navigation:q=${encodedDestination}&mode=d`
-          : googleMapsUrl;
-
-    try {
-      await Linking.openURL(nativeMapsUrl);
-    } catch {
-      if (nativeMapsUrl === googleMapsUrl) {
-        Alert.alert('Maps Error', 'Could not open directions for this property.');
-        return;
-      }
-      try {
-        await Linking.openURL(googleMapsUrl);
-      } catch {
-        Alert.alert('Maps Error', 'Could not open directions for this property.');
-      }
-    }
-  };
-
-  const handleWhatsAppLandlord = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await openWhatsAppTarget({
-      phone: property.landlord?.phone,
-      text: buildListingInquiryMessage(property),
-      onUnavailable: () => {
-        Alert.alert(
-          'Phone number unavailable',
-          'Use the in-app message option to contact the landlord.',
-        );
-      },
-    });
-  };
-
-  const handleBookViewing = () => {
-    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(RouteHelpers.bookViewing(property.id));
-  };
-
-  const handleToggleSaved = () => {
-    if (!requireAuth(RouteHelpers.propertyDetails(property.id))) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    void toggleSaved(property.id);
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>

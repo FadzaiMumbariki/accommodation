@@ -16,6 +16,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `ErrorBoundary` now uses `SafeAreaView` from `react-native-safe-area-context`, as the `react-native` one is deprecated.
 - The Jest suite uses a 20s per-test timeout so the first React Native render in a suite is not cut off on a cold start.
+- The coverage gate now measures every reusable module (`lib/`, `components/`, `hooks/`, `context/`) instead of `lib/` alone, so the reported number matches what it claims to cover.
+- Public build variables for `preview` and `production` are declared in `eas.json`, giving the repository a single source of truth for them.
+
+### Removed
+
+- The hardcoded Google Maps API key in `app.json`. The `react-native-maps` config plugin expects `androidGoogleMapsApiKey` / `iosGoogleMapsApiKey`, so the committed `googleMapsApiKey` was a no-op; the key now comes from `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` via `app.config.ts`.
+- The `channel` fields in `eas.json`, which had no effect because `expo-updates` is not installed.
 
 ## [1.0.0] - 2026-11-02
 

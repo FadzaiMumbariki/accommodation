@@ -70,17 +70,8 @@
         {
           "locationWhenInUsePermission": "ImbaFind uses your location to discover accommodation near you in Zimbabwe."
         }
-      ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": "AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA"
-        }
       ]
     ],
-    "extra": {
-      "googleMapsApiKey": "AIzaSyArQ9zPatDih3NFlHHB4M7Y4diJbg50UHA"
-    },
     "experiments": {
       "typedRoutes": true
     }

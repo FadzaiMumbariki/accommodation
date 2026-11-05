@@ -1,0 +1,7 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ImbaFind — Migration 002 (placeholder)
+--
+-- This file intentionally left empty. Migration 002 was never created; this
+-- placeholder keeps the sequence contiguous so tooling (supabase db diff,
+-- supabase db push) does not misinterpret the gap between 001 and 003.
+-- ─────────────────────────────────────────────────────────────────────────────
