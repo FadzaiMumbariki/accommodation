@@ -203,17 +203,17 @@ export function logEnvConfig(): void {
     );
 
     if (validation.errors.length > 0) {
-      console.error('\n❌ Configuration Errors:');
+      console.error('\n[Error] Configuration Errors:');
       validation.errors.forEach((error) => console.error(`  • ${error}`));
     }
 
     if (validation.warnings.length > 0) {
-      console.warn('\n⚠️  Configuration Warnings:');
+      console.warn('\n[Warning] Configuration Warnings:');
       validation.warnings.forEach((warning) => console.warn(`  • ${warning}`));
     }
 
     if (validation.isValid && validation.warnings.length === 0) {
-      console.log('\n✓ All configuration valid');
+      console.log('\n[OK] All configuration valid');
     }
 
     console.log('================================\n');
@@ -225,7 +225,7 @@ if (__DEV__) {
   const validation = validateEnvConfig();
   if (!validation.isValid) {
     console.error(
-      '❌ Environment configuration validation failed. See errors above.',
+      '[Error] Environment configuration validation failed. See errors above.',
       '\nThe app may not function correctly.',
     );
   }

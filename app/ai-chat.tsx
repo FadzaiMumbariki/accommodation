@@ -241,7 +241,7 @@ export default function AiChatScreen() {
       id: uid(),
       role: 'assistant',
       kind: 'text',
-      text: "Hi! 👋 I'm your ImbaFind assistant. Tell me what you're looking for — a city, number of bedrooms, budget, or anything else — and I'll find matching homes for you.",
+      text: "Hi! I'm your ImbaFind assistant. Tell me what you're looking for — a city, number of bedrooms, budget, or anything else — and I'll find matching homes for you.",
       timestamp: new Date(),
     },
   ]);
@@ -326,7 +326,7 @@ export default function AiChatScreen() {
 
         // 5. Replace thinking with results
         const signinHint = !hasAuth
-          ? '\n\n💡 Sign in to your ImbaFind account for full Gemini AI search.'
+          ? '\n\nSign in to your ImbaFind account for full Gemini AI search.'
           : '';
         const notice =
           result.source === 'basic' && result.unavailable && hasAuth
@@ -336,7 +336,7 @@ export default function AiChatScreen() {
         const intro =
           (top.length > 0
             ? `Found ${top.length} ${isNearbyRequested ? 'nearby ' : ''}propert${top.length === 1 ? 'y' : 'ies'} matching "${result.summary || trimmed}":${
-                top.length > 3 ? '\n\nHere are the best matches 👇' : ''
+                top.length > 3 ? '\n\nHere are the best matches:' : ''
               }`
             : `I couldn't find any ${isNearbyRequested ? 'nearby ' : ''}properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`) +
           notice;
