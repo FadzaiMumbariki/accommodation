@@ -180,7 +180,7 @@ function HomeScreen() {
               )}
             </View>
             <TouchableOpacity onPress={() => router.push('/(tabs)/explore')}>
-              <Text style={styles.seeAll}>View all listings ({properties.length}) &rarr;</Text>
+              <Text style={styles.seeAll}>View all listings ({properties.length}) →</Text>
             </TouchableOpacity>
           </View>
 
