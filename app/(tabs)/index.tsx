@@ -83,15 +83,6 @@ function HomeScreen() {
           {/* Mobile Header (Hidden on Desktop since WebHeader is displayed) */}
           {isMobile ? (
             <View style={styles.header}>
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => router.push('/choose-account')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Change account type"
-              >
-                <Ionicons name="arrow-back" size={22} color={Brand.navy} />
-              </TouchableOpacity>
               <View style={styles.headerText}>
                 <Text style={styles.greeting}>
                   {greeting}, {userName}
@@ -275,15 +266,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
     gap: 12,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Brand.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
   },
   headerText: {
     flex: 1,

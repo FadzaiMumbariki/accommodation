@@ -158,14 +158,17 @@ const PropertyCardComponent: React.FC<PropertyCardProps> = ({
               </Text>
             </View>
 
-            <View style={styles.specDivider} />
+            {!horizontal && (
+              <>
+                <View style={styles.specDivider} />
+                <View style={styles.specItem}>
+                  <Ionicons name="people-outline" size={14} color={Brand.gray500} />
+                  <Text style={styles.specText}>Max {property.maxOccupants}</Text>
+                </View>
+              </>
+            )}
 
-            <View style={styles.specItem}>
-              <Ionicons name="people-outline" size={14} color={Brand.gray500} />
-              <Text style={styles.specText}>Max {property.maxOccupants}</Text>
-            </View>
-
-            {property.verified && (
+            {!horizontal && property.verified && (
               <>
                 <View style={styles.specDivider} />
                 <View style={styles.specItem}>
@@ -332,6 +335,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 10,
+    right: 52,
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
@@ -478,6 +482,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 10,
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   specItem: {
     flexDirection: 'row',
@@ -532,11 +538,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: Brand.gray100,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   viewMoreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 1,
   },
   viewMoreText: {
     fontSize: 12,
@@ -556,6 +565,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 2,
     elevation: 2,
+    flexShrink: 0,
   },
   cardWhatsAppText: {
     fontSize: 11,

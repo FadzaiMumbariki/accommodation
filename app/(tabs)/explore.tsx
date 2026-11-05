@@ -521,17 +521,6 @@ function ExploreScreen() {
     <SafeAreaView style={styles.safe}>
       {/* Header — stays fixed above the scrollable list */}
       <View style={[styles.header, !isMobile && styles.headerDesktop]}>
-        {isMobile && (
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.push('/(tabs)')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Go to home"
-          >
-            <Ionicons name="arrow-back" size={22} color={Brand.navy} />
-          </TouchableOpacity>
-        )}
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Find accommodation</Text>
           {activeCity && <Text style={styles.headerSub}>in {activeCity}</Text>}
@@ -677,19 +666,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     gap: 10,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Brand.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Brand.navy,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
   },
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Brand.navy },

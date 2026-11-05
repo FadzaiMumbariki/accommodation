@@ -192,21 +192,6 @@ function ProfileScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
-      {isMobile && (
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)')}
-            style={styles.backBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Go to home"
-          >
-            <Ionicons name="arrow-back" size={22} color={Brand.navy} />
-          </TouchableOpacity>
-        </View>
-      )}
-
       <ScrollView
         contentContainerStyle={[styles.scroll, !isMobile && { paddingBottom: 0 }]}
         showsVerticalScrollIndicator={false}
@@ -309,19 +294,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Brand.white,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Brand.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scroll: {
     paddingHorizontal: 20,

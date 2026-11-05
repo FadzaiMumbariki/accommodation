@@ -451,6 +451,7 @@ const styles = StyleSheet.create({
   previewActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
   },
@@ -477,6 +478,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
+    flexShrink: 0,
   },
   whatsAppBtnText: {
     fontSize: 11,

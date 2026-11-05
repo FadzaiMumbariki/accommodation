@@ -7,6 +7,7 @@ describe('Routes constants', () => {
     expect(Routes.chat).toBe('/chat');
     expect(Routes.propertyDetails).toBe('/property-details');
     expect(Routes.login).toBe('/login');
+    expect(Routes.signup).toBe('/signup');
   });
 
   it('builds parameterized routes with RouteHelpers', () => {

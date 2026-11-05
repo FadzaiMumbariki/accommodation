@@ -7,27 +7,23 @@ import { Brand } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen() {
-  const { session, loading } = useAuth();
+  const { loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
 
-    // On web / laptops, immediately land on the website homepage to explore listings
+    // Immediately land on the home screen to browse listings
     if (Platform.OS === 'web') {
       router.replace('/(tabs)');
       return;
     }
 
     const timer = setTimeout(() => {
-      if (session) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/login');
-      }
+      router.replace('/(tabs)');
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [loading, session]);
+  }, [loading]);
 
   return (
     <View style={styles.container}>

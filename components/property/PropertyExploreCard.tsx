@@ -247,12 +247,18 @@ const styles = StyleSheet.create({
   spec: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   specText: { fontSize: 11, color: Brand.gray500, fontWeight: '500' },
   specDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Brand.gray300 },
-  badgesRow: { flexDirection: 'row', gap: 6 },
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    flexShrink: 1,
+  },
   availBadge: {
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   availBadgeText: { color: '#16A34A', fontSize: 10, fontWeight: '700' },
   verifiedBadge: {
@@ -260,9 +266,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     backgroundColor: '#DBEAFE',
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
+    flexShrink: 0,
   },
   verifiedBadgeText: { color: '#2563EB', fontSize: 10, fontWeight: '700' },
   cardUtilityRow: {
@@ -288,7 +295,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
   },
   cardWhatsAppButton: {
     flexDirection: 'row',
@@ -298,6 +307,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    flexShrink: 0,
   },
   cardWhatsAppButtonText: {
     fontSize: 10,

@@ -31,7 +31,7 @@ export const Routes = {
 
   // Auth
   login: '/login' as const,
-  signup: '/auth/signup' as const,
+  signup: '/signup' as const,
   chooseAccount: '/choose-account' as const,
   resetPassword: '/reset-password' as const,
   accountCreated: '/account-created' as const,

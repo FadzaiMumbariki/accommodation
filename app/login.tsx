@@ -21,7 +21,11 @@ import { classifyAuthError } from '../lib/authErrors';
 import type { UserRole } from '../types';
 
 export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'login' | 'signup' }) {
-  const { initialTab, returnTo, role: roleParam } = useLocalSearchParams<{
+  const {
+    initialTab,
+    returnTo,
+    role: roleParam,
+  } = useLocalSearchParams<{
     initialTab?: string;
     returnTo?: string;
     role?: string;
@@ -100,7 +104,13 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     // Cache the role locally only; the new account gets it through sign-up metadata,
     // and an already signed-in user's profile must not be changed from this screen.
     await setUserRole(role, { localOnly: true });
-    const result = await signUp(cleanEmail, password, fullName.trim(), phone.trim() || undefined, role);
+    const result = await signUp(
+      cleanEmail,
+      password,
+      fullName.trim(),
+      phone.trim() || undefined,
+      role,
+    );
     setLoading(false);
     if (result.error) {
       const friendly = classifyAuthError(result.error);
@@ -108,12 +118,17 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
       return;
     }
     // Navigate to the account-created screen; pass checkEmail flag if confirmation is needed
-    router.replace(result.requiresEmailConfirmation ? '/account-created?checkEmail=1' : '/account-created');
+    router.replace(
+      result.requiresEmailConfirmation ? '/account-created?checkEmail=1' : '/account-created',
+    );
   };
 
   const handleForgotPassword = () => {
     if (!email.trim()) {
-      Alert.alert('Enter your email', 'Please enter your email address above, then tap "Forgot password?".');
+      Alert.alert(
+        'Enter your email',
+        'Please enter your email address above, then tap "Forgot password?".',
+      );
       return;
     }
     Alert.alert('Reset Password', `Send a password reset link to ${email.trim()}?`, [
@@ -148,9 +163,15 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Brand */}
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
@@ -162,11 +183,22 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
                 <Text style={{ color: Brand.terracotta }}>Find</Text>
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => router.replace('/(tabs)')}
+              style={styles.guestLink}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Browse accommodations as guest"
+            >
+              <Text style={styles.guestLinkText}>Browse as guest →</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Heading */}
           <View style={styles.headerWrap}>
-            <Text style={styles.title}>{tab === 'login' ? 'Welcome back' : 'Create an account'}</Text>
+            <Text style={styles.title}>
+              {tab === 'login' ? 'Welcome back' : 'Create an account'}
+            </Text>
             <Text style={styles.subtitle}>
               {tab === 'login'
                 ? 'Sign in to access your saved homes, viewings, and landlord chats.'
@@ -176,13 +208,31 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
 
           {/* Tab Switcher */}
           <View style={styles.tabContainer}>
-            <TouchableOpacity style={[styles.tabBtn, tab === 'login' && styles.tabBtnActive]} onPress={() => setTab('login')} activeOpacity={0.8}>
-              <Ionicons name="log-in-outline" size={16} color={tab === 'login' ? Brand.white : Brand.gray500} />
+            <TouchableOpacity
+              style={[styles.tabBtn, tab === 'login' && styles.tabBtnActive]}
+              onPress={() => setTab('login')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="log-in-outline"
+                size={16}
+                color={tab === 'login' ? Brand.white : Brand.gray500}
+              />
               <Text style={[styles.tabText, tab === 'login' && styles.tabTextActive]}>Sign In</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.tabBtn, tab === 'signup' && styles.tabBtnActive]} onPress={() => setTab('signup')} activeOpacity={0.8}>
-              <Ionicons name="person-add-outline" size={16} color={tab === 'signup' ? Brand.white : Brand.gray500} />
-              <Text style={[styles.tabText, tab === 'signup' && styles.tabTextActive]}>Create Account</Text>
+            <TouchableOpacity
+              style={[styles.tabBtn, tab === 'signup' && styles.tabBtnActive]}
+              onPress={() => setTab('signup')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="person-add-outline"
+                size={16}
+                color={tab === 'signup' ? Brand.white : Brand.gray500}
+              />
+              <Text style={[styles.tabText, tab === 'signup' && styles.tabTextActive]}>
+                Create Account
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -192,44 +242,111 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               <>
                 <Text style={styles.fieldLabel}>I want to:</Text>
                 <View style={styles.rolePicker}>
-                  <TouchableOpacity style={[styles.roleOption, role === 'tenant' && styles.roleOptionActive]} onPress={() => setRole('tenant')} activeOpacity={0.8}>
-                    <Ionicons name="home" size={18} color={role === 'tenant' ? Brand.terracotta : Brand.gray400} />
+                  <TouchableOpacity
+                    style={[styles.roleOption, role === 'tenant' && styles.roleOptionActive]}
+                    onPress={() => setRole('tenant')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="home"
+                      size={18}
+                      color={role === 'tenant' ? Brand.terracotta : Brand.gray400}
+                    />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.roleTitle, role === 'tenant' && styles.roleTitleActive]}>Find a Home</Text>
+                      <Text style={[styles.roleTitle, role === 'tenant' && styles.roleTitleActive]}>
+                        Find a Home
+                      </Text>
                       <Text style={styles.roleSubtitle}>Tenant account</Text>
                     </View>
-                    {role === 'tenant' && <Ionicons name="checkmark-circle" size={18} color={Brand.terracotta} />}
+                    {role === 'tenant' && (
+                      <Ionicons name="checkmark-circle" size={18} color={Brand.terracotta} />
+                    )}
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.roleOption, role === 'landlord' && styles.roleOptionActive]} onPress={() => setRole('landlord')} activeOpacity={0.8}>
-                    <Ionicons name="key" size={18} color={role === 'landlord' ? Brand.terracotta : Brand.gray400} />
+                  <TouchableOpacity
+                    style={[styles.roleOption, role === 'landlord' && styles.roleOptionActive]}
+                    onPress={() => setRole('landlord')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="key"
+                      size={18}
+                      color={role === 'landlord' ? Brand.terracotta : Brand.gray400}
+                    />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.roleTitle, role === 'landlord' && styles.roleTitleActive]}>List Properties</Text>
+                      <Text
+                        style={[styles.roleTitle, role === 'landlord' && styles.roleTitleActive]}
+                      >
+                        List Properties
+                      </Text>
                       <Text style={styles.roleSubtitle}>Landlord account</Text>
                     </View>
-                    {role === 'landlord' && <Ionicons name="checkmark-circle" size={18} color={Brand.terracotta} />}
+                    {role === 'landlord' && (
+                      <Ionicons name="checkmark-circle" size={18} color={Brand.terracotta} />
+                    )}
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.fieldLabel}>Full Name</Text>
                 <View style={[styles.inputBox, nameFocused && styles.inputBoxFocused]}>
-                  <Ionicons name="person-outline" size={18} color={nameFocused ? Brand.terracotta : Brand.gray400} />
-                  <TextInput style={styles.input} placeholder="e.g. Tendai Moyo" placeholderTextColor={Brand.gray400} value={fullName} onChangeText={setFullName} autoCapitalize="words" onFocus={() => setNameFocused(true)} onBlur={() => setNameFocused(false)} />
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={nameFocused ? Brand.terracotta : Brand.gray400}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Tendai Moyo"
+                    placeholderTextColor={Brand.gray400}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    autoCapitalize="words"
+                    onFocus={() => setNameFocused(true)}
+                    onBlur={() => setNameFocused(false)}
+                  />
                 </View>
               </>
             )}
 
             <Text style={styles.fieldLabel}>Email Address</Text>
             <View style={[styles.inputBox, emailFocused && styles.inputBoxFocused]}>
-              <Ionicons name="mail-outline" size={18} color={emailFocused ? Brand.terracotta : Brand.gray400} />
-              <TextInput style={styles.input} placeholder="name@example.com" placeholderTextColor={Brand.gray400} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)} />
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={emailFocused ? Brand.terracotta : Brand.gray400}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="name@example.com"
+                placeholderTextColor={Brand.gray400}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+              />
             </View>
 
             {tab === 'signup' && (
               <>
                 <Text style={styles.fieldLabel}>Phone Number (Optional)</Text>
                 <View style={[styles.inputBox, phoneFocused && styles.inputBoxFocused]}>
-                  <Ionicons name="call-outline" size={18} color={phoneFocused ? Brand.terracotta : Brand.gray400} />
-                  <TextInput style={styles.input} placeholder="e.g. +263 77 123 4567" placeholderTextColor={Brand.gray400} value={phone} onChangeText={setPhone} keyboardType="phone-pad" onFocus={() => setPhoneFocused(true)} onBlur={() => setPhoneFocused(false)} />
+                  <Ionicons
+                    name="call-outline"
+                    size={18}
+                    color={phoneFocused ? Brand.terracotta : Brand.gray400}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. +263 77 123 4567"
+                    placeholderTextColor={Brand.gray400}
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                    onFocus={() => setPhoneFocused(true)}
+                    onBlur={() => setPhoneFocused(false)}
+                  />
                 </View>
               </>
             )}
@@ -237,16 +354,41 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
             <View style={styles.passwordHeaderRow}>
               <Text style={styles.fieldLabel}>Password</Text>
               {tab === 'login' && (
-                <TouchableOpacity onPress={handleForgotPassword} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <TouchableOpacity
+                  onPress={handleForgotPassword}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
                   <Text style={styles.forgotPassText}>Forgot password?</Text>
                 </TouchableOpacity>
               )}
             </View>
             <View style={[styles.inputBox, passwordFocused && styles.inputBoxFocused]}>
-              <Ionicons name="lock-closed-outline" size={18} color={passwordFocused ? Brand.terracotta : Brand.gray400} />
-              <TextInput style={styles.input} placeholder={tab === 'signup' ? 'Min. 8 characters' : 'Enter your password'} placeholderTextColor={Brand.gray400} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} onFocus={() => setPasswordFocused(true)} onBlur={() => setPasswordFocused(false)} />
-              <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
-                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color={Brand.gray400} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={passwordFocused ? Brand.terracotta : Brand.gray400}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder={tab === 'signup' ? 'Min. 8 characters' : 'Enter your password'}
+                placeholderTextColor={Brand.gray400}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword((v) => !v)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                  size={18}
+                  color={Brand.gray400}
+                />
               </TouchableOpacity>
             </View>
 
@@ -257,17 +399,47 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               </View>
             ) : null}
 
-            <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={tab === 'login' ? handleLogin : handleSignUp} disabled={loading} activeOpacity={0.85}>
-              {loading ? <ActivityIndicator color={Brand.white} /> : (
+            <TouchableOpacity
+              style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+              onPress={tab === 'login' ? handleLogin : handleSignUp}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color={Brand.white} />
+              ) : (
                 <>
-                  <Text style={styles.submitBtnText}>{tab === 'login' ? 'Sign In to ImbaFind' : 'Create My Account'}</Text>
+                  <Text style={styles.submitBtnText}>
+                    {tab === 'login' ? 'Sign In to ImbaFind' : 'Create My Account'}
+                  </Text>
                   <Ionicons name="arrow-forward" size={18} color={Brand.white} />
                 </>
               )}
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.switchAuthBtn}
+              onPress={() => setTab(tab === 'login' ? 'signup' : 'login')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.switchAuthText}>
+                {tab === 'login' ? (
+                  <>
+                    Don&apos;t have an account?{' '}
+                    <Text style={styles.switchAuthHighlight}>Sign up</Text>
+                  </>
+                ) : (
+                  <>
+                    Already have an account? <Text style={styles.switchAuthHighlight}>Sign in</Text>
+                  </>
+                )}
+              </Text>
+            </TouchableOpacity>
+
             {tab === 'signup' && (
-              <Text style={styles.termsNote}>By signing up, you agree to ImbaFind&apos;s Terms of Service and Privacy Policy.</Text>
+              <Text style={styles.termsNote}>
+                By signing up, you agree to ImbaFind&apos;s Terms of Service and Privacy Policy.
+              </Text>
             )}
           </View>
 
@@ -280,8 +452,15 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
             </View>
 
             {isSupabaseEnabled && (
-              <TouchableOpacity style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]} onPress={handleGoogleLogin} disabled={googleLoading || loading} activeOpacity={0.85}>
-                {googleLoading ? <ActivityIndicator color={Brand.navy} /> : (
+              <TouchableOpacity
+                style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]}
+                onPress={handleGoogleLogin}
+                disabled={googleLoading || loading}
+                activeOpacity={0.85}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={Brand.navy} />
+                ) : (
                   <>
                     <Ionicons name="logo-google" size={18} color="#DB4437" />
                     <Text style={styles.googleBtnText}>Continue with Google</Text>
@@ -290,7 +469,6 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
               </TouchableOpacity>
             )}
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -300,27 +478,108 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Brand.cream },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoBadge: { width: 38, height: 38, borderRadius: 10, backgroundColor: Brand.terracotta, alignItems: 'center', justifyContent: 'center', shadowColor: Brand.terracotta, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  logoBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Brand.terracotta,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Brand.terracotta,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   brandText: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
   headerWrap: { marginBottom: 20 },
-  title: { fontSize: 26, fontWeight: '800', color: Brand.navy, letterSpacing: -0.5, marginBottom: 6 },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: Brand.navy,
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
   subtitle: { fontSize: 14, color: Brand.gray500, lineHeight: 20 },
-  tabContainer: { flexDirection: 'row', backgroundColor: Brand.gray200, padding: 4, borderRadius: 14, marginBottom: 20, gap: 4 },
-  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  tabBtnActive: { backgroundColor: Brand.terracotta, shadowColor: Brand.navy, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: Brand.gray200,
+    padding: 4,
+    borderRadius: 14,
+    marginBottom: 20,
+    gap: 4,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  tabBtnActive: {
+    backgroundColor: Brand.terracotta,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
   tabText: { fontSize: 14, fontWeight: '700', color: Brand.gray600 },
   tabTextActive: { color: Brand.white },
-  formCard: { backgroundColor: Brand.white, borderRadius: 20, padding: 20, shadowColor: Brand.navy, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: Brand.gray200 },
+  formCard: {
+    backgroundColor: Brand.white,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Brand.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: Brand.gray200,
+  },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: Brand.navy, marginBottom: 6, marginTop: 8 },
-  passwordHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  passwordHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   forgotPassText: { fontSize: 12, fontWeight: '600', color: Brand.terracotta },
-  inputBox: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: Brand.gray200, borderRadius: 12, paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 12 : 8, backgroundColor: Brand.cream, marginBottom: 8 },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: Brand.gray200,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    backgroundColor: Brand.cream,
+    marginBottom: 8,
+  },
   inputBoxFocused: { borderColor: Brand.terracotta, backgroundColor: Brand.white },
   input: { flex: 1, fontSize: 15, color: Brand.navy },
   rolePicker: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  roleOption: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Brand.gray200, backgroundColor: Brand.cream },
+  roleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Brand.gray200,
+    backgroundColor: Brand.cream,
+  },
   roleOptionActive: { borderColor: Brand.terracotta, backgroundColor: '#FFF7ED' },
   roleTitle: { fontSize: 13, fontWeight: '700', color: Brand.navy },
   roleTitleActive: { color: Brand.terracottaDark },
@@ -344,13 +603,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
   },
-  submitBtn: { backgroundColor: Brand.terracotta, paddingVertical: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, shadowColor: Brand.terracotta, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 },
+  submitBtn: {
+    backgroundColor: Brand.terracotta,
+    paddingVertical: 14,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    shadowColor: Brand.terracotta,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   submitBtnText: { color: Brand.white, fontSize: 15, fontWeight: '700' },
-  termsNote: { fontSize: 11, color: Brand.gray400, textAlign: 'center', marginTop: 12, lineHeight: 16 },
+  guestLink: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: Brand.gray100,
+  },
+  guestLinkText: { fontSize: 12, fontWeight: '700', color: Brand.terracotta },
+  switchAuthBtn: { marginTop: 14, alignItems: 'center', paddingVertical: 6 },
+  switchAuthText: { fontSize: 13, color: Brand.gray600, fontWeight: '500' },
+  switchAuthHighlight: { color: Brand.terracotta, fontWeight: '700' },
+  termsNote: {
+    fontSize: 11,
+    color: Brand.gray400,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 16,
+  },
   footerWrap: { marginTop: 24 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   dividerLine: { flex: 1, height: 1, backgroundColor: Brand.gray300 },
   dividerText: { fontSize: 12, fontWeight: '500', color: Brand.gray400 },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Brand.white, borderWidth: 1.5, borderColor: Brand.gray300, paddingVertical: 14, borderRadius: 14, marginBottom: 12 },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Brand.white,
+    borderWidth: 1.5,
+    borderColor: Brand.gray300,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+  },
   googleBtnText: { fontSize: 15, fontWeight: '700', color: Brand.navy },
 });

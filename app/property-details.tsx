@@ -917,11 +917,13 @@ const styles = StyleSheet.create({
   },
   landlordActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 16,
   },
   landlordActionBtn: {
     flex: 1,
+    minWidth: 85,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
