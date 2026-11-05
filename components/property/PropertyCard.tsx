@@ -18,7 +18,7 @@ interface PropertyCardProps {
   horizontal?: boolean;
 }
 
-export const PropertyCard: React.FC<PropertyCardProps> = ({
+const PropertyCardComponent: React.FC<PropertyCardProps> = ({
   property,
   onPress,
   style,
@@ -286,6 +286,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     </>
   );
 };
+
+/**
+ * Memoized PropertyCard to prevent unnecessary re-renders in lists.
+ * Only re-renders when property data, onPress callback, style, or horizontal prop changes.
+ */
+export const PropertyCard = React.memo(PropertyCardComponent);
 
 const styles = StyleSheet.create({
   card: {

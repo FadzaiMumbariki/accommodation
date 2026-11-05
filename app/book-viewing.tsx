@@ -18,7 +18,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useApp } from '../context/AppContext';
+import { useActivity } from '../context/ActivityContext';
+import { useProperties } from '../context/PropertyContext';
 import { Brand } from '../constants/Colors';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 
@@ -32,7 +33,8 @@ const ATTENDEE_OPTIONS = [
 
 export default function BookViewingScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { properties, selectedPropertyId, addViewing } = useApp();
+  const { properties, selectedPropertyId } = useProperties();
+  const { addViewing } = useActivity();
   const requireAuth = useRequireAuth();
   const property = properties.find((p) => p.id === (id ?? selectedPropertyId)) || properties[0];
 
@@ -48,7 +50,7 @@ export default function BookViewingScreen() {
   const [selectedTime, setSelectedTime] = useState<string>('10:30 AM');
   const [attendeesCount, setAttendeesCount] = useState<number>(2);
   const [message, setMessage] = useState<string>(
-    'I would like to view this property. Is it still available?'
+    'I would like to view this property. Is it still available?',
   );
 
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -107,7 +109,10 @@ export default function BookViewingScreen() {
   const openWhatsAppConfirmation = (dateStr: string, timeStr: string) => {
     const rawPhone = property.landlord?.phone;
     if (!rawPhone) {
-      Alert.alert('Notice', 'Direct WhatsApp contact is not available for this landlord. You can reach them via in-app chat.');
+      Alert.alert(
+        'Notice',
+        'Direct WhatsApp contact is not available for this landlord. You can reach them via in-app chat.',
+      );
       return;
     }
     let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
@@ -115,7 +120,7 @@ export default function BookViewingScreen() {
       cleanPhone = '263' + cleanPhone.slice(1);
     }
     const defaultMsg = encodeURIComponent(
-      `Hi ${property.landlord?.name || 'Landlord'}, I have just booked a viewing for "${property.title}" in ${property.suburb}, ${property.city} for ${dateStr} at ${timeStr} via ImbaFind. Please let me know if this time is confirmed!`
+      `Hi ${property.landlord?.name || 'Landlord'}, I have just booked a viewing for "${property.title}" in ${property.suburb}, ${property.city} for ${dateStr} at ${timeStr} via ImbaFind. Please let me know if this time is confirmed!`,
     );
     const waUrl = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
     Linking.openURL(waUrl).catch(() => {
@@ -128,7 +133,10 @@ export default function BookViewingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (message.length > 500) {
-      Alert.alert('Message Too Long', `Your message is ${message.length} characters. Please limit it to 500 characters.`);
+      Alert.alert(
+        'Message Too Long',
+        `Your message is ${message.length} characters. Please limit it to 500 characters.`,
+      );
       return;
     }
 
@@ -149,7 +157,10 @@ export default function BookViewingScreen() {
     const scheduledAt = new Date(selectedDate);
     scheduledAt.setHours(hour, Number(timeParts[2]), 0, 0);
     if (scheduledAt <= new Date()) {
-      Alert.alert('Choose a future time', 'Viewing requests must be scheduled for a future date and time.');
+      Alert.alert(
+        'Choose a future time',
+        'Viewing requests must be scheduled for a future date and time.',
+      );
       return;
     }
 
@@ -237,7 +248,7 @@ export default function BookViewingScreen() {
         {/* Select Date Section */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Viewing Date</Text>
-          
+
           <TouchableOpacity
             style={styles.inputBoxRow}
             onPress={() => setShowDatePicker(true)}
@@ -268,11 +279,7 @@ export default function BookViewingScreen() {
               <Text style={styles.chipText}>In 2 Days</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.chip}
-              onPress={selectSaturday}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.chip} onPress={selectSaturday} activeOpacity={0.8}>
               <Text style={styles.chipText}>Saturday</Text>
             </TouchableOpacity>
 

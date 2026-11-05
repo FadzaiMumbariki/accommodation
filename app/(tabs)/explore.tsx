@@ -22,6 +22,7 @@ import type { Property, PropertyFilters, PropertyType, SearchFilters } from '../
 import { FilterModal } from '../../components/search/FilterModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { PropertyCardSkeleton } from '../../components/common/Skeleton';
 import { filterMockProperties } from '../../lib/propertyFilters';
 import { MOCK_PROPERTIES } from '../../constants/mockData';
 import { PropertyMapView } from '../../components/property/PropertyMapView';
@@ -34,9 +35,11 @@ import {
   findNearestLocation,
   formatLocationLabel,
 } from '../../lib/locationService';
+import { TabErrorBoundary } from '../../components/common/TabErrorBoundary';
+
 const SORT_OPTIONS = ['Nearby', 'Newest', 'Price Low→High', 'Price High→Low', 'Rating'];
 
-export default function ExploreScreen() {
+function ExploreScreen() {
   const {
     filteredProperties,
     setFilters,
@@ -606,7 +609,13 @@ export default function ExploreScreen() {
           renderItem={renderPropertyCard}
           ListEmptyComponent={
             propertiesLoading ? (
-              <ActivityIndicator style={{ marginTop: 36 }} size="large" color={Brand.terracotta} />
+              <View style={[styles.skeletonContainer, !isMobile && styles.skeletonDesktop]}>
+                {Array.from({ length: isMobile ? 3 : 6 }).map((_, i) => (
+                  <View key={i} style={!isMobile && styles.skeletonGridItem}>
+                    <PropertyCardSkeleton />
+                  </View>
+                ))}
+              </View>
             ) : propertiesError && !hasCachedProperties ? (
               <EmptyState
                 title="Could not load properties"
@@ -826,4 +835,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
+  skeletonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 16,
+  },
+  skeletonDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    maxWidth: 1240,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+  },
+  skeletonGridItem: {
+    flex: 1,
+    minWidth: '30%',
+    maxWidth: '33.33%',
+  },
 });
+
+export default function ExploreScreenWithBoundary() {
+  return (
+    <TabErrorBoundary tabName="Explore">
+      <ExploreScreen />
+    </TabErrorBoundary>
+  );
+}

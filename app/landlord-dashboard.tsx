@@ -13,11 +13,14 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
-import { useApp } from '../context/AppContext';
+import { useProperties } from '../context/PropertyContext';
+import { useActivity } from '../context/ActivityContext';
+import { useChat } from '../context/ChatContext';
 
 export default function LandlordDashboardScreen() {
-  const { myListings, viewings, conversations, requests, updateProperty, deleteProperty } =
-    useApp();
+  const { myListings, updateProperty, deleteProperty } = useProperties();
+  const { viewings, requests } = useActivity();
+  const { conversations } = useChat();
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const myListingIds = useMemo(() => new Set(myListings.map((p) => p.id)), [myListings]);
   const totalListings = myListings.length;

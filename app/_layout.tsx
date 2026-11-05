@@ -12,20 +12,21 @@ import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { installErrorReporting } from '../lib/errorReporting';
 import { useNotifications } from '../hooks/useNotifications';
 import * as WebBrowser from 'expo-web-browser';
+import { SENTRY_ENABLED, SENTRY_DSN, logEnvConfig } from '../constants/envConfig';
 
 WebBrowser.maybeCompleteAuthSession();
 
-LogBox.ignoreLogs([
-  "The action 'ROUTE_NAMES_CHANGED'",
-]);
+LogBox.ignoreLogs(["The action 'ROUTE_NAMES_CHANGED'"]);
 
-const sentryEnabled = process.env.EXPO_PUBLIC_SENTRY_ENABLED === 'true';
-const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
-
-if (sentryEnabled && sentryDsn) {
-  Sentry.init({ dsn: sentryDsn });
+if (SENTRY_ENABLED && SENTRY_DSN) {
+  Sentry.init({ dsn: SENTRY_DSN });
   // Forward caught errors logged via console.error to Sentry.
   installErrorReporting();
+}
+
+// Log environment configuration in development
+if (__DEV__) {
+  logEnvConfig();
 }
 
 const globalWithBuffer = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
@@ -66,7 +67,10 @@ function AppShell() {
         <Stack.Screen name="my-activity" options={{ presentation: 'card' }} />
         <Stack.Screen name="landlord-dashboard" options={{ presentation: 'card' }} />
         <Stack.Screen name="add-property" options={{ presentation: 'card' }} />
-        <Stack.Screen name="account-created" options={{ presentation: 'card', animation: 'fade' }} />
+        <Stack.Screen
+          name="account-created"
+          options={{ presentation: 'card', animation: 'fade' }}
+        />
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         <Stack.Screen name="help" options={{ presentation: 'card' }} />
         <Stack.Screen name="faq" options={{ presentation: 'card' }} />

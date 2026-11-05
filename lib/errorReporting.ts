@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { SENTRY_ENABLED } from '../constants/envConfig';
 
 /**
  * Forwards caught errors that are reported via `console.error` to Sentry.
@@ -15,7 +16,7 @@ let installed = false;
 
 export function installErrorReporting(): void {
   if (installed) return;
-  if (process.env.EXPO_PUBLIC_SENTRY_ENABLED !== 'true') return;
+  if (!SENTRY_ENABLED) return;
   installed = true;
 
   const originalConsoleError = console.error.bind(console);

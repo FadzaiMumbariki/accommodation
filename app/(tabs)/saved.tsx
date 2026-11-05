@@ -1,25 +1,22 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useApp } from '../../context/AppContext';
+import { useProperties } from '../../context/PropertyContext';
+import { useSaved } from '../../context/SavedContext';
 import { Brand } from '../../constants/Colors';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { useResponsive } from '../../hooks/useResponsive';
 import { PropertyCard } from '../../components/property/PropertyCard';
 import { WebFooter } from '../../components/navigation/WebFooter';
+import { TabErrorBoundary } from '../../components/common/TabErrorBoundary';
 
-export default function SavedScreen() {
-  const { properties, savedPropertyIds, toggleSaved } = useApp();
+function SavedScreen() {
+  const { properties } = useProperties();
+  const { savedPropertyIds, toggleSaved } = useSaved();
   const requireAuth = useRequireAuth();
   const { isMobile, numColumns } = useResponsive();
 
@@ -46,15 +43,14 @@ export default function SavedScreen() {
         columnWrapperStyle={numColumns > 1 ? styles.desktopColumnWrapper : undefined}
         style={{ flex: 1 }}
         contentContainerStyle={[styles.listContent, !isMobile && styles.listContentDesktop]}
-        ItemSeparatorComponent={numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined}
+        ItemSeparatorComponent={
+          numColumns === 1 ? () => <View style={{ height: 12 }} /> : undefined
+        }
         renderItem={({ item }) => {
           if (numColumns > 1) {
             return (
               <View style={styles.gridItemWrapper}>
-                <PropertyCard
-                  property={item}
-                  onPress={() => openProperty(item.id)}
-                />
+                <PropertyCard property={item} onPress={() => openProperty(item.id)} />
               </View>
             );
           }
@@ -298,3 +294,11 @@ const styles = StyleSheet.create({
     color: Brand.white,
   },
 });
+
+export default function SavedScreenWithBoundary() {
+  return (
+    <TabErrorBoundary tabName="Saved">
+      <SavedScreen />
+    </TabErrorBoundary>
+  );
+}

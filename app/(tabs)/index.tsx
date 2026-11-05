@@ -1,12 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,8 +12,9 @@ import { sortByProximity, DEFAULT_MAP_CENTER } from '../../lib/coordinates';
 import { useResponsive } from '../../hooks/useResponsive';
 import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { WebFooter } from '../../components/navigation/WebFooter';
+import { TabErrorBoundary } from '../../components/common/TabErrorBoundary';
 
-export default function HomeScreen() {
+function HomeScreen() {
   const {
     properties,
     userName,
@@ -38,10 +32,10 @@ export default function HomeScreen() {
 
   const totalUnread =
     conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) +
-    viewings.filter(v => v.status === 'pending').length;
+    viewings.filter((v) => v.status === 'pending').length;
 
   const nearbyProperties = useMemo(() => {
-    const available = properties.filter(p => p.available);
+    const available = properties.filter((p) => p.available);
     const sorted = sortByProximity(available, DEFAULT_MAP_CENTER);
     return sorted.slice(0, isDesktop ? 9 : 6);
   }, [properties, isDesktop]);
@@ -99,7 +93,9 @@ export default function HomeScreen() {
                 <Ionicons name="arrow-back" size={22} color={Brand.navy} />
               </TouchableOpacity>
               <View style={styles.headerText}>
-                <Text style={styles.greeting}>{greeting}, {userName}</Text>
+                <Text style={styles.greeting}>
+                  {greeting}, {userName}
+                </Text>
                 <Text style={styles.headerTitle}>Find your next home</Text>
                 <Text style={styles.headerSub}>Available accommodation across Zimbabwe</Text>
               </View>
@@ -122,16 +118,18 @@ export default function HomeScreen() {
                 <Text style={styles.heroBadgeText}>Verified Landlord Network</Text>
               </View>
               <Text style={styles.desktopHeroTitle}>
-                Find Verified Accommodation in <Text style={{ color: Brand.terracotta }}>Zimbabwe</Text>
+                Find Verified Accommodation in{' '}
+                <Text style={{ color: Brand.terracotta }}>Zimbabwe</Text>
               </Text>
               <Text style={styles.desktopHeroSub}>
-                Browse flats, cottages, student rooms, and family houses in Harare, Bulawayo, Mutare, and across Zimbabwe with zero middleman markups.
+                Browse flats, cottages, student rooms, and family houses in Harare, Bulawayo,
+                Mutare, and across Zimbabwe with zero middleman markups.
               </Text>
 
               {/* Desktop Quick City Pills */}
               <View style={styles.desktopCityPills}>
                 <Text style={styles.desktopCityPillsLabel}>Popular:</Text>
-                {POPULAR_CITIES.slice(0, 5).map(city => (
+                {POPULAR_CITIES.slice(0, 5).map((city) => (
                   <TouchableOpacity
                     key={city}
                     style={styles.desktopCityPill}
@@ -158,7 +156,9 @@ export default function HomeScreen() {
             accessibilityLabel="Search accommodation by location"
           >
             <Ionicons name="location-outline" size={20} color={Brand.terracotta} />
-            <Text style={styles.searchPlaceholder}>Where do you want to live in Zimbabwe? (City, suburb, neighborhood…)</Text>
+            <Text style={styles.searchPlaceholder}>
+              Where do you want to live in Zimbabwe? (City, suburb, neighborhood…)
+            </Text>
             <View style={styles.filterIconBtn}>
               <Ionicons name="search" size={17} color={Brand.white} />
               {!isMobile && <Text style={styles.filterIconBtnText}>Search</Text>}
@@ -167,8 +167,12 @@ export default function HomeScreen() {
 
           {/* Quick Filter Categories */}
           <View style={[styles.quickFilters, !isMobile && styles.quickFiltersDesktop]}>
-            {['Location', 'Budget', 'Type', 'Bedrooms'].map(f => (
-              <TouchableOpacity key={f} style={styles.filterPill} onPress={() => handleQuickFilter(f)}>
+            {['Location', 'Budget', 'Type', 'Bedrooms'].map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={styles.filterPill}
+                onPress={() => handleQuickFilter(f)}
+              >
                 <Text style={styles.filterPillText}>{f}</Text>
               </TouchableOpacity>
             ))}
@@ -179,7 +183,9 @@ export default function HomeScreen() {
             <View>
               <Text style={styles.sectionTitle}>Available Accommodation</Text>
               {!isMobile && (
-                <Text style={styles.sectionSub}>Recently listed and verified homes ready for viewing</Text>
+                <Text style={styles.sectionSub}>
+                  Recently listed and verified homes ready for viewing
+                </Text>
               )}
             </View>
             <TouchableOpacity onPress={() => router.push('/(tabs)/explore')}>
@@ -191,7 +197,7 @@ export default function HomeScreen() {
           {isMobile ? (
             <FlatList
               data={nearbyProperties}
-              keyExtractor={p => p.id}
+              keyExtractor={(p) => p.id}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 20 }}
@@ -208,18 +214,12 @@ export default function HomeScreen() {
             />
           ) : (
             <View style={styles.desktopGrid}>
-              {nearbyProperties.map(item => (
+              {nearbyProperties.map((item) => (
                 <View
                   key={item.id}
-                  style={[
-                    styles.desktopGridItem,
-                    { width: isDesktop ? '31.8%' : '48%' },
-                  ]}
+                  style={[styles.desktopGridItem, { width: isDesktop ? '31.8%' : '48%' }]}
                 >
-                  <PropertyCard
-                    property={item}
-                    onPress={() => openProperty(item.id)}
-                  />
+                  <PropertyCard property={item} onPress={() => openProperty(item.id)} />
                 </View>
               ))}
             </View>
@@ -230,13 +230,15 @@ export default function HomeScreen() {
             <View>
               <Text style={styles.sectionTitle}>Popular Cities & Towns</Text>
               {!isMobile && (
-                <Text style={styles.sectionSub}>Quickly discover accommodation in key Zimbabwean centers</Text>
+                <Text style={styles.sectionSub}>
+                  Quickly discover accommodation in key Zimbabwean centers
+                </Text>
               )}
             </View>
           </View>
 
           <View style={[styles.locationGrid, !isMobile && styles.locationGridDesktop]}>
-            {POPULAR_CITIES.map(city => (
+            {POPULAR_CITIES.map((city) => (
               <TouchableOpacity
                 key={city}
                 style={[styles.locationPill, !isMobile && styles.locationPillDesktop]}
@@ -514,3 +516,11 @@ const styles = StyleSheet.create({
   },
   locationPillText: { fontSize: 13, color: Brand.navy, fontWeight: '700' },
 });
+
+export default function HomeScreenWithBoundary() {
+  return (
+    <TabErrorBoundary tabName="Home">
+      <HomeScreen />
+    </TabErrorBoundary>
+  );
+}

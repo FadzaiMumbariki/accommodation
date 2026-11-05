@@ -23,8 +23,9 @@ import { insertReport } from '../../lib/database';
 import { useResponsive } from '../../hooks/useResponsive';
 import { ResponsiveContainer } from '../../components/layout/ResponsiveContainer';
 import { WebFooter } from '../../components/navigation/WebFooter';
+import { TabErrorBoundary } from '../../components/common/TabErrorBoundary';
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const [reportVisible, setReportVisible] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const { userName, userRole, setUserRole, isAdmin } = useApp();
@@ -419,3 +420,11 @@ const styles = StyleSheet.create({
     color: Brand.error,
   },
 });
+
+export default function ProfileScreenWithBoundary() {
+  return (
+    <TabErrorBoundary tabName="Profile">
+      <ProfileScreen />
+    </TabErrorBoundary>
+  );
+}

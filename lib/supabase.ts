@@ -1,12 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants/envConfig';
 
-const supabaseUrl: string =
-  Constants.expoConfig?.extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-
-const supabaseAnonKey: string =
-  Constants.expoConfig?.extra?.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabaseUrl: string = SUPABASE_URL;
+const supabaseAnonKey: string = SUPABASE_ANON_KEY;
 
 const isServer = typeof window === 'undefined';
 

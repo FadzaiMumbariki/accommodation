@@ -17,7 +17,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Brand } from '../constants/Colors';
-import { useApp } from '../context/AppContext';
+import { useActivity } from '../context/ActivityContext';
+import { useRole } from '../context/AppContext';
+import { useProperties } from '../context/PropertyContext';
+import { useSaved } from '../context/SavedContext';
+import { useChat } from '../context/ChatContext';
 import { ViewingCard } from '../components/viewing/ViewingCard';
 import { RequestCard } from '../components/request/RequestCard';
 import type { ViewingRequest } from '../types';
@@ -29,17 +33,17 @@ export default function MyActivityScreen() {
   const {
     requests,
     viewings,
-    properties,
-    savedPropertyIds,
-    conversations,
     updateViewingStatus,
     rescheduleViewing,
-    userRole,
-    activityLoading,
-    activityError,
-    refreshActivity,
+    loading: activityLoading,
+    error: activityError,
+    refresh: refreshActivity,
     updateRequestStatus,
-  } = useApp();
+  } = useActivity();
+  const { userRole } = useRole();
+  const { properties } = useProperties();
+  const { savedPropertyIds } = useSaved();
+  const { conversations } = useChat();
   const [activeTab, setActiveTab] = useState<'Requests' | 'Viewings' | 'Applications'>(() =>
     viewingId ? 'Viewings' : 'Requests',
   );
