@@ -97,6 +97,7 @@ jest.mock('./supabase', () => ({
 
 jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
+  manipulateAsync: jest.fn(),
   ImageManipulator: { manipulate: jest.fn() },
 }));
 
@@ -836,22 +837,13 @@ describe('admin verifications', () => {
 
 describe('storage paths', () => {
   it('uploadPropertyImage resizes, uploads and returns the public URL', async () => {
-    const saveAsync = anyFn().mockResolvedValue({ uri: 'file://compressed' });
-    const ctx = {
-      width: 2000,
-      reset: anyFn(),
-      resize: anyFn(),
-      renderAsync: anyFn(),
-    };
-    ctx.reset.mockReturnValue(ctx);
-    ctx.resize.mockReturnValue(ctx);
-    ctx.renderAsync
-      .mockResolvedValueOnce({ width: 2000 })
-      .mockResolvedValueOnce({ width: 1600, saveAsync });
     const manipulatorModule = jest.requireMock('expo-image-manipulator') as {
-      ImageManipulator: { manipulate: any };
+      manipulateAsync: any;
     };
-    manipulatorModule.ImageManipulator.manipulate = anyFn().mockReturnValue(ctx);
+    manipulatorModule.manipulateAsync
+      .mockReset()
+      .mockResolvedValueOnce({ width: 2000, uri: 'file://preview.jpg' })
+      .mockResolvedValueOnce({ width: 1600, uri: 'file://compressed.jpg' });
 
     const g = globalThis as Record<string, any>;
     const originalFetch = g.fetch;
@@ -862,7 +854,11 @@ describe('storage paths', () => {
 
     try {
       const url = await uploadPropertyImage('user-1', 'file://original.jpg');
-      expect(ctx.resize).toHaveBeenCalledWith({ width: 1600 });
+      expect(manipulatorModule.manipulateAsync).toHaveBeenCalledWith(
+        'file://original.jpg',
+        [{ resize: { width: 1600 } }],
+        expect.objectContaining({ compress: 0.7 }),
+      );
       expect(url).toBe('https://cdn.example.com/photo.jpg');
       expect(S.bucket.upload).toHaveBeenCalledWith(
         expect.stringMatching(/^user-1\/[0-9a-f-]+\.jpg$/),
@@ -875,13 +871,13 @@ describe('storage paths', () => {
   });
 
   it('uploadPropertyImage skips resizing for small images', async () => {
-    const saveAsync = anyFn().mockResolvedValue({ uri: 'file://compressed' });
-    const ctx = { width: 800, reset: anyFn(), resize: anyFn(), renderAsync: anyFn() };
-    ctx.renderAsync.mockResolvedValue({ width: 800, saveAsync });
     const manipulatorModule = jest.requireMock('expo-image-manipulator') as {
-      ImageManipulator: { manipulate: any };
+      manipulateAsync: any;
     };
-    manipulatorModule.ImageManipulator.manipulate = anyFn().mockReturnValue(ctx);
+    manipulatorModule.manipulateAsync
+      .mockReset()
+      .mockResolvedValueOnce({ width: 800, uri: 'file://preview.jpg' })
+      .mockResolvedValueOnce({ width: 800, uri: 'file://compressed.jpg' });
     const g = globalThis as Record<string, any>;
     const originalFetch = g.fetch;
     g.fetch = anyFn().mockResolvedValue({
@@ -891,7 +887,11 @@ describe('storage paths', () => {
 
     try {
       await uploadPropertyImage('user-1', 'file://small.jpg');
-      expect(ctx.resize).not.toHaveBeenCalled();
+      expect(manipulatorModule.manipulateAsync).toHaveBeenCalledWith(
+        'file://small.jpg',
+        [],
+        expect.objectContaining({ compress: 0.7 }),
+      );
     } finally {
       g.fetch = originalFetch;
     }
