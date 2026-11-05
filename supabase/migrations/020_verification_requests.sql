@@ -4,7 +4,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create table if not exists public.verification_requests (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   document_type text not null check (document_type in ('national_id', 'passport', 'title_deed', 'utility_bill', 'management_mandate')),
   document_url text not null,

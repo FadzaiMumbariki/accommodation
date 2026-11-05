@@ -29,7 +29,9 @@ export async function requestAndSavePushToken(
   if (permissionStatus !== 'granted') return null;
 
   const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    Constants.easConfig?.projectId ??
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
   if (!projectId) {
     console.warn(
       '[useNotifications] EAS project ID is missing. Set EXPO_PUBLIC_EAS_PROJECT_ID or run "npx eas project:init" to enable remote push notifications.',
@@ -61,15 +63,17 @@ export function useNotifications() {
       }),
     });
 
-    const responseSubscription = notifications.addNotificationResponseReceivedListener?.(response => {
-      const data = response.notification.request.content.data;
-      if (!data) return;
-      if (typeof data.conversationId === 'string') {
-        router.push({ pathname: '/chat', params: { conversationId: data.conversationId } });
-      } else if (typeof data.viewingId === 'string') {
-        router.push({ pathname: '/my-activity', params: { viewingId: data.viewingId } });
-      }
-    });
+    const responseSubscription = notifications.addNotificationResponseReceivedListener?.(
+      (response) => {
+        const data = response.notification.request.content.data;
+        if (!data) return;
+        if (typeof data.conversationId === 'string') {
+          router.push({ pathname: '/chat', params: { conversationId: data.conversationId } });
+        } else if (typeof data.viewingId === 'string') {
+          router.push({ pathname: '/my-activity', params: { viewingId: data.viewingId } });
+        }
+      },
+    );
 
     const initialResponse = notifications.getLastNotificationResponse?.();
     const initialData = initialResponse?.notification.request.content.data;
@@ -82,16 +86,15 @@ export function useNotifications() {
     return () => responseSubscription?.remove();
   }, [user, isSupabaseEnabled]);
 
-  const sendLocalNotification = useCallback(async (
-    title: string,
-    body: string,
-    data?: Record<string, unknown>,
-  ) => {
-    await getNotifications()?.scheduleNotificationAsync({
-      content: { title, body, data },
-      trigger: null,
-    });
-  }, []);
+  const sendLocalNotification = useCallback(
+    async (title: string, body: string, data?: Record<string, unknown>) => {
+      await getNotifications()?.scheduleNotificationAsync({
+        content: { title, body, data },
+        trigger: null,
+      });
+    },
+    [],
+  );
 
   return { sendLocalNotification };
 }
