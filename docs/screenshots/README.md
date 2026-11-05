@@ -4,12 +4,12 @@ This directory stores reference mobile screenshots of the core ImbaFind user jou
 
 ## Screen Catalog
 
-| Screen                         | File                                 | Description                                                                                                                     |
-| ------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Explore & Discovery**        | `01-explore-feed.png`                | Main listings feed showing Zimbabwe property cards, pricing in USD, suburb filters, and verified landlord badges.               |
-| **Property Details & Trust**   | `02-property-details.png`            | Comprehensive listing view with image gallery, verified landlord contact, amenities, and booking slot requests.                 |
-| **AI Natural Language Search** | `03-ai-search-filter.png`            | User inputting plain-English housing requests ("2 bed cottage in Avondale under $400") translated into structured filter chips. |
-| **AI Listing Assistant**       | `04-landlord-description-helper.png` | Landlord property creation flow highlighting the AI description generator drafting clear facts.                                 |
+| Screen                          | File                        | Description                                                                                                                    |
+| ------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Explore & Discovery**         | `01-explore-feed.png`       | Main listings feed showing Zimbabwe property cards, pricing in USD, suburb filters, and verified landlord badges.              |
+| **Interactive Map & Locations** | `02-explore-map.png`        | Interactive location map and quick property preview cards with WhatsApp contact and neighborhood badges.                       |
+| **AI Natural Language Search**  | `03-ai-search-filter.png`   | User inputting plain-English housing requests ("Cottage in Avondale under $500") translated into structured filter parameters. |
+| **AI Fallback & Offline Mode**  | `03-ai-search-fallback.png` | Graceful fallback to deterministic search when AI quota/connection is unavailable with user guidance.                          |
 
 ## Capturing New Screenshots
 
