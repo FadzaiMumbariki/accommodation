@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '../constants/Colors';
@@ -7,23 +7,22 @@ import { Brand } from '../constants/Colors';
 import { useAuth } from '../context/AuthContext';
 
 export default function SplashScreen() {
-  const { loading } = useAuth();
+  const { session, loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
 
-    // Immediately land on the home screen to browse listings
-    if (Platform.OS === 'web') {
-      router.replace('/(tabs)');
-      return;
-    }
-
+    // Show splash screen, then navigate to sign in / sign up screen (or home if already logged in)
     const timer = setTimeout(() => {
-      router.replace('/(tabs)');
-    }, 300);
+      if (session) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/login');
+      }
+    }, 1200);
 
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, session]);
 
   return (
     <View style={styles.container}>
@@ -45,9 +44,7 @@ export default function SplashScreen() {
       </View>
 
       <View style={styles.bottomContent}>
-        <View style={styles.arcSpinner}>
-          <View style={styles.arcStroke} />
-        </View>
+        <ActivityIndicator size="small" color={Brand.terracotta} />
       </View>
     </View>
   );
@@ -121,19 +118,5 @@ const styles = StyleSheet.create({
     bottom: '20%',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  arcSpinner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2.5,
-    borderColor: 'transparent',
-    borderTopColor: Brand.terracotta,
-    borderRightColor: Brand.terracotta,
-    borderLeftColor: Brand.terracotta,
-    transform: [{ rotate: '-30deg' }],
-  },
-  arcStroke: {
-    display: 'none',
   },
 });
