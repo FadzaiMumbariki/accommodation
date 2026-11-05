@@ -166,35 +166,44 @@ export async function uploadPropertyImage(userId: string, uri: string): Promise<
   if (uri.startsWith('http://') || uri.startsWith('https://')) {
     return uri;
   }
-  let body: ArrayBuffer;
+
+  // Compress and resize the image before uploading
+  let uploadUri = uri;
   try {
-    const manipulator = ImageManipulator.ImageManipulator.manipulate(uri);
-    const original = await manipulator.renderAsync();
-    let image = original;
-    if (original.width > 1600) {
-      manipulator.reset().resize({ width: 1600 });
-      image = await manipulator.renderAsync();
+    const actions: ImageManipulator.Action[] = [];
+    // We need to get image dimensions first to decide whether to resize
+    const preview = await ImageManipulator.manipulateAsync(uri, [], { base64: false });
+    if (preview.width > 1600) {
+      actions.push({ resize: { width: 1600 } });
     }
-    const compressed = await image.saveAsync({
-      format: ImageManipulator.SaveFormat.JPEG,
+    const compressed = await ImageManipulator.manipulateAsync(uri, actions, {
       compress: 0.7,
+      format: ImageManipulator.SaveFormat.JPEG,
     });
-    const response = await fetch(compressed.uri);
-    if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
-    body = await response.arrayBuffer();
+    uploadUri = compressed.uri;
   } catch (manipulatorError) {
     console.warn(
-      '[uploadPropertyImage] Manipulator failed, falling back to direct fetch:',
+      '[uploadPropertyImage] Image compression failed, uploading original:',
       manipulatorError,
     );
-    const response = await fetch(uri);
-    if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
-    body = await response.arrayBuffer();
+    // Keep uploadUri as the original uri
   }
-  const path = `${userId}/${generateUuid()}.jpg`;
+
+  // Use FormData + Blob — works with both file:// and content:// URIs on Android/iOS
+  const filename = `${generateUuid()}.jpg`;
+  const path = `${userId}/${filename}`;
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri: uploadUri,
+    name: filename,
+    type: 'image/jpeg',
+  } as unknown as Blob);
+
   const { error } = await supabase.storage
     .from('property-images')
-    .upload(path, body, { contentType: 'image/jpeg', upsert: false });
+    .upload(path, formData, { contentType: 'multipart/form-data', upsert: false });
+
   if (error) {
     console.error('[uploadPropertyImage]', error.message);
     throw error;
