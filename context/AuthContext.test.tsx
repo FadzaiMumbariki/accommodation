@@ -119,6 +119,25 @@ describe('AuthContext', () => {
     consoleError.mockRestore();
   });
 
+  it('stops loading when session restore hangs so the splash can advance', async () => {
+    jest.useFakeTimers();
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // Never settles, mimicking a token refresh that stalls on the network.
+    authStub.getSession.mockReturnValue(new Promise(() => {}));
+
+    const { result } = await renderAuth();
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(consoleWarn).toHaveBeenCalled();
+    consoleWarn.mockRestore();
+    jest.useRealTimers();
+  });
+
   it('is disabled when there are no Supabase credentials', async () => {
     mockState.client = null;
 

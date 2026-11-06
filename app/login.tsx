@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,7 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
     returnTo?: string;
     role?: string;
   }>();
-  const { signIn, signUp, resetPassword, signInWithGoogle, isSupabaseEnabled } = useAuth();
+  const { session, signIn, signUp, resetPassword, signInWithGoogle, isSupabaseEnabled } = useAuth();
   const { setUserRole, userRole } = useApp();
 
   const [tab, setTab] = useState<'login' | 'signup'>(
@@ -57,6 +57,14 @@ export default function AuthScreen({ defaultTab = 'login' }: { defaultTab?: 'log
   const [phoneFocused, setPhoneFocused] = useState(false);
 
   const dest = returnTo?.startsWith('/') ? (returnTo as Href) : '/(tabs)';
+
+  // A restored session can arrive after the splash already routed here (e.g. when the
+  // initial token refresh is slow). Redirect signed-in users instead of stranding them.
+  useEffect(() => {
+    if (session) {
+      router.replace(dest);
+    }
+  }, [session, dest]);
 
   const handleLogin = async () => {
     setFormError(null);

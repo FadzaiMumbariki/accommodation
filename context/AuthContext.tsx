@@ -66,7 +66,7 @@ function isNewlyCreatedUser(user: User): boolean {
 async function syncNewUserProfile(user: User): Promise<void> {
   try {
     const cachedRole = await AsyncStorage.getItem('imbafind_user_role');
-    const role = (cachedRole === 'landlord' || cachedRole === 'tenant') ? cachedRole : undefined;
+    const role = cachedRole === 'landlord' || cachedRole === 'tenant' ? cachedRole : undefined;
     const meta = user.user_metadata || {};
     const fullName = meta.full_name || meta.name;
     const avatarUrl = meta.avatar_url || meta.picture;
@@ -95,23 +95,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let active = true;
-    void supabase.auth.getSession().then(({ data: { session: s }, error }) => {
-      if (error) {
-        console.error('[AuthContext] Failed to restore session:', error.message);
+
+    // `getSession()` waits on the Supabase client's initialization, which can perform a
+    // token refresh over the network. If that request stalls (offline, captive portal,
+    // unreachable project) the promise never settles, so `loading` would stay true and the
+    // splash would hang forever. Bound the wait so the UI is always released; a session
+    // that arrives afterwards still heals through the `onAuthStateChange` listener below.
+    const SESSION_RESTORE_TIMEOUT_MS = 5000;
+    const restoreTimeout = setTimeout(() => {
+      if (!active) return;
+      console.warn(
+        `[AuthContext] Session restore did not finish within ${SESSION_RESTORE_TIMEOUT_MS}ms; continuing without a restored session.`,
+      );
+      setLoading(false);
+    }, SESSION_RESTORE_TIMEOUT_MS);
+
+    const restoreSession = (s: Session | null, errorMessage?: string) => {
+      if (errorMessage) {
+        console.error('[AuthContext] Failed to restore session:', errorMessage);
       }
       if (!active) return;
+      clearTimeout(restoreTimeout);
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
-    }).catch(error => {
-      console.error('[AuthContext] Failed to restore session:', error);
-      if (active) setLoading(false);
-    });
+    };
+
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session: s }, error }) => restoreSession(s, error?.message))
+      .catch((error) => restoreSession(null, error));
 
     // The callback must stay synchronous: awaiting another Supabase call inside it can
     // deadlock the auth client (see supabase-js onAuthStateChange docs), so the profile
     // sync is deferred until after the auth event has finished processing.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
 
@@ -130,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    void Linking.getInitialURL().then(initialUrl => {
+    void Linking.getInitialURL().then((initialUrl) => {
       if (initialUrl && active && isGoogleAuthCallbackUrl(initialUrl)) {
         void handleAuthRedirectUrl(initialUrl);
       }
@@ -138,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      clearTimeout(restoreTimeout);
       subscription.unsubscribe();
       linkSub.remove();
     };
@@ -164,58 +185,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!supabase) {
         // No backend — return a clear error so the UI doesn't silently pretend to succeed
         return {
-          error: 'Account creation requires a backend connection. Add your Supabase credentials to .env.local and try again.',
+          error:
+            'Account creation requires a backend connection. Add your Supabase credentials to .env.local and try again.',
           requiresEmailConfirmation: false,
         };
       }
-      return signUpWithRole(supabase, email, password, fullName, phone, role, Linking.createURL('/login'));
+      return signUpWithRole(
+        supabase,
+        email,
+        password,
+        fullName,
+        phone,
+        role,
+        Linking.createURL('/login'),
+      );
     },
     [],
   );
 
-  const signOut = useCallback(async (options?: { localOnly?: boolean }) => {
-    if (!supabase) {
-      // Demo mode sign-out — just clear local state
-      setUser(null);
-      setSession(null);
+  const signOut = useCallback(
+    async (options?: { localOnly?: boolean }) => {
+      if (!supabase) {
+        // Demo mode sign-out — just clear local state
+        setUser(null);
+        setSession(null);
+        try {
+          await AsyncStorage.multiRemove([
+            'imbafind_user_role',
+            '@imbafind_cached_properties',
+            '@imbafind_cached_properties_time',
+          ]);
+        } catch {
+          // ignore storage errors on demo signout
+        }
+        return;
+      }
+      if (user && !options?.localOnly) {
+        try {
+          await clearPushToken(user.id);
+        } catch (tokenError) {
+          console.error('[AuthContext] Failed to clear push token before sign out:', tokenError);
+          Alert.alert(
+            'Could not sign out',
+            'Your notification token could not be cleared. Please try again.',
+          );
+          return;
+        }
+      }
+      const { error } = await supabase.auth.signOut(
+        options?.localOnly ? { scope: 'local' } : undefined,
+      );
+      if (error) {
+        Alert.alert('Error', 'Failed to sign out. Please try again.');
+        return;
+      }
       try {
         await AsyncStorage.multiRemove([
           'imbafind_user_role',
           '@imbafind_cached_properties',
           '@imbafind_cached_properties_time',
         ]);
-      } catch {
-        // ignore storage errors on demo signout
+      } catch (storageError) {
+        console.error('[AuthContext] Failed to clear cached account data:', storageError);
+        Alert.alert(
+          'Signed out',
+          'Your local account cache could not be cleared. Please try again.',
+        );
       }
-      return;
-    }
-    if (user && !options?.localOnly) {
-      try {
-        await clearPushToken(user.id);
-      } catch (tokenError) {
-        console.error('[AuthContext] Failed to clear push token before sign out:', tokenError);
-        Alert.alert('Could not sign out', 'Your notification token could not be cleared. Please try again.');
-        return;
-      }
-    }
-    const { error } = await supabase.auth.signOut(
-      options?.localOnly ? { scope: 'local' } : undefined,
-    );
-    if (error) {
-      Alert.alert('Error', 'Failed to sign out. Please try again.');
-      return;
-    }
-    try {
-      await AsyncStorage.multiRemove([
-        'imbafind_user_role',
-        '@imbafind_cached_properties',
-        '@imbafind_cached_properties_time',
-      ]);
-    } catch (storageError) {
-      console.error('[AuthContext] Failed to clear cached account data:', storageError);
-      Alert.alert('Signed out', 'Your local account cache could not be cleared. Please try again.');
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
   const changeRole = useCallback(async (userId: string, role: UserRole): Promise<boolean> => {
     return changeUserRole(userId, role, updateProfile);
