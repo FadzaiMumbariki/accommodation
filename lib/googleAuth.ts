@@ -103,7 +103,8 @@ export async function completeFromRedirectUrl(url: string): Promise<boolean> {
 export function isGoogleAuthCallbackUrl(url: string): boolean {
   if (!url) return false;
   const isCallbackPath = url.includes('/auth/callback') || url.includes('auth/callback');
-  const hasAuthParams = url.includes('code=') || url.includes('access_token=') || url.includes('error=');
+  const hasAuthParams =
+    url.includes('code=') || url.includes('access_token=') || url.includes('error=');
   return isCallbackPath && hasAuthParams;
 }
 
@@ -112,7 +113,10 @@ export function isGoogleAuthCallbackUrl(url: string): boolean {
  * Safely parses the URL and exchanges authorization code/tokens for a persistent session.
  */
 export async function handleAuthRedirectUrl(url: string): Promise<boolean> {
-  if (!url || (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error='))) {
+  if (
+    !url ||
+    (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error='))
+  ) {
     return false;
   }
   try {
@@ -138,7 +142,7 @@ export async function signInWithGoogle(): Promise<{ success: boolean; cancelled?
     provider: 'google',
     options: {
       redirectTo,
-      skipBrowserRedirect: true,
+      skipBrowserRedirect: Platform.OS !== 'web',
       queryParams: {
         access_type: 'offline',
         prompt: 'select_account',

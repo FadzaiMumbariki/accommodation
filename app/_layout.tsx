@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Buffer } from 'buffer';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -12,7 +12,9 @@ import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { installErrorReporting } from '../lib/errorReporting';
 import { useNotifications } from '../hooks/useNotifications';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { SENTRY_ENABLED, SENTRY_DSN, logEnvConfig } from '../constants/envConfig';
+import { handleAuthRedirectUrl, isGoogleAuthCallbackUrl } from '../lib/googleAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -39,6 +41,34 @@ if (typeof window !== 'undefined') {
 function AppShell() {
   // Registers for push notifications and sets up listeners app-wide
   useNotifications();
+
+  // Listen for OAuth deep link redirects
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      if (isGoogleAuthCallbackUrl(event.url)) {
+        try {
+          await handleAuthRedirectUrl(event.url);
+        } catch (error) {
+          console.error('OAuth redirect error:', error);
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url && isGoogleAuthCallbackUrl(url)) {
+        handleAuthRedirectUrl(url).catch((error) => {
+          console.error('OAuth initial URL error:', error);
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <>
