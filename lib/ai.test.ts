@@ -1,7 +1,36 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { generateListingDescription } from './ai';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { aiSearch, generateListingDescription } from './ai';
+import { ZIMBABWE_CITIES } from '../constants/locations';
+import { supabase } from './supabase';
 
-jest.mock('./supabase', () => ({ supabase: null }));
+jest.mock('./supabase', () => ({
+  supabase: { functions: { invoke: jest.fn() } },
+}));
+
+const invokeMock = supabase!.functions.invoke as unknown as jest.Mock<
+  (...args: unknown[]) => Promise<{ data: unknown; error: unknown }>
+>;
+
+beforeEach(() => {
+  invokeMock.mockReset();
+});
+
+describe('aiSearch', () => {
+  // Regression: the model's city must never override an explicit city in the
+  // query, otherwise "houses in Gweru" could return listings from another city.
+  it('keeps the city the user typed even when the model returns a different one', async () => {
+    invokeMock.mockResolvedValue({
+      data: { city: 'Harare', summary: 'Houses in Harare' },
+      error: null,
+    });
+
+    const result = await aiSearch('houses in Gweru', ZIMBABWE_CITIES);
+
+    expect(result.source).toBe('ai');
+    expect(result.filters.city).toBe('Gweru');
+    expect(result.summary).toContain('Gweru');
+  });
+});
 
 describe('generateListingDescription', () => {
   it('uses only supplied facts in the local fallback', async () => {

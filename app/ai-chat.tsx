@@ -23,6 +23,7 @@ import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
 import { MOCK_PROPERTIES } from '../constants/mockData';
+import { ZIMBABWE_CITIES } from '../constants/locations';
 import { formatDistance, resolveLocationCoordinates, DEFAULT_MAP_CENTER } from '../lib/coordinates';
 import { getCurrentUserLocation } from '../lib/locationService';
 import type { Property } from '../types';
@@ -249,7 +250,13 @@ export default function AiChatScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  const allCities = useMemo(() => [...new Set(properties.map((p) => p.city))].sort(), [properties]);
+  // Merge cities from loaded properties with the canonical Zimbabwe city list so
+  // the AI / local-parser always recognises cities like Gweru even when the
+  // remote DB only contains Harare/Bulawayo listings.
+  const allCities = useMemo(
+    () => [...new Set([...properties.map((p) => p.city), ...ZIMBABWE_CITIES])].sort(),
+    [properties],
+  );
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
@@ -319,9 +326,18 @@ export default function AiChatScreen() {
           }
         }
 
-        // 4. Filter properties (fallback to mock if Supabase table is empty)
-        const effectiveProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
-        const matched = filterMockProperties(effectiveProperties, result.filters);
+        // 4. Filter properties.
+        // When Supabase has live rows but none match the AI's city filter (e.g.
+        // the DB only has Harare/Bulawayo listings and the user searches Gweru),
+        // merge in MOCK_PROPERTIES so we always have something to show.
+        const baseProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
+        const primaryMatched = filterMockProperties(baseProperties, result.filters);
+        // If the city filter produced zero results from live data, also search
+        // mock data so users can still explore cities not yet in the remote DB.
+        const matched =
+          primaryMatched.length === 0 && result.filters.city && properties.length > 0
+            ? filterMockProperties(MOCK_PROPERTIES, result.filters)
+            : primaryMatched;
         const top = matched.slice(0, 6);
 
         // 5. Replace thinking with results

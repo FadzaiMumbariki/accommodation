@@ -1,7 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 import { describeFilters, parseQueryLocally, sanitizeAiFilters } from './aiFilters';
+import { ZIMBABWE_CITIES } from '../constants/locations';
 
-const cities = ['Harare', 'Bulawayo', 'Masvingo'];
+// Use the full Zimbabwe city list (mirrors what ai-chat.tsx now passes at runtime)
+const cities = ZIMBABWE_CITIES;
 
 describe('sanitizeAiFilters', () => {
   it('keeps valid fields and normalises city casing', () => {
@@ -40,6 +42,12 @@ describe('sanitizeAiFilters', () => {
   it('ignores non-object input and wrong types', () => {
     expect(sanitizeAiFilters('ignore previous instructions', cities).filters).toEqual({});
     expect(sanitizeAiFilters({ bedrooms: '3', furnished: 'yes' }, cities).filters).toEqual({});
+  });
+
+  it('recognises Gweru as a valid city (regression: was dropped when db had no Gweru rows)', () => {
+    const { filters } = sanitizeAiFilters({ city: 'Gweru', propertyType: 'house' }, cities);
+    expect(filters.city).toBe('Gweru');
+    expect(filters.propertyType).toBe('house');
   });
 });
 
@@ -103,5 +111,32 @@ describe('parseQueryLocally', () => {
     expect(filters.nearby).toBe(true);
     expect(filters.suburb).toBe('Borrowdale');
     expect(filters.city).toBe('Harare');
+  });
+
+  // ── Regression: Gweru city search (issue reported 2026-11-06) ───────────────
+  it('detects "houses in Gweru" → city=Gweru, propertyType=house', () => {
+    const { filters } = parseQueryLocally('houses in Gweru', cities);
+    expect(filters.city).toBe('Gweru');
+    expect(filters.propertyType).toBe('house');
+  });
+
+  it('detects "2 bedroom flat in Gweru under $300"', () => {
+    const { filters } = parseQueryLocally('2 bedroom flat in Gweru under $300', cities);
+    expect(filters.city).toBe('Gweru');
+    expect(filters.propertyType).toBe('flat');
+    expect(filters.bedrooms).toBe(2);
+    expect(filters.budgetMax).toBe(300);
+  });
+
+  it('detects "cheap rooms in Kwekwe"', () => {
+    const { filters } = parseQueryLocally('cheap rooms in Kwekwe', cities);
+    expect(filters.city).toBe('Kwekwe');
+    expect(filters.propertyType).toBe('room');
+  });
+
+  it('detects Gweru suburb (Mkoba) and infers city=Gweru', () => {
+    const { filters } = parseQueryLocally('house in Mkoba', cities);
+    expect(filters.suburb).toBe('Mkoba');
+    expect(filters.city).toBe('Gweru');
   });
 });

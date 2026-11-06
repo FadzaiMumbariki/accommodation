@@ -7,10 +7,24 @@ export const ZIMBABWE_LOCATIONS: LocationItem[] = [
       {
         name: 'Harare',
         suburbs: [
-          'Avondale', 'Borrowdale', 'Budiriro', 'Chitungwiza', 'Epworth',
-          'Glen Norah', 'Glen View', 'Greendale', 'Highfield', 'Kuwadzana',
-          'Mabvuku', 'Mbare', 'Mount Pleasant', 'Mufakose', 'Rugare',
-          'Ruwa', 'Southerton', 'Warren Park',
+          'Avondale',
+          'Borrowdale',
+          'Budiriro',
+          'Chitungwiza',
+          'Epworth',
+          'Glen Norah',
+          'Glen View',
+          'Greendale',
+          'Highfield',
+          'Kuwadzana',
+          'Mabvuku',
+          'Mbare',
+          'Mount Pleasant',
+          'Mufakose',
+          'Rugare',
+          'Ruwa',
+          'Southerton',
+          'Warren Park',
         ],
       },
       { name: 'Chitungwiza', suburbs: ['Seke', 'Zengeza', 'Unit J', 'St Marys'] },
@@ -25,9 +39,19 @@ export const ZIMBABWE_LOCATIONS: LocationItem[] = [
       {
         name: 'Bulawayo',
         suburbs: [
-          'Hillside', 'Khumalo', 'Luveve', 'Makokoba', 'Mabutweni',
-          'Mpopoma', 'Nkulumane', 'Nketa', 'Pumula', 'Riverside',
-          'Sunningdale', 'Thorngrove', 'Waterford',
+          'Hillside',
+          'Khumalo',
+          'Luveve',
+          'Makokoba',
+          'Mabutweni',
+          'Mpopoma',
+          'Nkulumane',
+          'Nketa',
+          'Pumula',
+          'Riverside',
+          'Sunningdale',
+          'Thorngrove',
+          'Waterford',
         ],
       },
     ],
@@ -101,4 +125,24 @@ export const ZIMBABWE_LOCATIONS: LocationItem[] = [
   },
 ];
 
-export const POPULAR_CITIES = ['Harare', 'Bulawayo', 'Gweru', 'Mutare', 'Masvingo', 'Victoria Falls'];
+export const POPULAR_CITIES = [
+  'Harare',
+  'Bulawayo',
+  'Gweru',
+  'Mutare',
+  'Masvingo',
+  'Victoria Falls',
+];
+
+/**
+ * Canonical flat list of every Zimbabwean city the app knows about.
+ * Used as the `knownCities` parameter for AI / local-parser searches so
+ * city detection always works regardless of which cities happen to be in
+ * the remote database at the time.
+ */
+export const ZIMBABWE_CITIES: string[] = [
+  ...new Set([
+    ...ZIMBABWE_LOCATIONS.flatMap((province) => province.cities.map((c) => c.name)),
+    ...POPULAR_CITIES,
+  ]),
+].sort();

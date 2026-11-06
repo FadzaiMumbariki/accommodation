@@ -1,5 +1,10 @@
 import { supabase } from './supabase';
-import { parseQueryLocally, sanitizeAiFilters, type AiSearchResult } from './aiFilters';
+import {
+  describeFilters,
+  parseQueryLocally,
+  sanitizeAiFilters,
+  type AiSearchResult,
+} from './aiFilters';
 import { describeAiError, type AiUnavailableReason } from './aiAvailability';
 
 export interface ListingFacts {
@@ -35,7 +40,23 @@ export async function aiSearch(query: string, knownCities: string[]): Promise<Ai
         body: { query: trimmed, knownCities: knownCities.slice(0, 60) },
       });
       if (!error && data && !data.error) {
-        return { ...sanitizeAiFilters(data, knownCities), source: 'ai' };
+        const ai = sanitizeAiFilters(data, knownCities);
+        // The location the user actually typed is authoritative. The model must
+        // never move a search like "houses in Gweru" to another city, so if the
+        // local parser recognised an explicit city/suburb we prefer it and keep
+        // the summary consistent with the filters that will actually be applied.
+        const local = parseQueryLocally(trimmed, knownCities).filters;
+        const filters = { ...ai.filters };
+        let summary = ai.summary;
+        if (local.city && local.city !== filters.city) {
+          filters.city = local.city;
+          summary = '';
+        }
+        if (local.suburb && local.suburb !== filters.suburb) {
+          filters.suburb = local.suburb;
+          summary = '';
+        }
+        return { filters, summary: summary || describeFilters(filters), source: 'ai' };
       }
       // Surface a truthful reason for the fallback instead of hiding it.
       const unavailable = error ? describeAiError(error) : 'outage';
