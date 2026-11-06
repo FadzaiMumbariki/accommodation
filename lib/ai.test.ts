@@ -30,6 +30,16 @@ describe('aiSearch', () => {
     expect(result.filters.city).toBe('Gweru');
     expect(result.summary).toContain('Gweru');
   });
+
+  it('reports an Edge Function failure when it falls back to local search', async () => {
+    invokeMock.mockRejectedValue(new Error('network unavailable'));
+
+    const result = await aiSearch('houses in Bindura', ZIMBABWE_CITIES);
+
+    expect(result.source).toBe('basic');
+    expect(result.unavailable).toBe('outage');
+    expect(result.filters.city).toBe('Bindura');
+  });
 });
 
 describe('generateListingDescription', () => {

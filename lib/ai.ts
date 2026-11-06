@@ -61,8 +61,12 @@ export async function aiSearch(query: string, knownCities: string[]): Promise<Ai
       // Surface a truthful reason for the fallback instead of hiding it.
       const unavailable = error ? describeAiError(error) : 'outage';
       return { ...parseQueryLocally(trimmed, knownCities), source: 'basic', unavailable };
-    } catch {
-      // Continue to local parser
+    } catch (error) {
+      return {
+        ...parseQueryLocally(trimmed, knownCities),
+        source: 'basic',
+        unavailable: describeAiError(error),
+      };
     }
   }
 
@@ -88,8 +92,12 @@ export async function generateListingDescription(
       // Surface a truthful reason for the template fallback instead of hiding it.
       const unavailable = error ? describeAiError(error) : 'outage';
       return { description: buildTemplateDescription(facts), source: 'basic', unavailable };
-    } catch {
-      // Fall through to template generator
+    } catch (error) {
+      return {
+        description: buildTemplateDescription(facts),
+        source: 'basic',
+        unavailable: describeAiError(error),
+      };
     }
   }
 

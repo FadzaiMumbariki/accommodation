@@ -18,8 +18,9 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { aiSearch } from '../lib/ai';
-import { hasRealAiSession, aiUnavailableMessage } from '../lib/aiAvailability';
+import { aiUnavailableMessage, type AiUnavailableReason } from '../lib/aiAvailability';
 import { filterMockProperties } from '../lib/propertyFilters';
 import { Brand } from '../constants/Colors';
 import { MOCK_PROPERTIES } from '../constants/mockData';
@@ -48,6 +49,7 @@ interface ResultsMessage {
   properties: Property[];
   query: string;
   source: 'ai' | 'basic';
+  unavailable?: AiUnavailableReason;
   timestamp: Date;
 }
 
@@ -224,7 +226,11 @@ const ResultsBubble = ({ msg, onOpen }: { msg: ResultsMessage; onOpen: (id: stri
     <View style={styles.resultsWrapper}>
       <Text style={styles.bubbleTextBot}>{msg.text}</Text>
       {msg.source === 'basic' && (
-        <Text style={styles.sourceNote}>Using local search · sign in for AI results</Text>
+        <Text style={styles.sourceNote}>
+          {msg.unavailable
+            ? aiUnavailableMessage(msg.unavailable)
+            : 'Using local search · sign in for AI results'}
+        </Text>
       )}
       {msg.properties.map((p) => (
         <ResultCard key={p.id} property={p} onPress={() => onOpen(p.id)} />
@@ -237,6 +243,7 @@ const ResultsBubble = ({ msg, onOpen }: { msg: ResultsMessage; onOpen: (id: stri
 
 export default function AiChatScreen() {
   const { properties } = useApp();
+  const { session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: uid(),
@@ -292,7 +299,7 @@ export default function AiChatScreen() {
 
       try {
         // 3. Run AI search (calls Gemini Edge Function if signed in, falls back to local parser)
-        const hasAuth = await hasRealAiSession();
+        const hasAuth = Boolean(session?.user);
         const result = await aiSearch(trimmed, allCities);
 
         // 3b. Handle nearby and proximity intent
@@ -348,8 +355,16 @@ export default function AiChatScreen() {
             ? `\n\n${aiUnavailableMessage(result.unavailable)}`
             : signinHint;
 
+        const availableCities = [
+          ...new Set(liveProperties.map((property) => property.city).filter(Boolean)),
+        ].sort();
+        const cityHint = availableCities.length
+          ? ` Current listings are available in ${availableCities.slice(0, 3).join(', ')}${
+              availableCities.length > 3 ? ', and more' : ''
+            }.`
+          : '';
         const emptyMessage = result.filters.city
-          ? `There are no listings in ${result.filters.city} yet. Try another city or broaden your budget.`
+          ? `There are no listings in ${result.filters.city} yet.${cityHint} Try another city or broaden your budget.`
           : `I couldn't find any ${isNearbyRequested ? 'nearby ' : ''}properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`;
         const intro =
           (top.length > 0
@@ -369,6 +384,7 @@ export default function AiChatScreen() {
                   properties: top,
                   query: trimmed,
                   source: result.source,
+                  unavailable: result.unavailable,
                   timestamp: new Date(),
                 } as ChatMessage)
               : m,
@@ -393,7 +409,7 @@ export default function AiChatScreen() {
         scrollToBottom();
       }
     },
-    [allCities, isLoading, properties, push, scrollToBottom],
+    [allCities, isLoading, properties, push, scrollToBottom, session],
   );
 
   const handleSend = useCallback(() => sendQuery(input), [input, sendQuery]);

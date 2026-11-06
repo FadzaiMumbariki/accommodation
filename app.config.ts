@@ -43,11 +43,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins.push('expo-detox-config-plugin');
   }
 
-  let hasGoogleServices = false;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    hasGoogleServices = require('fs').existsSync('./google-services.json');
-  } catch {}
+  // `google-services.json` is never committed, so cloud builds receive it through an EAS
+  // "file" environment variable, whose value is the path to the file on the build runner.
+  // Locally we fall back to the gitignored file if it is present.
+  const googleServicesFile =
+    process.env.GOOGLE_SERVICES_JSON ??
+    (() => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        return require('fs').existsSync('./google-services.json')
+          ? './google-services.json'
+          : undefined;
+      } catch {
+        return undefined;
+      }
+    })();
 
   const androidConfig = {
     ...config.android,
@@ -61,7 +71,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           },
         }
       : {}),
-    ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
+    ...(googleServicesFile ? { googleServicesFile } : {}),
   };
 
   return {
