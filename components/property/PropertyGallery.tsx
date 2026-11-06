@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, Dimensions, Text, FlatList, FlatListProps } from 'react-native';
-import { Image } from 'expo-image';
 import { Brand } from '../../constants/Colors';
+import { PropertyGalleryItem } from './PropertyGalleryItem';
 
 const { width } = Dimensions.get('window');
 
@@ -32,17 +32,7 @@ export const PropertyGallery: React.FC<PropertyGalleryProps> = ({ images }) => {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: string }) => (
-      <View style={styles.slide}>
-        <Image
-          source={{ uri: item }}
-          style={styles.image}
-          contentFit="cover"
-          transition={250}
-          cachePolicy="memory-disk"
-        />
-      </View>
-    ),
+    ({ item }: { item: string }) => <PropertyGalleryItem item={item} width={width} height={300} />,
     [],
   );
 

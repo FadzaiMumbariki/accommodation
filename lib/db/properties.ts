@@ -26,9 +26,10 @@ export async function fetchProperties(filters?: PropertyFilters, page = 0): Prom
       `title.ilike.%${search}%,city.ilike.%${search}%,suburb.ilike.%${search}%,description.ilike.%${search}%`,
     );
   }
-  if (filters?.city) query = query.ilike('city', filters.city);
-  if (filters?.suburb) query = query.ilike('suburb', filters.suburb);
-  if (filters?.province) query = query.ilike('province', filters.province);
+  // City filter: if provided, match exactly; if not provided, show all cities
+  if (filters?.city) query = query.eq('city', filters.city);
+  if (filters?.suburb) query = query.eq('suburb', filters.suburb);
+  if (filters?.province) query = query.eq('province', filters.province);
   if (filters?.propertyTypes && filters.propertyTypes.length > 0) {
     query = query.in('property_type', filters.propertyTypes);
   } else if (filters?.propertyType && filters.propertyType !== 'any') {

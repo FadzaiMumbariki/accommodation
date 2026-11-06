@@ -5,12 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
-  Dimensions,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,33 +35,14 @@ import { ReviewSection } from '../components/property/ReviewSection';
 import { PropertyUtilitiesCard } from '../components/property/PropertyUtilitiesCard';
 import { PropertyContactBar } from '../components/property/PropertyContactBar';
 import { VerifiedInfoModal } from '../components/property/VerifiedInfoModal';
+import { PropertyHeroCarousel } from '../components/property/PropertyHeroCarousel';
+import { PropertySpecsCard } from '../components/property/PropertySpecsCard';
+import { PropertyAmenitiesGrid } from '../components/property/PropertyAmenitiesGrid';
+import { PropertyLandlordSection } from '../components/property/PropertyLandlordSection';
+import { PropertySafetyAdvisory } from '../components/property/PropertySafetyAdvisory';
 import { useResponsive } from '../hooks/useResponsive';
 import { WebHeader } from '../components/navigation/WebHeader';
 import { WebFooter } from '../components/navigation/WebFooter';
-
-const { width: W } = Dimensions.get('window');
-
-const AMENITY_ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
-  water: 'water-outline',
-  electricity: 'flash-outline',
-  solar: 'sunny-outline',
-  security: 'shield-checkmark-outline',
-  parking: 'car-outline',
-  garden: 'leaf-outline',
-  borehole: 'water-outline',
-  wifi: 'wifi-outline',
-  furnished: 'bed-outline',
-  aircon: 'snow-outline',
-  generator: 'power-outline',
-  dstv: 'tv-outline',
-  kitchen: 'restaurant-outline',
-  transport: 'bus-outline',
-  pets: 'paw-outline',
-  laundry: 'shirt-outline',
-  fireplace: 'flame-outline',
-  wall: 'business-outline',
-  durawall: 'business-outline',
-};
 
 export default function PropertyDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -78,8 +56,6 @@ export default function PropertyDetailsScreen() {
   const imageHeight = !isMobile ? 480 : Math.min(width * 0.75, 420);
 
   // usePropertyContact must be called unconditionally (Rules of Hooks).
-  // We pass a stable fallback when `property` hasn't resolved yet; the
-  // handlers are only wired to UI after the `!property` early-return guard.
   const foundProperty = properties.find((p) => p.id === id) ?? (id ? undefined : properties[0]);
   const [fetchedProperty, setFetchedProperty] = useState<Property | null>(null);
   const [fetchFinished, setFetchFinished] = useState(false);
@@ -106,7 +82,7 @@ export default function PropertyDetailsScreen() {
   const property = foundProperty ?? fetchedProperty ?? undefined;
   const isResolvingProperty = !foundProperty && Boolean(id) && !fetchFinished;
 
-  // All contact/action handlers — extracted to keep this file focused on rendering.
+  // All contact/action handlers
   const {
     chatStarting,
     handleShare,
@@ -116,10 +92,7 @@ export default function PropertyDetailsScreen() {
     handleGetDirections,
     handleBookViewing,
     handleToggleSaved,
-  } = usePropertyContact(
-    // Stable fallback so the hook never receives undefined
-    property ?? ({} as Property),
-  );
+  } = usePropertyContact(property ?? ({} as Property));
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState('');
@@ -277,91 +250,20 @@ export default function PropertyDetailsScreen() {
         contentContainerStyle={[styles.scrollContent, !isMobile && styles.scrollContentDesktop]}
       >
         <View style={[styles.mainWrapper, !isMobile && styles.mainWrapperDesktop]}>
-          {/* Top Image Hero */}
-          <View
-            style={[
-              styles.imageContainer,
-              { width: imageWidth, height: imageHeight },
-              !isMobile && styles.imageContainerDesktop,
-            ]}
-          >
-            <FlatList
-              data={property.images}
-              keyExtractor={(_, i) => String(i)}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) =>
-                setImgIndex(Math.round(e.nativeEvent.contentOffset.x / imageWidth))
-              }
-              renderItem={({ item }) => (
-                <View style={[styles.carouselSlide, { width: imageWidth, height: imageHeight }]}>
-                  <Image
-                    source={{ uri: item }}
-                    style={[styles.carouselImage, { width: imageWidth, height: imageHeight }]}
-                    contentFit="cover"
-                    transition={250}
-                    cachePolicy="memory-disk"
-                  />
-                </View>
-              )}
-            />
-
-            {/* Top Navigation Overlay */}
-            <View style={styles.topNavOverlay}>
-              <TouchableOpacity
-                style={styles.navCircleBtn}
-                onPress={() => router.back()}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-              >
-                <Ionicons name="arrow-back" size={20} color={Brand.white} />
-              </TouchableOpacity>
-
-              <View style={styles.topNavRight}>
-                <TouchableOpacity
-                  style={styles.navCircleBtn}
-                  onPress={handleShare}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Share ${property.title}`}
-                >
-                  <Ionicons name="share-outline" size={20} color={Brand.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.navCircleBtn}
-                  onPress={handleToggleSaved}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    saved
-                      ? `Remove ${property.title} from saved listings`
-                      : `Save ${property.title}`
-                  }
-                >
-                  <Ionicons
-                    name={saved ? 'heart' : 'heart-outline'}
-                    size={20}
-                    color={saved ? '#E5534B' : Brand.white}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Bottom Badges on Image */}
-            <View style={styles.imageBottomBadges}>
-              <View style={styles.availPillOnImage}>
-                <View style={styles.availDot} />
-                <Text style={styles.availPillText}>Available now</Text>
-              </View>
-              <View style={styles.imageCounter}>
-                <Text style={styles.imageCounterText}>
-                  {imgIndex + 1}/{property.images.length || 1}
-                </Text>
-              </View>
-            </View>
-          </View>
+          {/* Top Image Hero Carousel */}
+          <PropertyHeroCarousel
+            images={property.images}
+            propertyTitle={property.title}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            isDesktop={!isMobile}
+            saved={saved}
+            imgIndex={imgIndex}
+            onIndexChange={setImgIndex}
+            onBack={() => router.back()}
+            onShare={handleShare}
+            onToggleSaved={handleToggleSaved}
+          />
 
           {/* Content Details */}
           <View style={styles.detailsContent}>
@@ -406,25 +308,11 @@ export default function PropertyDetailsScreen() {
             </Text>
 
             {/* Specs Row */}
-            <View style={styles.specsCard}>
-              <View style={styles.specBox}>
-                <Ionicons name="bed-outline" size={20} color={Brand.navy} />
-                <Text style={styles.specValue}>{property.bedrooms}</Text>
-                <Text style={styles.specTitle}>Bedrooms</Text>
-              </View>
-              <View style={styles.specDivider} />
-              <View style={styles.specBox}>
-                <Ionicons name="water-outline" size={20} color={Brand.navy} />
-                <Text style={styles.specValue}>{property.bathrooms}</Text>
-                <Text style={styles.specTitle}>Bathroom</Text>
-              </View>
-              <View style={styles.specDivider} />
-              <View style={styles.specBox}>
-                <Ionicons name="people-outline" size={20} color={Brand.navy} />
-                <Text style={styles.specValue}>{property.maxOccupants}</Text>
-                <Text style={styles.specTitle}>People</Text>
-              </View>
-            </View>
+            <PropertySpecsCard
+              bedrooms={property.bedrooms}
+              bathrooms={property.bathrooms}
+              maxOccupants={property.maxOccupants}
+            />
 
             {/* Key Utilities & Backup Infrastructure Highlights */}
             <Text style={styles.sectionHeader}>Utilities & Infrastructure</Text>
@@ -432,24 +320,7 @@ export default function PropertyDetailsScreen() {
 
             {/* Amenities Grid */}
             <Text style={styles.sectionHeader}>Amenities</Text>
-            {property.amenities && property.amenities.length > 0 ? (
-              <View style={styles.amenitiesGrid}>
-                {property.amenities.map((a) => {
-                  const iconName = AMENITY_ICON_MAP[a.toLowerCase()] || 'checkmark-circle';
-                  const label = a.charAt(0).toUpperCase() + a.slice(1);
-                  return (
-                    <View key={a} style={styles.amenityCard}>
-                      <Ionicons name={iconName} size={20} color={Brand.terracotta} />
-                      <Text style={styles.amenityLabel} numberOfLines={2}>
-                        {label}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text style={styles.noAmenitiesText}>No amenities listed.</Text>
-            )}
+            <PropertyAmenitiesGrid amenities={property.amenities || []} />
 
             {/* Description Section */}
             <Text style={styles.sectionHeader}>Description</Text>
@@ -482,38 +353,14 @@ export default function PropertyDetailsScreen() {
               onSubmitReview={() => void submitReview()}
             />
 
-            {/* Landlord Card */}
-            <Text style={styles.sectionHeader}>Landlord</Text>
-            <View style={styles.landlordCard}>
-              {property.landlord?.avatar ? (
-                <Image
-                  source={{ uri: property.landlord.avatar }}
-                  style={styles.landlordAvatar}
-                  contentFit="cover"
-                  transition={200}
-                  cachePolicy="memory-disk"
-                />
-              ) : (
-                <View style={[styles.landlordAvatar, styles.landlordAvatarPlaceholder]}>
-                  <Text style={styles.landlordAvatarInitial}>
-                    {property.landlord?.name?.charAt(0) || '?'}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.landlordDetails}>
-                <View style={styles.landlordNameRow}>
-                  <Text style={styles.landlordName}>{property.landlord?.name || 'Landlord'}</Text>
-                  {property.landlord?.verified && (
-                    <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
-                  )}
-                </View>
-                {(property.landlord?.rating ?? property.rating) != null && (
-                  <Text style={styles.landlordMeta}>
-                    Rating: {property.landlord?.rating ?? property.rating} / 5
-                  </Text>
-                )}
-              </View>
-            </View>
+            {/* Landlord Section */}
+            <PropertyLandlordSection
+              landlord={property.landlord}
+              propertyRating={property.rating}
+              onCall={handleCallLandlord}
+              onWhatsApp={handleWhatsAppLandlord}
+              onMessage={handleMessage}
+            />
 
             {isSupabaseEnabled && (
               <TouchableOpacity
@@ -530,50 +377,7 @@ export default function PropertyDetailsScreen() {
             )}
 
             {/* Tenant Safety & Anti-Scam Alert */}
-            <View style={styles.safetyAlertCard}>
-              <View style={styles.safetyIconBox}>
-                <Ionicons name="shield-half" size={20} color="#D97706" />
-              </View>
-              <View style={styles.safetyAlertContent}>
-                <Text style={styles.safetyAlertTitle}>Safety & Fraud Advisory</Text>
-                <Text style={styles.safetyAlertText}>
-                  Never send rental deposits or viewing fees via EcoCash, Innbucks or bank transfer
-                  before physically inspecting this property with the landlord.
-                </Text>
-              </View>
-            </View>
-
-            {/* Landlord Contact Buttons */}
-            <View style={styles.landlordActions}>
-              <TouchableOpacity
-                style={[styles.landlordActionBtn, styles.landlordActionBtnSecondary]}
-                onPress={handleCallLandlord}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="call-outline" size={18} color={Brand.terracotta} />
-                <Text style={[styles.landlordActionBtnText, { color: Brand.terracotta }]}>
-                  Call
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.landlordActionBtn, styles.landlordActionBtnWhatsApp]}
-                onPress={handleWhatsAppLandlord}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="logo-whatsapp" size={18} color={Brand.white} />
-                <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>WhatsApp</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.landlordActionBtn, styles.landlordActionBtnPrimary]}
-                onPress={handleMessage}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={Brand.white} />
-                <Text style={[styles.landlordActionBtnText, { color: Brand.white }]}>Message</Text>
-              </TouchableOpacity>
-            </View>
+            <PropertySafetyAdvisory />
           </View>
         </View>
         {!isMobile && <WebFooter />}
@@ -617,92 +421,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
   },
-  imageContainer: {
-    width: W,
-    height: W * 0.75,
-    position: 'relative',
-    backgroundColor: Brand.navy,
-  },
-  imageContainerDesktop: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: Brand.navy,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  carouselSlide: {
-    width: W,
-    height: W * 0.75,
-    backgroundColor: Brand.navy,
-  },
-  carouselImage: {
-    width: W,
-    height: W * 0.75,
-  },
-  topNavOverlay: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  topNavRight: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  navCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageBottomBadges: {
-    position: 'absolute',
-    bottom: 12,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  availPillOnImage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(22, 163, 74, 0.9)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  availDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Brand.white,
-  },
-  availPillText: {
-    color: Brand.white,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  imageCounter: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  imageCounterText: {
-    color: Brand.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   detailsContent: {
     padding: 20,
   },
@@ -712,22 +430,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
     flexWrap: 'wrap',
-  },
-  availPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  availDotSmall: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Brand.success,
-  },
-  availTagText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Brand.success,
   },
   verifiedDetailBadge: {
     flexDirection: 'row',
@@ -790,75 +492,11 @@ const styles = StyleSheet.create({
     color: Brand.gray500,
     fontWeight: '500',
   },
-  specsCard: {
-    flexDirection: 'row',
-    backgroundColor: Brand.white,
-    borderRadius: 16,
-    paddingVertical: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    shadowColor: Brand.navy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  specBox: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  specValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Brand.navy,
-    marginTop: 2,
-  },
-  specTitle: {
-    fontSize: 11,
-    color: Brand.gray400,
-    fontWeight: '500',
-  },
-  specDivider: {
-    width: 1,
-    backgroundColor: Brand.gray200,
-  },
   sectionHeader: {
     fontSize: 17,
     fontWeight: '800',
     color: Brand.navy,
     marginBottom: 12,
-  },
-  amenitiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 24,
-  },
-  amenityCard: {
-    width: '23%',
-    aspectRatio: 1,
-    backgroundColor: Brand.white,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    gap: 6,
-  },
-  amenityLabel: {
-    fontSize: 11,
-    color: Brand.navy,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  noAmenitiesText: {
-    fontSize: 13,
-    color: Brand.gray400,
-    fontStyle: 'italic',
-    marginBottom: 24,
   },
   descriptionText: {
     fontSize: 14,
@@ -866,28 +504,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  landlordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: Brand.white,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Brand.gray200,
-    marginBottom: 12,
-  },
-  landlordAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  landlordAvatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Brand.gray200,
-  },
-  landlordAvatarInitial: { fontSize: 18, fontWeight: '700', color: Brand.navy },
   reportListing: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -897,86 +513,4 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reportListingText: { color: Brand.error, fontSize: 13, fontWeight: '600' },
-  landlordDetails: {
-    flex: 1,
-  },
-  landlordNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  landlordName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Brand.navy,
-  },
-  landlordMeta: {
-    fontSize: 12,
-    color: Brand.gray500,
-  },
-  landlordActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  landlordActionBtn: {
-    flex: 1,
-    minWidth: 85,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  landlordActionBtnPrimary: {
-    backgroundColor: Brand.terracotta,
-  },
-  landlordActionBtnSecondary: {
-    backgroundColor: Brand.white,
-    borderWidth: 1.5,
-    borderColor: Brand.terracotta,
-  },
-  landlordActionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  landlordActionBtnWhatsApp: {
-    backgroundColor: '#25D366',
-  },
-  safetyAlertCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: 10,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  safetyIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  safetyAlertContent: {
-    flex: 1,
-  },
-  safetyAlertTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#92400E',
-    marginBottom: 2,
-  },
-  safetyAlertText: {
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#B45309',
-  },
 });

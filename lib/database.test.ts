@@ -1018,9 +1018,9 @@ describe('fetchProperties filter builder', () => {
         ['available', true],
         ['property_type', 'apartment'],
         ['availability_status', 'available_now'],
+        ['city', 'Harare'],
       ]),
     );
-    expect(pairsFor('properties.ilike')).toContainEqual(['city', 'Harare']);
     expect(pairsFor('properties.lte')).toContainEqual(['price', 500]);
     expect(pairsFor('properties.gte')).toEqual(expect.arrayContaining([['bedrooms', 2]]));
     expect(chainCalls('properties.contains').map((args) => args[1])).toEqual(
