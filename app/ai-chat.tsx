@@ -327,18 +327,17 @@ export default function AiChatScreen() {
         }
 
         // 4. Filter properties.
-        // When Supabase has live rows but none match the AI's city filter (e.g.
-        // the DB only has Harare/Bulawayo listings and the user searches Gweru),
-        // merge in MOCK_PROPERTIES so we always have something to show.
-        const baseProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
-        const primaryMatched = filterMockProperties(baseProperties, result.filters);
-        // If the city filter produced zero results from live data, also search
-        // mock data so users can still explore cities not yet in the remote DB.
-        const matched =
-          primaryMatched.length === 0 && result.filters.city && properties.length > 0
-            ? filterMockProperties(MOCK_PROPERTIES, result.filters)
-            : primaryMatched;
-        const top = matched.slice(0, 6);
+        // Signed-in users are in live mode, so bundled sample listings are never
+        // shown to them: a city with no live rows yet honestly returns nothing.
+        // Anonymous / demo users browse the bundled sample data instead.
+        const liveProperties =
+          properties === MOCK_PROPERTIES || properties.length === 0 ? [] : properties;
+        const baseProperties = hasAuth
+          ? liveProperties
+          : properties.length > 0
+            ? properties
+            : MOCK_PROPERTIES;
+        const top = filterMockProperties(baseProperties, result.filters).slice(0, 6);
 
         // 5. Replace thinking with results
         const signinHint = !hasAuth
@@ -349,13 +348,15 @@ export default function AiChatScreen() {
             ? `\n\n${aiUnavailableMessage(result.unavailable)}`
             : signinHint;
 
+        const emptyMessage = result.filters.city
+          ? `There are no listings in ${result.filters.city} yet. Try another city or broaden your budget.`
+          : `I couldn't find any ${isNearbyRequested ? 'nearby ' : ''}properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`;
         const intro =
           (top.length > 0
             ? `Found ${top.length} ${isNearbyRequested ? 'nearby ' : ''}propert${top.length === 1 ? 'y' : 'ies'} matching "${result.summary || trimmed}":${
                 top.length > 3 ? '\n\nHere are the best matches:' : ''
               }`
-            : `I couldn't find any ${isNearbyRequested ? 'nearby ' : ''}properties matching "${result.summary || trimmed}". Try a different city, broader budget, or fewer requirements.`) +
-          notice;
+            : emptyMessage) + notice;
 
         setMessages((prev) =>
           prev.map((m) =>
