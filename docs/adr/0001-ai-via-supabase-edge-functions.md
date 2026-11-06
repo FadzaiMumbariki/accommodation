@@ -13,7 +13,7 @@ A Gemini API key in a mobile client cannot be kept secret: Expo bundles are ship
 
 All Gemini calls go through Supabase Edge Functions. The app never calls Gemini directly and never holds the key.
 
-- **Key isolation.** `GEMINI_API_KEY` is stored only as a Supabase secret and read inside the functions via `supabase/functions/_shared/gemini.ts`. The model defaults to `gemini-3.5-flash` and can be changed with the `GEMINI_MODEL` secret.
+- **Key isolation.** `GEMINI_API_KEY` is stored only as a Supabase secret and read inside the functions via `supabase/functions/_shared/gemini.ts`. The model defaults to `gemini-3.1-flash-lite` and can be changed with the `GEMINI_MODEL` secret.
 - **Authentication and per-user rate limit.** Each function requires a signed-in user and calls the `consume_ai_request` RPC (`supabase/migrations/006_ai_request_limits.sql`), which enforces a shared limit of 30 AI requests per account per rolling hour across all four features. The check is server-side, so the client cannot bypass it.
 - **Prompt-injection guidance.** The system prompt instructs the model to treat the user's text strictly as a search request and never as instructions to it, and forbids filtering by the user's race, religion, nationality, gender, family status or any personal trait.
 - **Server-side input caps.** The function validates input before calling Gemini — for example, `ai-search` rejects a query that is not a non-empty string of at most 200 characters — and settings such as `maxOutputTokens` and a JSON response schema bound the request and response.

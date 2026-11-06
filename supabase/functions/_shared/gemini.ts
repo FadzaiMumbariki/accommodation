@@ -77,8 +77,10 @@ interface GeminiJsonOptions {
 export async function callGeminiJson({ system, user, schema, temperature = 0 }: GeminiJsonOptions) {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
-  // Default to gemini-3.5-flash; can be overridden via GEMINI_MODEL secret
-  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.5-flash';
+  // Default to a Stable model; can be overridden via the GEMINI_MODEL secret.
+  // gemini-3.5-flash is also Stable but a free-tier key can exhaust its quota,
+  // so the lighter flash-lite model is the safer default.
+  const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.1-flash-lite';
 
   const sanitizedUser = stripPii(user);
 
@@ -100,7 +102,12 @@ export async function callGeminiJson({ system, user, schema, temperature = 0 }: 
     },
   );
 
-  if (!response.ok) throw new Error(`Gemini request failed with status ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `Gemini request failed with status ${response.status}: ${detail.slice(0, 300)}`,
+    );
+  }
   const data = await response.json();
   const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini returned no content');

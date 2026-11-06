@@ -334,29 +334,19 @@ export default function AiChatScreen() {
         }
 
         // 4. Filter properties.
-        // Signed-in users are in live mode, so bundled sample listings are never
-        // shown to them: a city with no live rows yet honestly returns nothing.
-        // Anonymous / demo users browse the bundled sample data instead.
-        const liveProperties =
-          properties === MOCK_PROPERTIES || properties.length === 0 ? [] : properties;
-        const baseProperties = hasAuth
-          ? liveProperties
-          : properties.length > 0
-            ? properties
-            : MOCK_PROPERTIES;
+        // Use the actual properties array from context, which includes both live
+        // database properties and mock data as fallback (handled by PropertyContext)
+        const baseProperties = properties.length > 0 ? properties : MOCK_PROPERTIES;
         const top = filterMockProperties(baseProperties, result.filters).slice(0, 6);
 
         // 5. Replace thinking with results
-        const signinHint = !hasAuth
-          ? '\n\nSign in to your ImbaFind account for full Gemini AI search.'
-          : '';
         const notice =
           result.source === 'basic' && result.unavailable && hasAuth
             ? `\n\n${aiUnavailableMessage(result.unavailable)}`
-            : signinHint;
+            : '';
 
         const availableCities = [
-          ...new Set(liveProperties.map((property) => property.city).filter(Boolean)),
+          ...new Set(baseProperties.map((property) => property.city).filter(Boolean)),
         ].sort();
         const cityHint = availableCities.length
           ? ` Current listings are available in ${availableCities.slice(0, 3).join(', ')}${
