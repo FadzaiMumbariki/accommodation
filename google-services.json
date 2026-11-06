@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "42685451874",
+    "project_id": "imbafin",
+    "storage_bucket": "imbafin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:42685451874:android:0e5718e14006a22ec58b3b",
+        "android_client_info": {
+          "package_name": "com.imbafind.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCb7sg3vsfi3RC-fEMAd-R1F35Dwu7JWWs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
