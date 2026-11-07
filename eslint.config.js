@@ -8,6 +8,6 @@ module.exports = defineConfig([
   // Turns off ESLint rules that would conflict with Prettier's formatting.
   eslintConfigPrettier,
   {
-    ignores: ['dist/*', 'supabase/functions/**'],
+    ignores: ['dist/**', '.expo/**', 'coverage/**', 'supabase/functions/**'],
   },
 ]);

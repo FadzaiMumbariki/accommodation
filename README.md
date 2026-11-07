@@ -33,13 +33,13 @@ Finding rental housing in Zimbabwe often relies on word of mouth, scattered soci
 
 The Gemini API key is stored only as a Supabase secret and is never in the app. Full details, limitations and testing are in [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md). The ethical and responsible AI statement is in [docs/ETHICAL_AI_STATEMENT.md](docs/ETHICAL_AI_STATEMENT.md).
 
-## Live Demo & Web Preview
+## Web Preview & Hosting
 
 ImbaFind runs cross-platform on Android, iOS, and Web.
 
-- **Exported Web Application:** The app is fully configured for static web export with 37 static routes (`npx expo export -p web` exports into `dist/`).
+- **Exported Web Application:** The app is configured for static web export (`npm run export:web` writes all app routes into `dist/`).
 - **Local Web Preview:** Run `npm run web` or preview the static build via `npx serve dist`.
-- **Live Demo:** Hosted web demo available at [https://imbafind.web.app](https://imbafind.web.app) (and downloadable preview APK via EAS Build).
+- **Hosted Web Build:** [https://imbafind.web.app](https://imbafind.web.app) is the Firebase Hosting target. Run `npm run export:web` then `npm run deploy:web`; the `predeploy:web` check refuses to publish while the App Links placeholders or `dist/` are missing. Until that deploy completes, the URL is not live.
 
 ## Screenshots & Visual Walkthrough
 
@@ -78,7 +78,7 @@ npm start        # then press a (Android), i (iOS) or w (web), or scan the QR co
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase project URL and anon key. Use the anon key only, never the service-role key.
 2. Apply the database schema from `supabase/migrations/`. Either run `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push` from the project root, or paste each file into the **SQL Editor** in numeric order (`001_initial_schema.sql` first, and so on up to the highest number). `011_google_oauth_profile.sql` and `012_signup_phone.sql` install the sign-up trigger that creates profiles for email and Google accounts. The migrations are idempotent and can also be applied to an existing schema. Optionally run `supabase/seed_properties.sql` afterwards for sample listings (see Database setup files below). Do not run the local test-user seed on a real project: it creates accounts with a known password and is for local testing only (kept at `docs/testing/create_test_users.sql`, gitignored).
-3. In the Supabase dashboard, open **Authentication → URL Configuration**. Set the Site URL to `imbafind://` and add `imbafind://**`, `exp://**` and `http://localhost:8081/**` as redirect URLs, so that confirmation, password-reset and Google links open the app.
+3. In the Supabase dashboard, open **Authentication → URL Configuration**. Set the Site URL to `imbafind://` and add `imbafind://**`, `exp://**`, `http://localhost:8081/**`, and `https://imbafind.web.app/auth/callback` as redirect URLs, so that confirmation, password-reset and Google links open the app. `exp://**` is only needed for Expo Go development — remove it once you test against a development build, and never add a bare `**` or an unrelated domain. A redirect allow-list that accepts arbitrary URLs lets an attacker receive another user's auth code.
 4. Under **Authentication → Providers → Email**, either turn off "Confirm email", or set up custom SMTP under **Project Settings → Authentication**. Supabase's built-in email service only sends a few emails per hour, so sign-ups that need a confirmation email start failing with a rate-limit error after a couple of attempts.
 5. Start the app with `npm start`. Without `.env.local` the app browses sample listings only: email sign-in and sign-up are unavailable until you add your Supabase credentials.
 
@@ -162,7 +162,7 @@ Screenshots live in [docs/screenshots](docs/screenshots). Live link / demo video
 
 | Path                            | Purpose                                                                                                                                                                      |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supabase/migrations/001`–`017` | **Canonical.** Incremental, idempotent schema changes. Apply in numeric order.                                                                                               |
+| `supabase/migrations/001`–`022` | **Canonical.** Incremental, idempotent schema changes. Apply in numeric order.                                                                                               |
 | `supabase/seed_properties.sql`  | **Optional.** Sample listings for demos; run manually after the migrations. It creates the demo host account it needs.                                                       |
 | `supabase/seed.sql`             | Empty placeholder run automatically by `supabase db reset` (referenced from `config.toml`). Do not put sample data here.                                                     |
 | `supabase/legacy/`              | Superseded one-shot scripts (`setup_complete.sql`, `create_and_seed.sql`, `reload_schema_and_permissions.sql`). Reference only — never run. See `supabase/legacy/README.md`. |
@@ -181,15 +181,16 @@ where id = 'REPLACE_WITH_AUTH_USER_UUID';
 
 The client intentionally has no action that can set `verified`.
 
-Apply `supabase/migrations/003_reports.sql` after the existing schema and security migrations to enable reports, chat message writes, and viewing-slot conflict protection.
+Apply the full numbered set in `supabase/migrations/` (`001` through `022`) in order. `003_reports.sql` enables reports, chat message writes, and viewing-slot conflict protection; `022_enable_pg_net.sql` enables the HTTP extension used by push delivery.
 
 ### Push notifications setup
 
 Push notifications in ImbaFind are powered by Expo Push Notifications and delivered via Supabase database triggers:
 
 - **EAS Project ID:** Push tokens require an EAS Project ID. Configure your project with `npx eas-cli@latest init`, or ensure `EXPO_PUBLIC_EAS_PROJECT_ID` / `extra.eas.projectId` in `app.json` is set to your project's UUID.
-- **Android Google Services:** Production Android builds require Firebase Cloud Messaging (FCM v1). Download your `google-services.json` from the Firebase Console, place it in the project root, ensure `android.googleServicesFile` is referenced in `app.json`, and upload your FCM v1 Service Account Key to Expo using `npx eas-cli@latest credentials`.
-- **Database Triggers:** Applying `supabase/migrations/008_push_notifications.sql` and `supabase/migrations/016_push_notifications_hardening.sql` configures automatic push dispatch for chat messages and viewing requests. Triggers strictly ensure:
+- **Android Google Services:** Production Android builds require Firebase Cloud Messaging (FCM v1). Download your `google-services.json` from the Firebase Console and upload the FCM v1 Service Account Key to Expo with `npx eas-cli@latest credentials`. The file is gitignored: local builds pick it up from the repo root, and EAS cloud builds must provide it through a `GOOGLE_SERVICES_JSON` **file** environment variable, which [app.config.ts](app.config.ts) reads as a path.
+- **Postgres HTTP extension:** Applying `supabase/migrations/022_enable_pg_net.sql` enables `pg_net` (guarded). Without it, `notify_recipient()` silently skips delivery — the trigger checks that the extension exists before calling `net.http_post()`. Confirm it is enabled under Supabase Dashboard → Database → Extensions.
+- **Database Triggers:** Applying `supabase/migrations/008_push_notifications.sql`, `016_push_notifications_hardening.sql` and `022_enable_pg_net.sql` configures automatic push dispatch for chat messages and viewing requests. Triggers strictly ensure:
   1. Messages never notify their sender.
   2. Notifications are silenced if either the sender or recipient has blocked the other in `public.blocked_users`.
   3. Notifications fail gracefully if the recipient does not have a registered device token.
@@ -197,6 +198,23 @@ Push notifications in ImbaFind are powered by Expo Push Notifications and delive
   ```bash
   npx supabase functions delete push-notify
   ```
+
+### Web deploy and App Links
+
+The web build is deployed to Firebase Hosting, but the checked-in `public/.well-known/` files contain `REPLACE_WITH` placeholders and must be completed first:
+
+1. Put the EAS/Play App Signing SHA-256 fingerprints into [assetlinks.json](public/.well-known/assetlinks.json).
+2. Put the 10-character Apple Team ID into [apple-app-site-association](public/.well-known/apple-app-site-association).
+3. Make `imbafind.co.zw` resolve and serve both files over HTTPS with `Content-Type: application/json` (see [docs/deep-linking-setup.md](docs/deep-linking-setup.md)).
+4. Run:
+
+```sh
+npm run export:web
+npm run check:release   # fails on placeholders, missing dist, or missing well-known files
+npm run deploy:web      # firebase deploy --only hosting
+```
+
+`npm run deploy:web` runs the same check automatically through the `predeploy:web` hook. The check also warns when [.firebaserc](.firebaserc) and `google-services.json` name different Firebase projects; confirm which project owns the `imbafind.web.app` site before deploying.
 
 ### Over-the-air updates
 
@@ -224,9 +242,9 @@ The following environment variables are used by ImbaFind across local developmen
 
 #### Configuring with EAS CLI (`eas env:create` / `eas env:set`)
 
-Public build variables for the `preview` and `production` profiles are declared in [eas.json](eas.json), so the repository is the single source of truth for them. Entries left as `""` are deliberately unset: an empty `EXPO_PUBLIC_SUPPORT_*` hides that channel on the Help screen, an empty `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` leaves the native map without a key, and an empty `EXPO_PUBLIC_EAS_PROJECT_ID` disables push registration. Fill them in before shipping.
+Public build variables for the `preview` and `production` profiles are declared in [eas.json](eas.json), so the repository is the single source of truth for them. Omit a support variable entirely to hide that channel on the Help screen — EAS rejects empty-string env values, so do not set `EXPO_PUBLIC_SUPPORT_PHONE` or `EXPO_PUBLIC_SUPPORT_WHATSAPP` to `""`. Omitting `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` leaves the native map without a key, and omitting `EXPO_PUBLIC_EAS_PROJECT_ID` disables push registration. Fill them in before shipping.
 
-The Google Maps key is never committed. [app.config.ts](app.config.ts) adds the `react-native-maps` config plugin only when `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is set, using the plugin's `androidGoogleMapsApiKey` / `iosGoogleMapsApiKey` props. Restrict the key in Google Cloud to the `com.imbafind.app` package name and its signing certificate.
+The Google Maps key is a **public client key** (like the Supabase anon key), not a server secret. It is declared in [eas.json](eas.json) for the preview and production profiles so cloud builds are reproducible. [app.config.ts](app.config.ts) adds the `react-native-maps` config plugin only when `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` is set, using the plugin's `androidGoogleMapsApiKey` / `iosGoogleMapsApiKey` props. An unrestricted key can be used by anyone and billed to the project, so restrict it in Google Cloud to the `com.imbafind.app` package name plus each signing certificate SHA-1 (local debug, EAS, and Play App Signing), and enable only the Maps SDK for Android/iOS.
 
 For EAS Build environments (`preview` and `production`), set variables using the EAS CLI:
 

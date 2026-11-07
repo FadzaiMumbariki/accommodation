@@ -144,12 +144,19 @@ export async function fetchVerifiableProperties(limit = 100): Promise<Verifiable
   });
 }
 
-/** Lists landlord accounts for the verification queue. Requires an admin session. */
+/**
+ * Lists landlord accounts for the verification queue. Requires an admin session.
+ *
+ * `profiles.email` is deliberately not selected: migration 018 revokes that column
+ * from client roles so it cannot be scraped. Admins get the phone number instead;
+ * if email is ever needed here it must come from a `security definer` RPC that
+ * checks `is_imba_admin()`.
+ */
 export async function fetchVerifiableLandlords(limit = 100): Promise<VerifiableLandlord[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, avatar_url, verified, created_at')
+    .select('id, full_name, phone, avatar_url, verified, created_at')
     .eq('role', 'landlord')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -160,7 +167,8 @@ export async function fetchVerifiableLandlords(limit = 100): Promise<VerifiableL
   return (data ?? []).map((row) => ({
     id: row.id as string,
     fullName: row.full_name ?? null,
-    email: row.email ?? null,
+    // See the note above: client roles have no SELECT grant on profiles.email.
+    email: null,
     phone: row.phone ?? null,
     avatarUrl: row.avatar_url ?? null,
     verified: Boolean(row.verified),
@@ -383,8 +391,9 @@ export async function fetchPendingVerificationRequests(
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('verification_requests')
+    // `email` is not selectable by client roles (migration 018); use phone for contact.
     .select(
-      'id, user_id, document_type, document_url, document_notes, status, admin_notes, created_at, profile:profiles!verification_requests_user_id_fkey(full_name, phone, email)',
+      'id, user_id, document_type, document_url, document_notes, status, admin_notes, created_at, profile:profiles!verification_requests_user_id_fkey(full_name, phone)',
     )
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
@@ -408,7 +417,7 @@ export async function fetchPendingVerificationRequests(
       createdAt: row.created_at as string,
       applicantName: profile?.full_name ?? null,
       applicantPhone: profile?.phone ?? null,
-      applicantEmail: profile?.email ?? null,
+      applicantEmail: null,
     };
   });
 }

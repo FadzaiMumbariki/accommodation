@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { RouteHelpers, Routes } from '../constants/routes';

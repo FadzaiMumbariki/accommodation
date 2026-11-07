@@ -1,3 +1,4 @@
+/* global jest */
 /**
  * Shared Jest setup (runs after jest-expo's own setup).
  *

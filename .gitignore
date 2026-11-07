@@ -34,6 +34,15 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase service-account private keys (never commit these)
+*-firebase-adminsdk-*.json
+fcm-service-account.json
+
+# local Android tooling and downloaded build artifacts
+.tools/
+*.apk
+*.aab
+
 # typescript
 *.tsbuildinfo
 

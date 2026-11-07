@@ -4,7 +4,6 @@ import {
   formatDistance,
   resolveLocationCoordinates,
   sortByProximity,
-  DEFAULT_MAP_CENTER,
   SUBURB_COORDINATES,
   CITY_COORDINATES,
 } from './coordinates';

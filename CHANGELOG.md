@@ -11,6 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Component and UI tests with React Native Testing Library (`components/**/*.test.tsx`, `hooks/*.test.ts`), plus a shared `jest.setup.js` that stubs the icon font so `@expo/vector-icons` renders headlessly.
 - Maestro E2E flows in `.maestro/` and a Detox E2E harness (`.detoxrc.js`, `e2e/`) with `e2e:*` npm scripts.
 - pgTAP policy tests in `supabase/tests/rls.sql`, run in CI through `supabase test db`.
+- Migration `022_enable_pg_net.sql`, which enables the `pg_net` extension (guarded) so database-triggered push notifications can reach the Expo Push API.
+- `npm run export:web`, `npm run check:release` and `npm run deploy:web`, with a pre-deploy check that refuses to publish missing App Links/Universal Links values or a stale `dist/`.
+
+### Fixed
+
+- The admin verification queue no longer selects `profiles.email`, which migration 018 revokes from client roles. The queue now loads for admins; contact uses the phone number instead of failing the whole screen.
 
 ### Changed
 
@@ -18,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The Jest suite uses a 20s per-test timeout so the first React Native render in a suite is not cut off on a cold start.
 - The coverage gate now measures every reusable module (`lib/`, `components/`, `hooks/`, `context/`) instead of `lib/` alone, so the reported number matches what it claims to cover.
 - Public build variables for `preview` and `production` are declared in `eas.json`, giving the repository a single source of truth for them.
+- ESLint now ignores generated directories (`.expo/`, `coverage/`, `dist/`) and `jest.setup.js` declares the Jest global, so `npm run lint` is clean again.
 
 ### Removed
 

@@ -10,7 +10,7 @@ Ensure your `app.json` has complete Android production parameters:
 
 - **Package Name**: `com.imbafind.app`
 - **Version Code**: Auto-incremented via `eas.json` (`"autoIncrement": true`)
-- **Adaptive Icon**: 
+- **Adaptive Icon**:
   - Foreground: `assets/android-icon-foreground.png` (432x432 PNG with transparent background)
   - Background: `assets/android-icon-background.png` (or solid `#E6F4FE`)
 - **Permissions**:
@@ -67,7 +67,8 @@ EAS will generate Google Play upload keystores securely in the cloud and output 
      5. Posting tenant requests
 
 4. **Privacy Policy**:
-   - Host the in-app privacy policy URL: `https://imbafind.co.zw/privacy` (matches `app/legal/privacy.tsx`)
+   - Host the in-app privacy policy URL: `https://imbafind.co.zw/privacy` (matches `app/legal/privacy.tsx`).
+   - The domain must actually resolve and serve the page publicly before submission; `imbafind.co.zw` currently has no DNS records. Google Play rejects apps whose privacy-policy link is unreachable.
 
 ---
 
@@ -93,21 +94,18 @@ npx eas init
 
 # 2. Configure build credentials (keystores, signing)
 npx eas build:configure
-
-# 3. Store the required production env vars for the app build
-npx eas config --autoupdate   # optional OTA updates
 ```
 
-Set these **Environment variables / Secrets** for the **production** environment (EAS Dashboard → Project Settings → *Environment Variables* & *Secrets*, or `eas secret:put`):
+Set these **Environment variables / Secrets** for the **production** environment (EAS Dashboard → Project Settings → _Environment Variables_ & _Secrets_, or `eas secret:put`):
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `EXPO_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `EXPO_PUBLIC_SENTRY_ENABLED` | Optional (`true` to turn on) | Enables Sentry plugin |
-| `EXPO_PUBLIC_SENTRY_DSN` | Optional (when Sentry on) | Sentry DSN |
-| `SENTRY_ORG` / `SENTRY_PROJECT` | Optional (when Sentry on) | Sentry project coords |
-| `SENTRY_AUTH_TOKEN` | Optional (secret) | Upload source maps |
+| Variable                        | Required                     | Purpose               |
+| ------------------------------- | ---------------------------- | --------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`      | Yes                          | Supabase project URL  |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Yes                          | Supabase anon key     |
+| `EXPO_PUBLIC_SENTRY_ENABLED`    | Optional (`true` to turn on) | Enables Sentry plugin |
+| `EXPO_PUBLIC_SENTRY_DSN`        | Optional (when Sentry on)    | Sentry DSN            |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | Optional (when Sentry on)    | Sentry project coords |
+| `SENTRY_AUTH_TOKEN`             | Optional (secret)            | Upload source maps    |
 
 Edge Function secret `GEMINI_API_KEY` is already set with `supabase secrets set GEMINI_API_KEY=...` (server-side only).
 
@@ -125,16 +123,11 @@ npx eas build --platform android --profile production
 
 Android push requires Firebase Cloud Messaging credentials; without them `getExpoPushTokenAsync` cannot produce a token.
 
-1. Create a Firebase project, add an Android app with package name `com.imbafind.app`, download **`google-services.json`**, and place it at the repo root.
-2. Reference it in [app.json](app.json) under `expo.android`:
-   ```json
-   "android": {
-     "package": "com.imbafind.app",
-     "googleServicesFile": "./google-services.json"
-   }
-   ```
-3. Upload the **FCM Server Key** (Google Cloud Console → Cloud Messaging) as an EAS/Supabase secret used by the push sender.
-4. iOS push: generate an **APNs** key in Apple Developer and upload it via `npx eas credentials`.
+1. Create a Firebase project, add an Android app with package name `com.imbafind.app`, download **`google-services.json`**, and place it at the repo root. The file is gitignored; EAS cloud builds need it supplied as a `GOOGLE_SERVICES_JSON` file environment variable.
+2. [app.config.ts](app.config.ts) reads `GOOGLE_SERVICES_JSON` (or the repo-root file) and sets `android.googleServicesFile` automatically.
+3. Upload the **FCM v1 service-account key** (Firebase Console → Project Settings → Service accounts → Generate new private key) to Expo with `npx eas-cli@latest credentials`. Legacy FCM server keys are retired and are not accepted by Expo Push.
+4. Enable the `pg_net` Postgres extension (migration `022_enable_pg_net.sql`) so the database triggers can reach the Expo Push API.
+5. iOS push: generate an **APNs** key in Apple Developer and upload it via `npx eas credentials`.
 
 The `expo-notifications` plugin already sets the Android notification accent color (`#C4622D`). Provide a dedicated small notification icon (`android.googleServicesFile` companion `icon`) if you want a custom shape instead of the app icon silhouette.
 

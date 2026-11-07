@@ -809,7 +809,9 @@ describe('admin verifications', () => {
     expect(rows[0]).toMatchObject({
       id: 'land-1',
       fullName: 'Tendai',
-      email: 'tendai@example.com',
+      // profiles.email is not granted to client roles (migration 018).
+      email: null,
+      phone: '0771',
       verified: false,
     });
   });

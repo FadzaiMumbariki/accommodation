@@ -7,6 +7,8 @@ ImbaFind supports Universal Links on iOS and App Links on Android for:
 
 Both mobile platforms require domain ownership verification files to be served over HTTPS with valid certificates directly from `https://imbafind.co.zw/.well-known/`.
 
+> **Before deploying:** the repository files still contain `REPLACE_WITH...` placeholders, and an arbitrary example fingerprint in this document is not a valid value. Replace the placeholders with the real EAS/Play App Signing SHA-256 fingerprints and Apple Team ID, then run `npm run check:release`. The check (and `npm run deploy:web`) refuses to publish while placeholders remain. The custom domain must also resolve — `imbafind.co.zw` currently has no DNS records.
+
 ---
 
 ## 1. Android Digital Asset Links (`assetlinks.json`)

@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import type { ViewingRequest, ViewingStatus } from '../../types';
-import { type ViewingRow, toSqlTime, rowToViewing, isValidUuid, generateUuid } from './types';
+import { type ViewingRow, toSqlTime, rowToViewing, generateUuid } from './types';
 
 const VIEWING_SELECT =
   '*, properties(title, images, city, suburb, price), tenant:profiles!viewing_requests_tenant_id_fkey(full_name, phone)';

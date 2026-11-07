@@ -7,7 +7,6 @@ import {
   rowToMessage,
   isMessageRow,
   generateUuid,
-  isValidUuid,
 } from './types';
 
 export interface MessagePage {

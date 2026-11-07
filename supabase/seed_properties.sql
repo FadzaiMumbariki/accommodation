@@ -9,6 +9,10 @@
 -- account has no password, so nobody can sign in as it. Chat messages sent to
 -- a demo-host listing are answered by the clearly-labelled automated reply
 -- installed by migrations/014_landlord_auto_reply.sql.
+--
+-- Note: migration 018 resets properties.rating and properties.reviews_count on
+-- insert and recalculates them from public.reviews. The seed therefore does not
+-- set those columns; listing ratings come from tenant reviews.
 -- =============================================================================
 
 do $$
@@ -47,7 +51,7 @@ begin
   insert into public.properties (
     id, landlord_id, title, description, property_type, price, deposit,
     city, suburb, province, bedrooms, bathrooms, max_occupants,
-    amenities, images, available, availability_status, verified, rating, reviews_count
+    amenities, images, available, availability_status, verified
   ) values
   (
     '11111111-1111-1111-1111-111111111111'::uuid,
@@ -67,9 +71,7 @@ begin
     array['https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800'],
     true,
     'available_now',
-    true,
-    4.8,
-    12
+    true
   ),
   (
     '22222222-2222-2222-2222-222222222222'::uuid,
@@ -89,9 +91,7 @@ begin
     array['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800', 'https://images.unsplash.com/photo-1571939228382-b2f2b585ce15?w=800'],
     true,
     'available_now',
-    true,
-    4.9,
-    18
+    true
   ),
   (
     '33333333-3333-3333-3333-333333333333'::uuid,
@@ -111,9 +111,7 @@ begin
     array['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800', 'https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=800'],
     true,
     'available_now',
-    true,
-    4.4,
-    7
+    true
   ),
   (
     '44444444-4444-4444-4444-444444444444'::uuid,
@@ -133,9 +131,7 @@ begin
     array['https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800'],
     true,
     'available_now',
-    true,
-    4.8,
-    9
+    true
   ),
   (
     '55555555-5555-5555-5555-555555555555'::uuid,
@@ -155,9 +151,7 @@ begin
     array['https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?w=800', 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800'],
     true,
     'available_now',
-    true,
-    4.2,
-    5
+    true
   )
   on conflict (id) do nothing;
 end $$;

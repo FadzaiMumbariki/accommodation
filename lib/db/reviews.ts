@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { type ReviewRow, isValidUuid, generateUuid } from './types';
+import { type ReviewRow, generateUuid } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reviews & Reporting
