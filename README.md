@@ -39,7 +39,7 @@ ImbaFind runs cross-platform on Android, iOS, and Web.
 
 - **Exported Web Application:** The app is configured for static web export (`npm run export:web` writes all app routes into `dist/`).
 - **Local Web Preview:** Run `npm run web` or preview the static build via `npx serve dist`.
-- **Hosted Web Build:** [https://imbafind.web.app](https://imbafind.web.app) is the Firebase Hosting target. Run `npm run export:web` then `npm run deploy:web`; the `predeploy:web` check refuses to publish while the App Links placeholders or `dist/` are missing. Until that deploy completes, the URL is not live.
+
 
 ## Screenshots & Visual Walkthrough
 
